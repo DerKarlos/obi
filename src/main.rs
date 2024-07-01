@@ -1,7 +1,9 @@
 
 use error_chain::error_chain;
-use std::io::Read;
+//use std::io::Read;
+use std::fmt;
 use reqwest;
+use serde::Deserialize;
 
 error_chain! {
     foreign_links {
@@ -9,6 +11,30 @@ error_chain! {
         HttpRequest(reqwest::Error);
     }
 }
+
+#[derive(Deserialize, Debug)]
+struct Element {
+    #[serde(rename = "type")]
+    element_type: String,
+}
+
+#[derive(Deserialize, Debug)]
+struct Json {
+    version: String,
+    generator: String,
+    elements: Vec<Element>,
+}
+
+// https://stackoverflow.com/questions/54488320/how-to-implement-display-on-a-trait-object-where-the-types-already-implement-dis
+impl fmt::Display for Json{
+
+    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+        Ok(())
+    }
+
+}
+
+
 
 fn main() -> Result<()> {    
     //env_logger::init();    //log::debug!("xxx: {}", xxx);
@@ -26,13 +52,26 @@ fn main() -> Result<()> {
     // https://rust-lang-nursery.github.io/rust-cookbook/web/clients/requests.html
     // https://docs-rs-web-prod.infra.rust-lang.org/reqwest/0.10.0/reqwest/blocking/index.html
 
-    let mut res = reqwest::blocking::get(url)?;
-    let mut body = String::new();
-    res.read_to_string(&mut body)?;
+    let json: Json = reqwest::blocking::get(url)?.json()?;
 
-    println!("Status: {}", res.status());
-    //intln!("Headers:\n{:#?}", res.headers());
-    println!("Body:\n{}", body);
+    //let res    = reqwest::blocking::get(url)?;
+    //let json: Json = res.json()?;
+    //println!("Get status: {}\n", res.status());
+    //println!("Headers:\n{:#?}", res.headers());
+
+    //let mut body = String::new();
+    //res.read_to_string(&mut body)?;
+    //println!("Body:\n{}", body);
+    //let json: Json = serde_json::from_str(&body).unwrap();
+
+    //println!("json = {:?}", json);
+    println!("version = {:?}", json.version.parse::<f32>().unwrap() );
+    println!("generator = {:?}", json.generator);
+    //println!("elements = {:?}", deserialized.elements);
+    for element in json.elements {
+        //println!("element = {:?}", element);
+        println!("type = {:?}", element.element_type);
+    }
 
     Ok(())
 
