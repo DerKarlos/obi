@@ -1,9 +1,8 @@
 
 use error_chain::error_chain;
-//use std::io::Read;
-use std::fmt;
 use reqwest;
 use serde::Deserialize;
+use std::collections::HashMap;
 
 error_chain! {
     foreign_links {
@@ -13,64 +12,92 @@ error_chain! {
 }
 
 #[derive(Deserialize, Debug)]
-struct Element {
+struct JosnElement {
     #[serde(rename = "type")]
     element_type: String,
+    id: u64,
+    lat: Option<f64>,
+    lon: Option<f64>,
+    nodes: Option<Vec<u64>>,
+    tags: Option<Tags>,
 }
 
 #[derive(Deserialize, Debug)]
-struct Json {
-    version: String,
-    generator: String,
-    elements: Vec<Element>,
-}
-
-// https://stackoverflow.com/questions/54488320/how-to-implement-display-on-a-trait-object-where-the-types-already-implement-dis
-impl fmt::Display for Json{
-
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-        Ok(())
-    }
-
+struct Tags {
+    building: Option<String>,
+    name: Option<String>,
 }
 
 
+
+#[derive(Deserialize, Debug)]
+struct JsonData {
+    elements: Vec<JosnElement>,
+}
+
+
+struct OsmNode {
+    lat: f64,
+    lon: f64,
+}
 
 fn main() -> Result<()> {    
-    //env_logger::init();    //log::debug!("xxx: {}", xxx);
  
     println!("Hi, I'm OBI, the OSM Buiding Inspector");
+
     // Reifenberg Kirche Way 121486088
+    const WAY_ID: u64 = 121486088;
+
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     // window.open(httpx+"www.openstreetmap.org/way/121486088"_blank")
     // -           https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json does not have that way, 12148 works.
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 
-    let url = "https://api.openstreetmap.org/api/0.6/way/121486088/full.json";
+    let url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", WAY_ID);
 
-    // https://rust-lang-nursery.github.io/rust-cookbook/web/clients/requests.html
-    // https://docs-rs-web-prod.infra.rust-lang.org/reqwest/0.10.0/reqwest/blocking/index.html
+    let json: JsonData = reqwest::blocking::get(url)?.json()?;
 
-    let json: Json = reqwest::blocking::get(url)?.json()?;
+    //let nodes = Map(id:u64, node:OsmNode);
+    let mut nodes_map = HashMap::new();
 
-    //let res    = reqwest::blocking::get(url)?;
-    //let json: Json = res.json()?;
-    //println!("Get status: {}\n", res.status());
-    //println!("Headers:\n{:#?}", res.headers());
-
-    //let mut body = String::new();
-    //res.read_to_string(&mut body)?;
-    //println!("Body:\n{}", body);
-    //let json: Json = serde_json::from_str(&body).unwrap();
-
-    //println!("json = {:?}", json);
-    println!("version = {:?}", json.version.parse::<f32>().unwrap() );
-    println!("generator = {:?}", json.generator);
-    //println!("elements = {:?}", deserialized.elements);
     for element in json.elements {
-        //println!("element = {:?}", element);
-        println!("type = {:?}", element.element_type);
+        if element.element_type == "node".to_string() {
+            let osm_node = OsmNode{lat: element.lat.unwrap(), lon: element.lon.unwrap(),};
+            nodes_map.insert(element.id, osm_node);
+            // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
+        }
+        if element.element_type == "way".to_string() {
+            let id = element.id;
+            let nodes = element.nodes.unwrap();
+            let tags = element.tags.unwrap();
+            let name = tags.name.unwrap();
+            let building = tags.building.unwrap();
+
+            println!(" Way: id = {:?}  building = {:?}  name = {:?}",
+                id,
+                building,
+                name,
+            );
+
+            let mut lat_min: f64 = 1e9;
+            let mut lon_min: f64 = 1e9;
+            let mut lat_max: f64 = -1e9;
+            let mut lon_max: f64 = -1e9;
+
+            for node_id in nodes {
+                let node = nodes_map.get(&node_id).unwrap();
+                lat_min = lat_min.min(node.lat);
+                lat_max = lat_max.max(node.lat);
+                lon_min = lon_min.min(node.lon);
+                lon_max = lon_max.max(node.lon);
+                println!("Way-Node: id = {:?} lat = {:?} lon = {:?}", node_id, node.lat, node.lon );
+            }
+            let center_lat = lat_min + (lat_max-lat_min)/2.0;
+            let center_lon = lon_min + (lon_max-lon_min)/2.0;
+            println!("Way-center: lat = {:?} lon = {:?}", center_lat, center_lon );
+
+        }
     }
 
     Ok(())
