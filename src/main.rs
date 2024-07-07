@@ -33,11 +33,11 @@ struct JosnElement {
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
-    tags: Option<Tags>,
+    tags: Option<JosnTags>, // todo: use a map
 }
 
 #[derive(Deserialize, Debug)]
-struct Tags {
+struct JosnTags {
     building: Option<String>,
     name: Option<String>,
 }
@@ -49,28 +49,64 @@ struct JsonData {
 
 // OSM ///////////////////////
 
-#[derive(Resource)]
-struct GPSatGPU0 {
+#[derive(Clone, Copy, Debug)]
+struct GeoPos {
     pub lat: f64,
     pub lon: f64,
 }
 
-struct OsmNode {
-    lat: f64,
-    lon: f64,
+#[derive(Clone, Copy, Debug)]
+struct XzPos {
+    pub x: f32,
+    pub z: f32,
 }
 
 
-fn create_way ( commands: &mut Commands, way_id: u64) -> Mesh {
+#[derive(Resource)]
+struct GeoPosAtGPU0 {
+    pub _pos: GeoPos,
+}
 
-    // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
-    // window.open(httpx+"www.openstreetmap.org/way/121486088"_blank")
-    // -           https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-    // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json does not have that way, 12148 works.
+struct OsmNode {
+    pub pos: XzPos,
+}
+
+
+fn _geopos_of_way (way_id: u64) -> GeoPos {
+
+    // DONT USE:   https://api.openstreetmap.org/api/0.6/way/121486088/full.json
+    // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 
     let url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
 
+    let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+
+    let mut lat: f64 = 0.0;
+    let mut lon: f64 = 0.0;
+    let mut nodes: f64 = 0.;
+
+    // add the coordinates of oll nodes
+    for element in json.elements {
+        if element.element_type == "node".to_string() {
+            nodes += 1.0;
+            lat += element.lat.unwrap();
+            lon += element.lon.unwrap();
+        }
+
+    }
+    // calculate and return everedge
+    lat /= nodes;
+    lon /= nodes;
+    println!("geopos_of_way: lat = {:?} lon = {:?}", lat, lon );
+    GeoPos{lat,lon}
+
+}
+
+fn create_way  (geo_pos_at_gpu0: GeoPos, way_id: u64) -> Mesh {
+
+    // TODO:  AREA !!!!
+    let url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
     let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
     //let nodes = Map(id:u64, node:OsmNode);
@@ -80,7 +116,7 @@ fn create_way ( commands: &mut Commands, way_id: u64) -> Mesh {
 
     for element in json.elements {
         if element.element_type == "node".to_string() {
-            let osm_node = OsmNode{lat: element.lat.unwrap(), lon: element.lon.unwrap(),};
+            let osm_node = OsmNode{pos: to_position( &geo_pos_at_gpu0, element.lat.unwrap(), element.lon.unwrap())};
             nodes_map.insert(element.id, osm_node);
             // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
         }
@@ -91,44 +127,17 @@ fn create_way ( commands: &mut Commands, way_id: u64) -> Mesh {
             let name = tags.name.unwrap();
             let building = tags.building.unwrap();
 
-            println!(" Way: id = {:?}  building = {:?}  name = {:?}",
-                id,
-                building,
-                name,
-            );
+            println!(" Way: id = {:?}  building = {:?}  name = {:?}",id,building,name,);
 
-            let mut lat_min: f64 = 1e9;
-            let mut lon_min: f64 = 1e9;
-            let mut lat_max: f64 = -1e9;
-            let mut lon_max: f64 = -1e9;
-
-            for node_id in &nodes {
-                let node = nodes_map.get(&node_id).unwrap();
-
-                lat_min = lat_min.min(node.lat);
-                lat_max = lat_max.max(node.lat);
-                lon_min = lon_min.min(node.lon);
-                lon_max = lon_max.max(node.lon);
-                //println!("Way-Node: id = {:?} lat = {:?} lon = {:?}", node_id, node.lat, node.lon );
-            }
-            let center_lat = lat_min + (lat_max-lat_min)/2.0;
-            let center_lon = lon_min + (lon_max-lon_min)/2.0;
-
-            let gps_at_gpu0 = GPSatGPU0{lat: center_lat, lon: center_lon};
-
-            println!("Way-center: lat = {:?} lon = {:?}", center_lat, center_lon );
-
+            // Get building walls from nodes
             let mut last_pos_down = [0.0,0.0,0.0];
             let mut last_pos_up   = [0.0,0.0,0.0];
 
             for (index,node_id) in nodes.iter().enumerate() {
                 let node = nodes_map.get(&node_id).unwrap();
 
-                let this_pos_down = to_position( &gps_at_gpu0, node.lat, node.lon, 0.00);
-                let mut this_pos_up   = this_pos_down;
-                this_pos_up[1] = 10.0;
-
-                // cmesh.push(index,x,z);
+                let this_pos_down = [node.pos.x,0.0,node.pos.z];
+                let this_pos_up   = [node.pos.x,10.,node.pos.z];
 
                 if index>0 {
                     cmesh.push_square(
@@ -141,8 +150,6 @@ fn create_way ( commands: &mut Commands, way_id: u64) -> Mesh {
                 last_pos_down = this_pos_down;
                 last_pos_up   = this_pos_up;
             }
-
-            commands.insert_resource(gps_at_gpu0);
 
         }
     }
@@ -176,9 +183,18 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
 
+    // Testing with this moderate complex building
+    // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let reifenberg_id = 121486088;
 
-    let mesh_handle: Handle<Mesh> = meshes.add(create_way(&mut commands, reifenberg_id));
+    // get geo-position at the 0 position of the GPU
+    let geo_pos_at_gpu0 = // geopos_of_way(reifenberg_id);
+                          GeoPos{lat: 49.75590795333333, lon: 11.135770966666666};
+    commands.insert_resource(GeoPosAtGPU0{_pos: geo_pos_at_gpu0.clone()});
+
+
+    // Dodo: get building ... other way
+    let mesh_handle: Handle<Mesh> = meshes.add(create_way(geo_pos_at_gpu0, reifenberg_id));
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle,
@@ -248,23 +264,14 @@ type Position = [f32;3];
 static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 static PI: f32 = std::f32::consts::PI;
 
-fn to_position( gps_at_gpu0: &GPSatGPU0, lat: f64, lon: f64, height: f64) -> Position {
+fn to_position( geo_pos: &GeoPos, lat: f64, lon: f64) -> XzPos {
     // the closer to the pole, the smaller the tiles size in meters get
     let lon_fakt = LAT_FAKT * ((lat / 180. * PI as f64).abs()).cos(); // Longitude(Längengrad) West/East factor
     // actual geo pos - other geo pos = relative geo/meter scene pos
-    let x = (lon - gps_at_gpu0.lon) * lon_fakt;
-    let z = (lat - gps_at_gpu0.lat) * LAT_FAKT;
-    /*return*/ [x as f32, height as f32, z as f32]
+    let x = (lon - geo_pos.lon) * lon_fakt;
+    let z = (lat - geo_pos.lat) * LAT_FAKT;
+    /*return*/ XzPos{x: x as f32, z: z as f32}
 }
-
-//    pub fn calc_scene_pos(lat: f64, lon: f64, osm_scene: &OsmScene) -> Position {
-//        let pos_relative_to_corner = self.calc_meters_to_other_geo_pos(osm_scene.null_corner_geo_pos);
-//        let mut scene_pos = pos_relative_to_corner
-//        scene_pos.x =  (scene_pos.x * 100.).floor() / 100.; // cm is acurate in this case
-//        scene_pos.z = -(scene_pos.z * 100.).floor() / 100.; // !!!!! The - is NOT clear, but works :-/
-//        scene_pos // gps-degrees plus/nord = z-meter plus/behind "In the backround = north"
-//    }
-
 
 // "CLASS" Custom Mesh /////////////////////////////////////////
 
