@@ -72,7 +72,7 @@ struct OsmNode {
 }
 
 
-fn _geopos_of_way (way_id: u64) -> GeoPos {
+fn geopos_of_way (way_id: u64) -> GeoPos {
 
     // DONT USE:   https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
@@ -80,6 +80,7 @@ fn _geopos_of_way (way_id: u64) -> GeoPos {
 
     let url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
 
+    // Get OSM data from API and convert Json to Rust types. See https://serde.rs
     let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
     let mut lat: f64 = 0.0;
@@ -103,10 +104,25 @@ fn _geopos_of_way (way_id: u64) -> GeoPos {
 
 }
 
-fn create_way  (geo_pos_at_gpu0: GeoPos, way_id: u64) -> Mesh {
+fn create_way  (geo_pos_at_gpu0: GeoPos) -> Mesh {
 
     // TODO:  AREA !!!!
-    let url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
+
+    // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
+    let range = 15.0 / LAT_FAKT; // First test with 15 meter
+    let left   = geo_pos_at_gpu0.lon-range;
+    let right  = geo_pos_at_gpu0.lon+range;
+    let top    = geo_pos_at_gpu0.lat+range;
+    let bottom = geo_pos_at_gpu0.lat-range;
+    let test = to_position(&geo_pos_at_gpu0, left, top);
+    // GET                                          /api/0.6/map?bbox=left,bottom,right,top
+    let url = format!("https://api.openstreetmap.org/api/0.6/map.json?bbox={},{},{},{}", left,bottom,right,top);
+    println!("range: x={} z={} url={}", test.x,test.z,url);
+    // range: x=4209900.5 z=-4290712 url=
+    // https://api.openstreetmap.org/api/0.6/map.json?bbox=11.135635953165316,49.75577293983198,11.135905980168015,49.75604296683468
+    // https://api.openstreetmap.org/api/0.6/map.json?bbox=76.36808519471933,64.41713173392363,76.75875957883649,64.50167155517451
+
+    //t url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
     let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
     //let nodes = Map(id:u64, node:OsmNode);
@@ -124,8 +140,8 @@ fn create_way  (geo_pos_at_gpu0: GeoPos, way_id: u64) -> Mesh {
             let id = element.id;
             let nodes = element.nodes.unwrap();
             let tags = element.tags.unwrap();
-            let name = tags.name.unwrap();
-            let building = tags.building.unwrap();
+            let name = tags.name.unwrap_or("noname".to_string());
+            let building = tags.building.unwrap_or("nobuilding".to_string());
 
             println!(" Way: id = {:?}  building = {:?}  name = {:?}",id,building,name,);
 
@@ -188,13 +204,15 @@ fn setup(
     let reifenberg_id = 121486088;
 
     // get geo-position at the 0 position of the GPU
-    let geo_pos_at_gpu0 = // geopos_of_way(reifenberg_id);
-                          GeoPos{lat: 49.75590795333333, lon: 11.135770966666666};
+    let geo_pos_at_gpu0 = if false {
+        geopos_of_way(reifenberg_id)
+    } else {
+        GeoPos{lat: 49.75590795333333, lon: 11.135770966666666}
+    };
     commands.insert_resource(GeoPosAtGPU0{_pos: geo_pos_at_gpu0.clone()});
 
-
     // Dodo: get building ... other way
-    let mesh_handle: Handle<Mesh> = meshes.add(create_way(geo_pos_at_gpu0, reifenberg_id));
+    let mesh_handle: Handle<Mesh> = meshes.add(create_way(geo_pos_at_gpu0));
     commands.spawn((
         PbrBundle {
             mesh: mesh_handle,
@@ -289,7 +307,7 @@ impl CMesh {
         }
     }
 
-    pub fn _push(&mut self, index: usize, x: f32, z: f32) {
+    pub fn _push_treeangle(&mut self, index: usize, x: f32, z: f32) {
         self.position_vertices.push( [x, 0.0, -z]);
         self.position_vertices.push( [x, 1.0, -z]);
         //println!("meter: index = {:?} latX = {:?} lonZ = {:?}", position_vertices.len(), x, z );
