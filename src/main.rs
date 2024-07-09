@@ -10,6 +10,7 @@ use bevy::render::{
     render_resource::PrimitiveTopology,
 };
 
+const MULTI_MESH: bool = false;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
@@ -38,8 +39,10 @@ struct JosnElement {
 
 #[derive(Deserialize, Debug)]
 struct JosnTags {
-    building: Option<String>,
-    name: Option<String>,
+    // name: Option<String>,
+    // building: Option<String>,
+    #[serde(rename = "building:part")]
+    building_part: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -104,9 +107,7 @@ fn geopos_of_way (way_id: u64) -> GeoPos {
 
 }
 
-fn create_way  (geo_pos_at_gpu0: GeoPos) -> Mesh {
-
-    // TODO:  AREA !!!!
+fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>, geo_pos_at_gpu0: GeoPos) {
 
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     let range = 15.0 / LAT_FAKT; // First test with 15 meter
@@ -137,19 +138,21 @@ fn create_way  (geo_pos_at_gpu0: GeoPos) -> Mesh {
             // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
         }
         if element.element_type == "way".to_string() {
-            let id = element.id;
-            let nodes = element.nodes.unwrap();
             let tags = element.tags.unwrap();
-            let name = tags.name.unwrap_or("noname".to_string());
-            let building = tags.building.unwrap_or("nobuilding".to_string());
-
-            println!(" Way: id = {:?}  building = {:?}  name = {:?}",id,building,name,);
+            let building_part = tags.building_part.unwrap_or("-/-".to_string());
+            // let id = element.id;
+            // let name = tags.name.unwrap_or("-/-".to_string());
+            // let building = tags.building.unwrap_or("-/-".to_string());
+            // println!(" Way: id = {:?}  building = {:?}  name = {:?}",id,building,name,);
+            if building_part != "yes" {continue;};
 
             // Get building walls from nodes
+            let nodes = element.nodes.unwrap();
             let mut last_pos_down = [0.0,0.0,0.0];
             let mut last_pos_up   = [0.0,0.0,0.0];
 
-            for (index,node_id) in nodes.iter().enumerate() {
+            // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
+            for (index,node_id) in nodes.iter().rev().enumerate() {
                 let node = nodes_map.get(&node_id).unwrap();
 
                 let this_pos_down = [node.pos.x,0.0,node.pos.z];
@@ -167,15 +170,42 @@ fn create_way  (geo_pos_at_gpu0: GeoPos) -> Mesh {
                 last_pos_up   = this_pos_up;
             }
 
+            if MULTI_MESH {
+                let mesh_handle = meshes.add(cmesh.get_mesh());
+                commands.spawn((
+                    PbrBundle {
+                        mesh: mesh_handle,
+                        ..default()
+                    },
+                    Controled,
+                ));
+
+                cmesh = CMesh::new();
+                println!("MULTI_MESH");
+
+            }
+
         }
     }
 
-    cmesh.get_mesh()
+    if !MULTI_MESH {
+        let mesh_handle = meshes.add(cmesh.get_mesh());
+        commands.spawn((
+            PbrBundle {
+                mesh: mesh_handle,
+                material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
+                ..default()
+            },
+            Controled,
+        ));
+    }
 
 }
 
 
 // MAIN ///////////////////
+
+// https://github.com/DerKarlos/obi/tree/master/src
 
 fn main() -> Result<()>
 {     
@@ -196,7 +226,8 @@ fn main() -> Result<()>
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
 ) {
 
     // Testing with this moderate complex building
@@ -212,14 +243,7 @@ fn setup(
     commands.insert_resource(GeoPosAtGPU0{_pos: geo_pos_at_gpu0.clone()});
 
     // Dodo: get building ... other way
-    let mesh_handle: Handle<Mesh> = meshes.add(create_way(geo_pos_at_gpu0));
-    commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle,
-            ..default()
-        },
-        Controled,
-    ));
+    scan_json(&mut commands, meshes, materials, geo_pos_at_gpu0);
 
    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
    let camera_and_light_transform =
@@ -232,11 +256,23 @@ fn setup(
     });
 
     // Light up the scene.
+    //commands.spawn(PointLightBundle {
+    //    transform: camera_and_light_transform,
+    //    ..default()
+    //});
+
+    // Light
     commands.spawn(PointLightBundle {
-        transform: camera_and_light_transform,
+        point_light: PointLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(400., 500., 400.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-    
+
+
+
 }
 
 
@@ -276,6 +312,7 @@ fn input_handler(
 
 // ??? //////////////////////
 
+type ColorAlpha = [f32;4];
 type Position = [f32;3];
 
 /** Factor to calculate meters from gps geo.decimals (latitude, Nort/South position) */
@@ -294,6 +331,7 @@ fn to_position( geo_pos: &GeoPos, lat: f64, lon: f64) -> XzPos {
 // "CLASS" Custom Mesh /////////////////////////////////////////
 
 struct CMesh {
+    colors: Vec<ColorAlpha>, // format: Float32x4
     position_vertices: Vec<Position>, // 3 coordinates * x Positions. The corners are NOT reused to get hard Kanten
     indices: Vec<u32>,
 }
@@ -302,6 +340,7 @@ impl CMesh {
 
     pub fn new() -> Self {
         Self{
+            colors: vec![],
             position_vertices: vec![],
             indices: vec![],
         }
@@ -327,6 +366,14 @@ impl CMesh {
     pub fn push_square(&mut self, down_left: Position, down_right: Position, up_left: Position, up_right: Position  ) {
         // First index of the comming 4 positions
         let index = self.position_vertices.len();
+        // Push the for colors
+        let c = 1.0;
+        let white = [c,c,c, 1.0]; // RGBAlpha
+        let red =   [c,0.,0., 1.0]; // RGBAlpha
+        self.colors.push(white);
+        self.colors.push(white);
+        self.colors.push(red);
+        self.colors.push(red);
         // Push the for positions
         self.position_vertices.push( down_left);  // +0     2---3
         self.position_vertices.push( down_right); // +1     |   |
@@ -344,6 +391,7 @@ impl CMesh {
 
     pub fn get_mesh(&self) -> Mesh {
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone())
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION,self.position_vertices.clone(),)
         .with_inserted_indices(Indices::U32(self.indices.clone()))
 
