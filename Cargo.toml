@@ -6,5 +6,6 @@ edition = "2021"
 [dependencies]
 reqwest = { version = "0.12", features = ["blocking","json"] }
 error-chain = "0.12"
-serde = { version = "1.0.204", features = ["derive"] }
-bevy = "0.14.0"
+serde = { version = "1.0", features = ["derive"] }
+bevy = "0.14"
+triangulation = "0.1"

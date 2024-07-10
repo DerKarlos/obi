@@ -10,6 +10,9 @@ use bevy::render::{
     render_resource::PrimitiveTopology,
 };
 
+//e triangulate::{self, formats, Polygon};
+use triangulation::{Delaunay, Point};
+
 const MULTI_MESH: bool = false;
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
@@ -43,6 +46,7 @@ struct JosnTags {
     // building: Option<String>,
     #[serde(rename = "building:part")]
     building_part: Option<String>,
+    height: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -140,23 +144,32 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
         if element.element_type == "way".to_string() {
             let tags = element.tags.unwrap();
             let building_part = tags.building_part.unwrap_or("-/-".to_string());
-            // let id = element.id;
             // let name = tags.name.unwrap_or("-/-".to_string());
-            // let building = tags.building.unwrap_or("-/-".to_string());
-            // println!(" Way: id = {:?}  building = {:?}  name = {:?}",id,building,name,);
+            // println!(" Way: building = {:?}  name = {:?}" name,);
             if building_part != "yes" {continue;};
+
+            // Height
+            let mut part_height = 10.0;
+            if let Some(height) = tags.height {
+                part_height = height.parse().unwrap();
+            }
 
             // Get building walls from nodes
             let nodes = element.nodes.unwrap();
             let mut last_pos_down = [0.0,0.0,0.0];
             let mut last_pos_up   = [0.0,0.0,0.0];
 
+            // roof
+            let mut roof_polygon: Vec<Point> = vec![];
+            let mut roof_positions: Vec<Position> = vec![];
+
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index,node_id) in nodes.iter().rev().enumerate() {
                 let node = nodes_map.get(&node_id).unwrap();
 
                 let this_pos_down = [node.pos.x,0.0,node.pos.z];
-                let this_pos_up   = [node.pos.x,10.,node.pos.z];
+                let this_pos_up   = [node.pos.x,part_height,node.pos.z];
+                let roof_point    = Point::new(node.pos.x,node.pos.z);
 
                 if index>0 {
                     cmesh.push_square(
@@ -165,10 +178,16 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
                         last_pos_up,
                         this_pos_up,
                     );
+                    roof_polygon.push(roof_point); // push(roof_xz);
+                    roof_positions.push(this_pos_up);
                 }
                 last_pos_down = this_pos_down;
                 last_pos_up   = this_pos_up;
             }
+
+            let triangulation = Delaunay::new(&roof_polygon).unwrap();
+            println!("triangles: {:?}",&triangulation.dcel.vertices);
+            cmesh.push_shape( roof_positions, triangulation.dcel.vertices);
 
             if MULTI_MESH {
                 let mesh_handle = meshes.add(cmesh.get_mesh());
@@ -314,6 +333,7 @@ fn input_handler(
 
 type ColorAlpha = [f32;4];
 type Position = [f32;3];
+//type XzVec = [f32;2];
 
 /** Factor to calculate meters from gps geo.decimals (latitude, Nort/South position) */
 static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
@@ -346,6 +366,19 @@ impl CMesh {
         }
     }
 
+    pub fn push_shape(&mut self, positions: Vec<Position>, indices: Vec<usize>) {
+        let red = [1.0,0.,0., 1.0]; // RGBAlpha
+        let roof_index = self.position_vertices.len();
+        for position in positions {
+            self.position_vertices.push(position);
+            self.colors.push(red);
+        }
+        for index in indices {
+            self.indices.push((roof_index + index) as u32);
+        }
+
+    }
+
     pub fn _push_treeangle(&mut self, index: usize, x: f32, z: f32) {
         self.position_vertices.push( [x, 0.0, -z]);
         self.position_vertices.push( [x, 1.0, -z]);
@@ -359,6 +392,13 @@ impl CMesh {
             self.indices.push((index*2-2) as u32);
             self.indices.push((index*2+0) as u32);
             self.indices.push((index*2-1) as u32);
+
+            // Push the for colors
+            let c = 1.0;
+            let red =   [c,0.,0., 1.0]; // RGBAlpha
+            self.colors.push(red);
+            self.colors.push(red);
+            self.colors.push(red);
         }
 
     }
@@ -369,11 +409,10 @@ impl CMesh {
         // Push the for colors
         let c = 1.0;
         let white = [c,c,c, 1.0]; // RGBAlpha
-        let red =   [c,0.,0., 1.0]; // RGBAlpha
         self.colors.push(white);
         self.colors.push(white);
-        self.colors.push(red);
-        self.colors.push(red);
+        self.colors.push(white);
+        self.colors.push(white);
         // Push the for positions
         self.position_vertices.push( down_left);  // +0     2---3
         self.position_vertices.push( down_right); // +1     |   |
