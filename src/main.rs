@@ -46,6 +46,8 @@ struct JosnTags {
     // building: Option<String>,
     #[serde(rename = "building:part")]
     building_part: Option<String>,
+    #[serde(rename = "roof:shape")]
+    roof_shape: Option<String>,
     height: Option<String>,
 }
 
@@ -97,13 +99,16 @@ fn geopos_of_way (way_id: u64) -> GeoPos {
     // add the coordinates of oll nodes
     for element in json.elements {
         if element.element_type == "node".to_string() {
+            if nodes > 0. {
+                lat += element.lat.unwrap();
+                lon += element.lon.unwrap();
+            }
             nodes += 1.0;
-            lat += element.lat.unwrap();
-            lon += element.lon.unwrap();
         }
 
     }
     // calculate and return everedge
+    nodes -= 1.0;
     lat /= nodes;
     lon /= nodes;
     println!("geopos_of_way: lat = {:?} lon = {:?}", lat, lon );
@@ -147,6 +152,8 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             // let name = tags.name.unwrap_or("-/-".to_string());
             // println!(" Way: building = {:?}  name = {:?}" name,);
             if building_part != "yes" {continue;};
+            //ttt let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
+            //ttt if roof_shape != "pyramidal".to_string() {continue;}; //ttt
 
             // Height
             let mut part_height = 10.0;
@@ -154,14 +161,19 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
                 part_height = height.parse().unwrap();
             }
 
+
             // Get building walls from nodes
             let nodes = element.nodes.unwrap();
             let mut last_pos_down = [0.0,0.0,0.0];
             let mut last_pos_up   = [0.0,0.0,0.0];
 
             // roof
+            let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
             let mut roof_polygon: Vec<Point> = vec![];
             let mut roof_positions: Vec<Position> = vec![];
+            let mut x = 0.0;
+            let mut z = 0.0;
+
 
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index,node_id) in nodes.iter().rev().enumerate() {
@@ -171,23 +183,35 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
                 let this_pos_up   = [node.pos.x,part_height,node.pos.z];
                 let roof_point    = Point::new(node.pos.x,node.pos.z);
 
-                if index>0 {
+                if index>0 { // skip first node = last
                     cmesh.push_square(
                         last_pos_down,
                         this_pos_down,
                         last_pos_up,
                         this_pos_up,
                     );
-                    roof_polygon.push(roof_point); // push(roof_xz);
+                    // The polygon node list is "closed": Last is connected to first
+                    roof_polygon.push(roof_point);
                     roof_positions.push(this_pos_up);
+                    x += node.pos.x;
+                    z += node.pos.z;
                 }
                 last_pos_down = this_pos_down;
                 last_pos_up   = this_pos_up;
             }
 
-            let triangulation = Delaunay::new(&roof_polygon).unwrap();
-            println!("triangles: {:?}",&triangulation.dcel.vertices);
-            cmesh.push_shape( roof_positions, triangulation.dcel.vertices);
+            if roof_shape == "pyramidal".to_string() {
+                let count = (nodes.len()-1) as f32;
+                x /= count;
+                z /= count;
+                //roof_positions.push([x,part_height+5.0,z]);
+                cmesh.push_pyramid(roof_positions,[x,part_height+5.0,z]);
+            } else { // flat
+                let triangulation = Delaunay::new(&roof_polygon).unwrap(); // flat
+                //println!("triangles: {:?}",&triangulation.dcel.vertices);
+                cmesh.push_shape(roof_positions, triangulation.dcel.vertices);
+            }
+
 
             if MULTI_MESH {
                 let mesh_handle = meshes.add(cmesh.get_mesh());
@@ -233,6 +257,8 @@ fn main() -> Result<()>
     // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)
+        // set the global default clear color
+        .insert_resource(ClearColor(Color::srgb(0.0, 0.5, 0.0)))
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
         .run();
@@ -305,25 +331,22 @@ fn input_handler(
     if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
-            println!("Key X");
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
-            println!("Key y");
+            //println!("Key y");
         }
     }
     if keyboard_input.pressed(KeyCode::KeyZ) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
-            println!("Key Z");
         }
     }
     if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
-            println!("Key R");
         }
     }
 }
@@ -368,15 +391,35 @@ impl CMesh {
 
     pub fn push_shape(&mut self, positions: Vec<Position>, indices: Vec<usize>) {
         let red = [1.0,0.,0., 1.0]; // RGBAlpha
-        let roof_index = self.position_vertices.len();
+        let roof_index_offset = self.position_vertices.len();
         for position in positions {
             self.position_vertices.push(position);
             self.colors.push(red);
         }
         for index in indices {
-            self.indices.push((roof_index + index) as u32);
+            self.indices.push((roof_index_offset + index) as u32);
         }
 
+    }
+
+    pub fn push_pyramid(&mut self, positions: Vec<Position>, pike: Position) {
+        let red = [1.0,0.,0., 1.0]; // RGBAlpha
+        let roof_index_offset = self.position_vertices.len();
+        let pike_index_offset = positions.len();
+        for (index, position) in positions.iter().enumerate() {
+            self.position_vertices.push(*position);
+            self.colors.push(red);
+
+            let index1 = index;
+            let mut index2 = index+1;
+            if index2 >= positions.len() {index2 = 0}
+            self.indices.push((roof_index_offset + index1) as u32);
+            self.indices.push((roof_index_offset + index2) as u32);
+            self.indices.push((roof_index_offset + pike_index_offset) as u32);
+        }
+        self.position_vertices.push(pike);
+        self.colors.push(red);
+        println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.position_vertices.len() );
     }
 
     pub fn _push_treeangle(&mut self, index: usize, x: f32, z: f32) {
