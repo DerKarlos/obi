@@ -14,6 +14,7 @@ use bevy::render::{
 use triangulation::{Delaunay, Point};
 
 const MULTI_MESH: bool = false;
+const POS0:[f32; 3] = [0.0,0.0,0.0];
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
@@ -48,7 +49,10 @@ struct JosnTags {
     building_part: Option<String>,
     #[serde(rename = "roof:shape")]
     roof_shape: Option<String>,
+    #[serde(rename = "roof:height")]
+    roof_height: Option<String>,
     height: Option<String>,
+    min_height: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -152,20 +156,26 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             // let name = tags.name.unwrap_or("-/-".to_string());
             // println!(" Way: building = {:?}  name = {:?}" name,);
             if building_part != "yes" {continue;};
-            //ttt let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
-            //ttt if roof_shape != "pyramidal".to_string() {continue;}; //ttt
 
             // Height
+            let mut min_height  = 0.0;
             let mut part_height = 10.0;
+            let mut roof_height = 0.0;
+            if let Some(height) = tags.min_height {
+                min_height = height.parse().unwrap();
+            }
             if let Some(height) = tags.height {
                 part_height = height.parse().unwrap();
             }
-
+            if let Some(height) = tags.roof_height {
+                roof_height = height.parse().unwrap();
+                part_height -= roof_height;
+            }
 
             // Get building walls from nodes
             let nodes = element.nodes.unwrap();
-            let mut last_pos_down = [0.0,0.0,0.0];
-            let mut last_pos_up   = [0.0,0.0,0.0];
+            let mut last_pos_down = POS0;
+            let mut last_pos_up   = POS0;
 
             // roof
             let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
@@ -174,12 +184,11 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             let mut x = 0.0;
             let mut z = 0.0;
 
-
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index,node_id) in nodes.iter().rev().enumerate() {
                 let node = nodes_map.get(&node_id).unwrap();
 
-                let this_pos_down = [node.pos.x,0.0,node.pos.z];
+                let this_pos_down = [node.pos.x, min_height,node.pos.z];
                 let this_pos_up   = [node.pos.x,part_height,node.pos.z];
                 let roof_point    = Point::new(node.pos.x,node.pos.z);
 
@@ -199,19 +208,16 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
                 last_pos_down = this_pos_down;
                 last_pos_up   = this_pos_up;
             }
+            // center of way
+            let count = (nodes.len()-1) as f32;
+            x /= count;
+            z /= count;
 
-            if roof_shape == "pyramidal".to_string() {
-                let count = (nodes.len()-1) as f32;
-                x /= count;
-                z /= count;
-                //roof_positions.push([x,part_height+5.0,z]);
-                cmesh.push_pyramid(roof_positions,[x,part_height+5.0,z]);
-            } else { // flat
-                let triangulation = Delaunay::new(&roof_polygon).unwrap(); // flat
-                //println!("triangles: {:?}",&triangulation.dcel.vertices);
-                cmesh.push_shape(roof_positions, triangulation.dcel.vertices);
-            }
-
+            if roof_shape == "pyramidal".to_string() { cmesh.push_pyramid(roof_positions,[x,part_height+roof_height,z]); } else
+            if roof_shape ==     "onion".to_string() { cmesh.push_onion(  part_height, roof_height, roof_polygon, Point{x,y:z});      } else
+            if roof_shape ==    "hipped".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       } else
+            if roof_shape ==    "gabled".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       } else
+            if roof_shape ==      "flat".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       }
 
             if MULTI_MESH {
                 let mesh_handle = meshes.add(cmesh.get_mesh());
@@ -292,7 +298,7 @@ fn setup(
 
    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
    let camera_and_light_transform =
-        Transform::from_xyz(50., 50., 50.).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform::from_xyz(40., 40., 40.).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -389,7 +395,181 @@ impl CMesh {
         }
     }
 
-    pub fn push_shape(&mut self, positions: Vec<Position>, indices: Vec<usize>) {
+    pub fn push_onion(&mut self, part_height: f32, roof_height: f32, roof_polygon: Vec<Point>, pike: Point) {
+
+        let shape_curve = 
+        [   // -x-     |y|   from OSMgo, taken from picture pixle coordinates
+            [0.0606,0.0054],
+            [0.1202,0.0094],
+            [0.2248,0.0510],
+            [0.3096,0.0981],
+            [0.3807,0.1571],
+            [0.4351,0.2207],
+            [0.4759,0.2992],
+            [0.4947,0.3754],
+            [0.5000,0.4454],
+            [0.4937,0.5231],
+            [0.4769,0.5875],
+            [0.4330,0.6857],
+            [0.3817,0.7604],
+            [0.3263,0.8232],
+            [0.2709,0.8727],
+            [0.2092,0.9190],
+            [0.1527,0.9544],
+            [0.0847,0.9866],
+            [0.0428,0.9976],
+            [0.0000,1.0000],
+        ];
+
+        let columns = roof_polygon.len() as i32;
+        let to_next_column = columns * 2;
+        let roof_rel = roof_height / 3.5; // relation of height and with of the standard "onion" shape
+
+        for point in shape_curve { // process all rings
+
+            let curve_radius = point[0] as f32;
+            let curve_up     = point[1] as f32;
+            println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
+
+            let column_point = roof_polygon.last().unwrap();
+            let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
+            let pos_z = (column_point.y - pike.y) * curve_radius * roof_rel + pike.y;
+            let mut last_pos = [ pos_x, part_height+roof_height*curve_up, pos_z ];
+
+            for column_point in roof_polygon.iter() { // process one ring
+
+                // push colors
+                let red = [1.0,0.,0., 1.0]; // RGBAlpha
+                self.colors.push(red);
+                self.colors.push(red);
+
+                // push vertices
+                let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
+                let pos_z = (column_point.y - pike.y) * curve_radius * roof_rel + pike.y;
+                let this_pos = [ pos_x, part_height+roof_height*curve_up, pos_z ];
+                //println!("pso x z {} {} {:?} {:?}",pos_x,pos_z,last_pos,this_pos);
+                let index = self.position_vertices.len() as i32;
+                self.position_vertices.push(last_pos); // right vertice different than left to get corneres
+                self.position_vertices.push(this_pos); // left - up=down to not get corners
+                last_pos = this_pos;
+
+                if curve_radius > 0. { // not if it is the last point/ring of the curve
+                    // Push indices, first treeangle
+                    self.indices.push( index                   as u32); // 0     2
+                    self.indices.push((index+1               ) as u32); // 1     | \
+                    self.indices.push((index+to_next_column  ) as u32); // 2     0---1
+                    //println!("index {} {}",index,index+to_next_column);
+                    // Secound treeangle
+                    self.indices.push((index+1               ) as u32); // 0     2---1
+                    self.indices.push((index+to_next_column+1) as u32); // 1       \ |
+                    self.indices.push((index+to_next_column  ) as u32); // 2         0
+                }
+
+            }
+
+
+        }
+
+/*
+        for (c_index,column_point) in roof_polygon.iter().enumerate() { // process rings
+
+            for point in shape_curve { // process columns
+
+                let scale_up     = point[0] as f32 /   1273. ;  // durch Maximalwert der Kurve gibt es eine Normierung auf 1
+                let scale_radius = point[1] as f32 / 478. ;//  /2. ;
+                println!("scale {} {}",scale_up,scale_radius);
+            
+                // push one curve vertice
+                let red = [1.0,0.,0., 1.0]; // RGBAlpha
+                let pos_x = (column_point.x - pike.x) * scale_radius + pike.x;
+                let pos_z = (column_point.y - pike.y) * scale_radius + pike.y;
+                let index = self.position_vertices.len() as i32;
+              //println!("vertice {:?}",    [ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
+                self.position_vertices.push([ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
+                self.position_vertices.push([ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
+                self.colors.push(red);
+                self.colors.push(red);
+
+                let mut next_column = rings;
+                if c_index as i32 >= columns-1 {next_column = 0-rings * columns};
+
+                // First treeangle
+                self.indices.push( index              as u32);   // 0     2
+                self.indices.push((index+next_column) as u32);   // 1     | \
+                self.indices.push((index+1          ) as u32);   // 2     0---1
+                println!("index {} {}",index,next_column);
+                // Secound treeangle
+                self.indices.push((index+next_column  ) as u32); // 0     2---1
+                self.indices.push((index+next_column+1) as u32); // 1       \ |
+                self.indices.push((index+1            ) as u32); // 2         0
+                
+            }
+
+        }
+ */
+
+
+
+//        let plast = *roof_polygon.last().unwrap();
+//        let mut xlast = (plast.x - pike.x) + pike.x;
+//        let mut zlast = (plast.y - pike.y) + pike.y;
+//
+//        for point in roof_polygon {
+//            let x = (point.x - pike.x) * 0.7 + pike.x;
+//            let z = (point.y - pike.y) * 0.7 + pike.y;
+//
+//            let down_left  = [ xlast, part_height+0.0, zlast ];
+//            let down_right = [ x    , part_height+0.0, z     ];
+//            let up_left    = [ xlast, part_height+2.0, zlast ];
+//            let up_right   = [ x    , part_height+2.0, z     ];
+//            //println!("onion: {:?} {:?} {:?} {:?}",down_left,down_right,up_left,up_right);
+//            self.push_square(down_left,down_right,up_left,up_right);
+//            xlast = x;
+//            zlast = z;
+//        }
+
+
+
+    }
+
+/*	    var Segmente = 24
+	    var Kurve = /*  // |y|  -x-  0,0 ist impliziert im code */
+	        [ [  7, 58],[ 12,115],[ 65,215],[ 125,296],[ 200,364],[ 281,416],[ 381,455],[ 478,473],[ 567,478],[ 666,472],
+	          [748,456],[873,414],[968,365],[1048,312],[1111,259],[1170,200],[1215,146],[1256, 81],[1270, 41],[1273,  0] ];
+		var v = -2;
+		var geometry = new THREE.Geometry()
+		for(var s=0; s<(Segmente); s++) {
+			geometry.vertices.push( new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)); v+=2; // vertices 0 und 1: Die unteren Punkte des Kugel-Segments sind beide 0,0
+			var a1 = g(360)/Segmente*(s+0.5);   // Winkel der Rechten/Linken Kante
+			var a2 = g(360)/Segmente*(s-0.5);
+			//r(var i=0; i<Kurve.length; i++) {
+			for(var i in Kurve) {
+				var y  = Kurve[i][0] / 1273;  // durch Maximalwert der Kurve gibt es eine Normierung auf 1
+				var x  = Kurve[i][1] / 478/2;
+				var sc1= SinCos(a1,x);
+				var sc2= SinCos(a2,x);
+			geometry.vertices.push( new THREE.Vector3(sc1[0],y,sc1[1]));
+			geometry.vertices.push( new THREE.Vector3(sc2[0],y,sc2[1]));
+
+			geometry.faces.push( new THREE.Face3( v+0, v+2, v+1 ) );
+			geometry.faces.push( new THREE.Face3( v+1, v+2, v+3 ) );
+			v+=2; // log("face:",i,Kurve.length)
+			}  // i
+		} // s
+	    var material = materialX[1]
+	    if(roofLevels) roofHeight = 0 // Wenn die Dachhöhe in Level ist, kommt das Dach Über, nicht ins Haus
+
+		assignUVs(geometry)
+		break
+*/
+
+
+    pub fn push_flat(&mut self, positions: Vec<Position>, roof_polygon: Vec<Point> ) {
+
+        let triangulation = Delaunay::new(&roof_polygon).unwrap();
+        //println!("triangles: {:?}",&triangulation.dcel.vertices);
+        let indices = triangulation.dcel.vertices;
+
         let red = [1.0,0.,0., 1.0]; // RGBAlpha
         let roof_index_offset = self.position_vertices.len();
         for position in positions {
@@ -419,31 +599,7 @@ impl CMesh {
         }
         self.position_vertices.push(pike);
         self.colors.push(red);
-        println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.position_vertices.len() );
-    }
-
-    pub fn _push_treeangle(&mut self, index: usize, x: f32, z: f32) {
-        self.position_vertices.push( [x, 0.0, -z]);
-        self.position_vertices.push( [x, 1.0, -z]);
-        //println!("meter: index = {:?} latX = {:?} lonZ = {:?}", position_vertices.len(), x, z );
-
-        if index>0 { // 1*2=2
-            self.indices.push((index*2+0) as u32);
-            self.indices.push((index*2+1) as u32);
-            self.indices.push((index*2-1) as u32);
-
-            self.indices.push((index*2-2) as u32);
-            self.indices.push((index*2+0) as u32);
-            self.indices.push((index*2-1) as u32);
-
-            // Push the for colors
-            let c = 1.0;
-            let red =   [c,0.,0., 1.0]; // RGBAlpha
-            self.colors.push(red);
-            self.colors.push(red);
-            self.colors.push(red);
-        }
-
+        //println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.position_vertices.len() );
     }
 
     pub fn push_square(&mut self, down_left: Position, down_right: Position, up_left: Position, up_right: Position  ) {
