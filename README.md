@@ -32,3 +32,7 @@ Even Vector tiles may become an alternative, OSM or Overture, if they support bu
 * JosnData: Main struct of the OSM API return, with all Elements
 * JsonElement: May be a Node, Way or a Relation. May have a geo-position, may have tagging
 * JosnTags: TODO: should be a Map:  https://serde.rs/deserialize-map.html
+
+### Trouble maker?
+* There is already a OSM Building Viewer (but not an Editor): https://github.com/Beakerboy/OSMBuilding/
+* Never ending discussion about 100% part covveridge: https://github.com/StrandedKitty/streets-gl/issues/3

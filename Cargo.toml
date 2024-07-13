@@ -9,3 +9,4 @@ error-chain = "0.12"
 serde = { version = "1.0", features = ["derive"] }
 bevy = "0.14"
 triangulation = "0.1"
+csscolorparser = "0.6"

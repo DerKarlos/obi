@@ -12,8 +12,9 @@ use bevy::render::{
 
 //e triangulate::{self, formats, Polygon};
 use triangulation::{Delaunay, Point};
+use csscolorparser::parse;
 
-const MULTI_MESH: bool = false;
+const MULTI_MESH: bool = true;
 const POS0:[f32; 3] = [0.0,0.0,0.0];
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
@@ -49,6 +50,9 @@ struct JosnTags {
     building_part: Option<String>,
     #[serde(rename = "roof:shape")]
     roof_shape: Option<String>,
+    #[serde(rename = "roof:colour")]
+    roof_colour: Option<String>,
+    colour: Option<String>,
     #[serde(rename = "roof:height")]
     roof_height: Option<String>,
     height: Option<String>,
@@ -157,6 +161,20 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             // println!(" Way: building = {:?}  name = {:?}" name,);
             if building_part != "yes" {continue;};
 
+            // Colors and Materials
+            let colour = tags.colour.unwrap_or("grey^".to_string());
+            let colour = parse(colour.as_str()).unwrap();
+            let colour = [ colour.r as f32, colour.g as f32, colour.b as f32, 1.0 ];
+
+            let roof_colour = tags.roof_colour.unwrap_or("red".to_string());
+            let roof_colour = parse(roof_colour.as_str()).unwrap();
+            let roof_colour = [
+                roof_colour.r as f32,
+                roof_colour.g as f32,
+                roof_colour.b as f32, 1.0
+                ];
+            println!("colors: {:?} {:?}",colour,roof_colour);
+
             // Height
             let mut min_height  = 0.0;
             let mut part_height = 10.0;
@@ -198,6 +216,7 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
                         this_pos_down,
                         last_pos_up,
                         this_pos_up,
+                        colour,
                     );
                     // The polygon node list is "closed": Last is connected to first
                     roof_polygon.push(roof_point);
@@ -213,41 +232,23 @@ fn scan_json(commands: &mut Commands, mut meshes: ResMut<Assets<Mesh>>, mut mate
             x /= count;
             z /= count;
 
-            if roof_shape == "pyramidal".to_string() { cmesh.push_pyramid(roof_positions,[x,part_height+roof_height,z]); } else
-            if roof_shape ==     "onion".to_string() { cmesh.push_onion(  part_height, roof_height, roof_polygon, Point{x,y:z});      } else
-            if roof_shape ==    "hipped".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       } else
-            if roof_shape ==    "gabled".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       } else
-            if roof_shape ==      "flat".to_string() { cmesh.push_flat(   roof_positions, roof_polygon);                       }
+            if roof_shape == "pyramidal".to_string() { cmesh.push_pyramid(roof_positions,[x,part_height+roof_height,z,],roof_colour); } else
+            if roof_shape ==     "onion".to_string() { cmesh.push_onion(  part_height, roof_height, roof_polygon, Point{x,y:z}, roof_colour);      } else
+            if roof_shape ==    "hipped".to_string() { cmesh.push_flat(   roof_positions, roof_polygon, roof_colour);                       } else
+            if roof_shape ==    "gabled".to_string() { cmesh.push_flat(   roof_positions, roof_polygon, roof_colour);                       } else
+            if roof_shape ==      "flat".to_string() { cmesh.push_flat(   roof_positions, roof_polygon, roof_colour);                       }
 
             if MULTI_MESH {
-                let mesh_handle = meshes.add(cmesh.get_mesh());
-                commands.spawn((
-                    PbrBundle {
-                        mesh: mesh_handle,
-                        ..default()
-                    },
-                    Controled,
-                ));
-
+                //println!("MULTI_MESH");
+                cmesh.spawn( commands, &mut meshes, &mut materials);
                 cmesh = CMesh::new();
-                println!("MULTI_MESH");
 
             }
 
         }
     }
 
-    if !MULTI_MESH {
-        let mesh_handle = meshes.add(cmesh.get_mesh());
-        commands.spawn((
-            PbrBundle {
-                mesh: mesh_handle,
-                material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
-                ..default()
-            },
-            Controled,
-        ));
-    }
+    if !MULTI_MESH { cmesh.spawn( commands, &mut meshes, &mut materials) }
 
 }
 
@@ -263,7 +264,7 @@ fn main() -> Result<()>
     // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)
-        // set the global default clear color
+        // set the global default clear colour
         .insert_resource(ClearColor(Color::srgb(0.0, 0.5, 0.0)))
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
@@ -286,10 +287,10 @@ fn setup(
     let reifenberg_id = 121486088;
 
     // get geo-position at the 0 position of the GPU
-    let geo_pos_at_gpu0 = if false {
+    let geo_pos_at_gpu0 = if false { // Todo: remove test
         geopos_of_way(reifenberg_id)
     } else {
-        GeoPos{lat: 49.75590795333333, lon: 11.135770966666666}
+        GeoPos{lat: 49.755907953, lon: 11.135770967}
     };
     commands.insert_resource(GeoPosAtGPU0{_pos: geo_pos_at_gpu0.clone()});
 
@@ -377,6 +378,7 @@ fn to_position( geo_pos: &GeoPos, lat: f64, lon: f64) -> XzPos {
     /*return*/ XzPos{x: x as f32, z: z as f32}
 }
 
+
 // "CLASS" Custom Mesh /////////////////////////////////////////
 
 struct CMesh {
@@ -384,6 +386,7 @@ struct CMesh {
     position_vertices: Vec<Position>, // 3 coordinates * x Positions. The corners are NOT reused to get hard Kanten
     indices: Vec<u32>,
 }
+
 
 impl CMesh {
 
@@ -395,7 +398,20 @@ impl CMesh {
         }
     }
 
-    pub fn push_onion(&mut self, part_height: f32, roof_height: f32, roof_polygon: Vec<Point>, pike: Point) {
+    pub fn spawn(&mut self, commands: &mut Commands, meshes: &mut ResMut<Assets<Mesh>>, materials: &mut ResMut<Assets<StandardMaterial>> ) {
+
+        let mesh_handle = meshes.add(self.get_mesh());
+        commands.spawn((
+            PbrBundle {
+                mesh: mesh_handle,
+                material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
+                ..default()
+            },
+            Controled,
+        ));
+    }
+
+    pub fn push_onion(&mut self, part_height: f32, roof_height: f32, roof_polygon: Vec<Point>, pike: Point, colour: [f32; 4]) {
 
         let shape_curve = 
         [   // -x-     |y|   from OSMgo, taken from picture pixle coordinates
@@ -429,7 +445,7 @@ impl CMesh {
 
             let curve_radius = point[0] as f32;
             let curve_up     = point[1] as f32;
-            println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
+            //println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
 
             let column_point = roof_polygon.last().unwrap();
             let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
@@ -439,9 +455,8 @@ impl CMesh {
             for column_point in roof_polygon.iter() { // process one ring
 
                 // push colors
-                let red = [1.0,0.,0., 1.0]; // RGBAlpha
-                self.colors.push(red);
-                self.colors.push(red);
+                self.colors.push(colour);
+                self.colors.push(colour);
 
                 // push vertices
                 let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
@@ -458,123 +473,29 @@ impl CMesh {
                     self.indices.push( index                   as u32); // 0     2
                     self.indices.push((index+1               ) as u32); // 1     | \
                     self.indices.push((index+to_next_column  ) as u32); // 2     0---1
-                    //println!("index {} {}",index,index+to_next_column);
                     // Secound treeangle
                     self.indices.push((index+1               ) as u32); // 0     2---1
                     self.indices.push((index+to_next_column+1) as u32); // 1       \ |
                     self.indices.push((index+to_next_column  ) as u32); // 2         0
+                    //println!("index {} {}",index,index+to_next_column);
                 }
 
-            }
+            } // ring
 
-
-        }
-
-/*
-        for (c_index,column_point) in roof_polygon.iter().enumerate() { // process rings
-
-            for point in shape_curve { // process columns
-
-                let scale_up     = point[0] as f32 /   1273. ;  // durch Maximalwert der Kurve gibt es eine Normierung auf 1
-                let scale_radius = point[1] as f32 / 478. ;//  /2. ;
-                println!("scale {} {}",scale_up,scale_radius);
-            
-                // push one curve vertice
-                let red = [1.0,0.,0., 1.0]; // RGBAlpha
-                let pos_x = (column_point.x - pike.x) * scale_radius + pike.x;
-                let pos_z = (column_point.y - pike.y) * scale_radius + pike.y;
-                let index = self.position_vertices.len() as i32;
-              //println!("vertice {:?}",    [ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
-                self.position_vertices.push([ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
-                self.position_vertices.push([ pos_x, part_height*1.3 + 5.0*scale_up, pos_z ]);
-                self.colors.push(red);
-                self.colors.push(red);
-
-                let mut next_column = rings;
-                if c_index as i32 >= columns-1 {next_column = 0-rings * columns};
-
-                // First treeangle
-                self.indices.push( index              as u32);   // 0     2
-                self.indices.push((index+next_column) as u32);   // 1     | \
-                self.indices.push((index+1          ) as u32);   // 2     0---1
-                println!("index {} {}",index,next_column);
-                // Secound treeangle
-                self.indices.push((index+next_column  ) as u32); // 0     2---1
-                self.indices.push((index+next_column+1) as u32); // 1       \ |
-                self.indices.push((index+1            ) as u32); // 2         0
-                
-            }
-
-        }
- */
-
-
-
-//        let plast = *roof_polygon.last().unwrap();
-//        let mut xlast = (plast.x - pike.x) + pike.x;
-//        let mut zlast = (plast.y - pike.y) + pike.y;
-//
-//        for point in roof_polygon {
-//            let x = (point.x - pike.x) * 0.7 + pike.x;
-//            let z = (point.y - pike.y) * 0.7 + pike.y;
-//
-//            let down_left  = [ xlast, part_height+0.0, zlast ];
-//            let down_right = [ x    , part_height+0.0, z     ];
-//            let up_left    = [ xlast, part_height+2.0, zlast ];
-//            let up_right   = [ x    , part_height+2.0, z     ];
-//            //println!("onion: {:?} {:?} {:?} {:?}",down_left,down_right,up_left,up_right);
-//            self.push_square(down_left,down_right,up_left,up_right);
-//            xlast = x;
-//            zlast = z;
-//        }
-
-
+        } // all rings
 
     }
 
-/*	    var Segmente = 24
-	    var Kurve = /*  // |y|  -x-  0,0 ist impliziert im code */
-	        [ [  7, 58],[ 12,115],[ 65,215],[ 125,296],[ 200,364],[ 281,416],[ 381,455],[ 478,473],[ 567,478],[ 666,472],
-	          [748,456],[873,414],[968,365],[1048,312],[1111,259],[1170,200],[1215,146],[1256, 81],[1270, 41],[1273,  0] ];
-		var v = -2;
-		var geometry = new THREE.Geometry()
-		for(var s=0; s<(Segmente); s++) {
-			geometry.vertices.push( new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)); v+=2; // vertices 0 und 1: Die unteren Punkte des Kugel-Segments sind beide 0,0
-			var a1 = g(360)/Segmente*(s+0.5);   // Winkel der Rechten/Linken Kante
-			var a2 = g(360)/Segmente*(s-0.5);
-			//r(var i=0; i<Kurve.length; i++) {
-			for(var i in Kurve) {
-				var y  = Kurve[i][0] / 1273;  // durch Maximalwert der Kurve gibt es eine Normierung auf 1
-				var x  = Kurve[i][1] / 478/2;
-				var sc1= SinCos(a1,x);
-				var sc2= SinCos(a2,x);
-			geometry.vertices.push( new THREE.Vector3(sc1[0],y,sc1[1]));
-			geometry.vertices.push( new THREE.Vector3(sc2[0],y,sc2[1]));
-
-			geometry.faces.push( new THREE.Face3( v+0, v+2, v+1 ) );
-			geometry.faces.push( new THREE.Face3( v+1, v+2, v+3 ) );
-			v+=2; // log("face:",i,Kurve.length)
-			}  // i
-		} // s
-	    var material = materialX[1]
-	    if(roofLevels) roofHeight = 0 // Wenn die Dachhöhe in Level ist, kommt das Dach Über, nicht ins Haus
-
-		assignUVs(geometry)
-		break
-*/
-
-
-    pub fn push_flat(&mut self, positions: Vec<Position>, roof_polygon: Vec<Point> ) {
+    pub fn push_flat(&mut self, positions: Vec<Position>, roof_polygon: Vec<Point>, colour: [f32; 4] ) {
 
         let triangulation = Delaunay::new(&roof_polygon).unwrap();
         //println!("triangles: {:?}",&triangulation.dcel.vertices);
         let indices = triangulation.dcel.vertices;
 
-        let red = [1.0,0.,0., 1.0]; // RGBAlpha
         let roof_index_offset = self.position_vertices.len();
         for position in positions {
             self.position_vertices.push(position);
-            self.colors.push(red);
+            self.colors.push(colour);
         }
         for index in indices {
             self.indices.push((roof_index_offset + index) as u32);
@@ -582,13 +503,12 @@ impl CMesh {
 
     }
 
-    pub fn push_pyramid(&mut self, positions: Vec<Position>, pike: Position) {
-        let red = [1.0,0.,0., 1.0]; // RGBAlpha
+    pub fn push_pyramid(&mut self, positions: Vec<Position>, pike: Position, colour: [f32; 4]) {
         let roof_index_offset = self.position_vertices.len();
         let pike_index_offset = positions.len();
         for (index, position) in positions.iter().enumerate() {
             self.position_vertices.push(*position);
-            self.colors.push(red);
+            self.colors.push(colour);
 
             let index1 = index;
             let mut index2 = index+1;
@@ -598,20 +518,18 @@ impl CMesh {
             self.indices.push((roof_index_offset + pike_index_offset) as u32);
         }
         self.position_vertices.push(pike);
-        self.colors.push(red);
+        self.colors.push(colour);
         //println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.position_vertices.len() );
     }
 
-    pub fn push_square(&mut self, down_left: Position, down_right: Position, up_left: Position, up_right: Position  ) {
+    pub fn push_square(&mut self, down_left: Position, down_right: Position, up_left: Position, up_right: Position, colour: [f32; 4]  ) {
         // First index of the comming 4 positions
         let index = self.position_vertices.len();
         // Push the for colors
-        let c = 1.0;
-        let white = [c,c,c, 1.0]; // RGBAlpha
-        self.colors.push(white);
-        self.colors.push(white);
-        self.colors.push(white);
-        self.colors.push(white);
+        self.colors.push(colour);
+        self.colors.push(colour);
+        self.colors.push(colour);
+        self.colors.push(colour);
         // Push the for positions
         self.position_vertices.push( down_left);  // +0     2---3
         self.position_vertices.push( down_right); // +1     |   |
