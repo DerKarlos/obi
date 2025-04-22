@@ -1,8 +1,12 @@
 // OBI main
-use error_chain::error_chain;
+
+// use error_chain::error_chain;
+use std::error::Error;
+
 use reqwest;
 use serde::Deserialize;
 use std::collections::HashMap;
+use std::fmt;
 
 use bevy::prelude::*;
 use bevy::render::{
@@ -16,25 +20,51 @@ use csscolorparser::parse;
 use triangulation::{Delaunay, Point};
 
 const MULTI_MESH: bool = true;
-const POS0: [f32; 3] = [0.0, 0.0, 0.0];
+const GPU_POS_NULL: [f32; 3] = [0.0, 0.0, 0.0];
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
 #[derive(Component)]
 struct Controled;
 
-error_chain! {
-    foreign_links {
-        Io(std::io::Error);
-        HttpRequest(reqwest::Error);
-    }
+// error_chain! {
+//     foreign_links {
+//         Io(std::io::Error);
+//         HttpRequest(reqwest::Error);
+//     }
+// }
+
+fn parse_colour(colour: String) -> [f32; 4] {
+    let colour_scc: csscolorparser::Color = parse(colour.as_str()).unwrap();
+    // Bevy pbr color needs f32, The parse has no .to_f32_array???
+    // https://docs.rs/csscolorparser/latest/csscolorparser/
+    let colour_f32 = [
+        colour_scc.r as f32,
+        colour_scc.g as f32,
+        colour_scc.b as f32,
+        colour_scc.a as f32,
+    ];
+    colour_f32
 }
 
 // JOSN /////////////////////////////////
 
+static NODE: &'static str = "node";
+static WAY: &'static str = "way";
+static _REL: &'static str = "rel";
+
+static YES: &'static str = "yes";
+static NO: &'static str = "no";
+
+static DEFAULT_WALL_COLOR: &'static str = "grey";
+static DEFAULT_ROOF_COLOR: &'static str = "red";
+
+static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
+
 #[derive(Deserialize, Debug)]
 struct JosnElement {
     #[serde(rename = "type")]
+    // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
     element_type: String,
     id: u64,
     lat: Option<f64>,
@@ -43,12 +73,18 @@ struct JosnElement {
     tags: Option<JosnTags>, // todo: use a map
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, Default)]
+struct OsmTag {
+    _name: String,
+    _value: String,
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
 struct JosnTags {
     // name: Option<String>,
     // building: Option<String>,
     #[serde(rename = "building:part")]
-    building_part: Option<String>,
+    building_part: Option<String>, // ??? &'static str>,
     #[serde(rename = "roof:shape")]
     roof_shape: Option<String>,
     #[serde(rename = "roof:colour")]
@@ -74,9 +110,16 @@ struct GeoPos {
 }
 
 #[derive(Clone, Copy, Debug)]
+// todo: Nor?EastPos
 struct XzPos {
     pub x: f32,
     pub z: f32,
+}
+
+impl fmt::Display for XzPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {})", self.x, self.z)
+    }
 }
 
 #[derive(Resource)]
@@ -99,28 +142,28 @@ fn geopos_of_way(way_id: u64) -> GeoPos {
     );
 
     // Get OSM data from API and convert Json to Rust types. See https://serde.rs
-    let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    let json_way: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
     let mut lat: f64 = 0.0;
     let mut lon: f64 = 0.0;
-    let mut nodes: f64 = 0.;
+    let mut nodes_divider: f64 = 0.;
 
-    // add the coordinates of oll nodes
-    for element in json.elements {
-        if element.element_type == "node".to_string() {
-            if nodes > 0. {
+    // add the coordinates of all nodes
+    for element in json_way.elements {
+        if element.element_type == NODE {
+            if nodes_divider > 0. {
                 lat += element.lat.unwrap();
                 lon += element.lon.unwrap();
+                nodes_divider += 1.0;
             }
-            nodes += 1.0;
         }
     }
     // calculate and return everedge
-    nodes -= 1.0;
-    lat /= nodes;
-    lon /= nodes;
-    println!("geopos_of_way: lat = {:?} lon = {:?}", lat, lon);
-    GeoPos { lat, lon }
+    lat /= nodes_divider;
+    lon /= nodes_divider;
+    let result = GeoPos { lat, lon };
+    println!("geopos_of_way: {:?}", result);
+    result
 }
 
 fn scan_json(
@@ -135,60 +178,55 @@ fn scan_json(
     let right = geo_pos_at_gpu0.lon + range;
     let top = geo_pos_at_gpu0.lat + range;
     let bottom = geo_pos_at_gpu0.lat - range;
-    let test = to_position(&geo_pos_at_gpu0, left, top);
+    let left_top = to_position(&geo_pos_at_gpu0, left, top);
     // GET                                          /api/0.6/map?bbox=left,bottom,right,top
     let url = format!(
         "https://api.openstreetmap.org/api/0.6/map.json?bbox={},{},{},{}",
         left, bottom, right, top
     );
-    println!("range: x={} z={} url={}", test.x, test.z, url);
+    println!("range: left_top={} url={}", left_top, url);
     // range: x=4209900.5 z=-4290712 url=
     // https://api.openstreetmap.org/api/0.6/map.json?bbox=11.135635953165316,49.75577293983198,11.135905980168015,49.75604296683468
     // https://api.openstreetmap.org/api/0.6/map.json?bbox=76.36808519471933,64.41713173392363,76.75875957883649,64.50167155517451
 
     //t url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
-    let json: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    let json_map: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
-    //let nodes = Map(id:u64, node:OsmNode);
+    //let nodes_divider = Map(id:u64, node:OsmNode);
     let mut nodes_map = HashMap::new();
 
     let mut cmesh = CMesh::new();
 
-    for element in json.elements {
-        if element.element_type == "node".to_string() {
+    for element in json_map.elements {
+        if element.element_type == NODE {
             let osm_node = OsmNode {
                 pos: to_position(&geo_pos_at_gpu0, element.lat.unwrap(), element.lon.unwrap()),
             };
             nodes_map.insert(element.id, osm_node);
             // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
         }
-        if element.element_type == "way".to_string() {
-            let tags = element.tags.unwrap();
-            let building_part = tags.building_part.unwrap_or("-/-".to_string());
+
+        // todo: string!("way") {
+        if element.element_type == WAY {
+            println!("element = {:?}", element);
+            let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
+            let building_part = tags.building_part.unwrap_or(NO.to_string());
             // let name = tags.name.unwrap_or("-/-".to_string());
             // println!(" Way: building = {:?}  name = {:?}" name,);
-            if building_part != "yes" {
+            if building_part != YES {
                 continue;
             };
 
             // Colors and Materials
-            let colour = tags.colour.unwrap_or("grey^".to_string());
-            let colour = parse(colour.as_str()).unwrap();
-            let colour = [colour.r as f32, colour.g as f32, colour.b as f32, 1.0];
-
-            let roof_colour = tags.roof_colour.unwrap_or("red".to_string());
-            let roof_colour = parse(roof_colour.as_str()).unwrap();
-            let roof_colour = [
-                roof_colour.r as f32,
-                roof_colour.g as f32,
-                roof_colour.b as f32,
-                1.0,
-            ];
+            let colour: [f32; 4] =
+                parse_colour(tags.colour.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
+            let roof_colour =
+                parse_colour(tags.roof_colour.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
             println!("colors: {:?} {:?}", colour, roof_colour);
 
             // Height
             let mut min_height = 0.0;
-            let mut part_height = 10.0;
+            let mut part_height = DEFAULT_BUILDING_HEIGHT;
             let mut roof_height = 0.0;
             if let Some(height) = tags.min_height {
                 min_height = height.parse().unwrap();
@@ -203,15 +241,15 @@ fn scan_json(
 
             // Get building walls from nodes
             let nodes = element.nodes.unwrap();
-            let mut last_pos_down = POS0;
-            let mut last_pos_up = POS0;
+            let mut last_pos_down = GPU_POS_NULL;
+            let mut last_pos_up = GPU_POS_NULL;
 
             // roof
             let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
             let mut roof_polygon: Vec<Point> = vec![];
             let mut roof_positions: Vec<Position> = vec![];
-            let mut x = 0.0;
-            let mut z = 0.0;
+            let mut sum_x = 0.0;
+            let mut sum_z = 0.0;
 
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index, node_id) in nodes.iter().rev().enumerate() {
@@ -233,21 +271,21 @@ fn scan_json(
                     // The polygon node list is "closed": Last is connected to first
                     roof_polygon.push(roof_point);
                     roof_positions.push(this_pos_up);
-                    x += node.pos.x;
-                    z += node.pos.z;
+                    sum_x += node.pos.x;
+                    sum_z += node.pos.z;
                 }
                 last_pos_down = this_pos_down;
                 last_pos_up = this_pos_up;
             }
             // center of way
             let count = (nodes.len() - 1) as f32;
-            x /= count;
-            z /= count;
+            sum_x /= count;
+            sum_z /= count;
 
             if roof_shape == "pyramidal".to_string() {
                 cmesh.push_pyramid(
                     roof_positions,
-                    [x, part_height + roof_height, z],
+                    [sum_x, part_height + roof_height, sum_z],
                     roof_colour,
                 );
             } else if roof_shape == "onion".to_string() {
@@ -255,7 +293,7 @@ fn scan_json(
                     part_height,
                     roof_height,
                     roof_polygon,
-                    Point { x, y: z },
+                    Point { x: sum_x, y: sum_z },
                     roof_colour,
                 );
             } else if roof_shape == "hipped".to_string() {
@@ -283,7 +321,8 @@ fn scan_json(
 
 // https://github.com/DerKarlos/obi/tree/master/src
 
-fn main() -> Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
+    //fn main() -> Result<()> {
     println!("Hi, I'm OBI, the OSM Buiding Inspector");
 
     // BEVY-App
