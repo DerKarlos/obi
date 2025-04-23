@@ -19,13 +19,9 @@ use bevy::render::{
 use csscolorparser::parse;
 use triangulation::{Delaunay, Point};
 
+// Constants / Parameters
 const MULTI_MESH: bool = true;
 const GPU_POS_NULL: [f32; 3] = [0.0, 0.0, 0.0];
-
-// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
-#[derive(Component)]
-struct Controled;
 
 // error_chain! {
 //     foreign_links {
@@ -34,20 +30,8 @@ struct Controled;
 //     }
 // }
 
-fn parse_colour(colour: String) -> [f32; 4] {
-    let colour_scc: csscolorparser::Color = parse(colour.as_str()).unwrap();
-    // Bevy pbr color needs f32, The parse has no .to_f32_array???
-    // https://docs.rs/csscolorparser/latest/csscolorparser/
-    let colour_f32 = [
-        colour_scc.r as f32,
-        colour_scc.g as f32,
-        colour_scc.b as f32,
-        colour_scc.a as f32,
-    ];
-    colour_f32
-}
-
-// JOSN /////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// JOSN ///////////////////////////////////////////////////////////////////////////////////////////
 
 static NODE: &'static str = "node";
 static WAY: &'static str = "way";
@@ -61,22 +45,18 @@ static DEFAULT_ROOF_COLOR: &'static str = "red";
 
 static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
 
+static API_URL: &'static str = "https://api.openstreetmap.org/api/0.6/";
+
+// todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
 #[derive(Deserialize, Debug)]
 struct JosnElement {
     #[serde(rename = "type")]
-    // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
     element_type: String,
     id: u64,
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
     tags: Option<JosnTags>, // todo: use a map
-}
-
-#[derive(Deserialize, Debug, Clone, Default)]
-struct OsmTag {
-    _name: String,
-    _value: String,
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -101,90 +81,101 @@ struct JsonData {
     elements: Vec<JosnElement>,
 }
 
-// OSM ///////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// OSM ////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone, Copy, Debug)]
-struct GeoPos {
-    pub lat: f64,
-    pub lon: f64,
+struct GeographicCoordinates {
+    pub latitude: f64,
+    pub longitude: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
 // todo: Nor?EastPos
-struct XzPos {
-    pub x: f32,
-    pub z: f32,
+struct GroundPosition {
+    pub east: f32,
+    pub north: f32,
 }
 
-impl fmt::Display for XzPos {
+impl fmt::Display for GroundPosition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}, {})", self.x, self.z)
+        write!(f, "({}, {})", self.east, self.north)
     }
 }
 
 #[derive(Resource)]
-struct GeoPosAtGPU0 {
-    pub _pos: GeoPos,
+struct CoordinatesAtGroundPositionNull {
+    pub _pos: GeographicCoordinates,
 }
 
 struct OsmNode {
-    pub pos: XzPos,
+    pub position: GroundPosition,
 }
 
-fn geopos_of_way(way_id: u64) -> GeoPos {
+fn parse_colour(colour: String) -> [f32; 4] {
+    let colour_scc: csscolorparser::Color = parse(colour.as_str()).unwrap();
+    // Bevy pbr color needs f32, The parse has no .to_f32_array???
+    // https://docs.rs/csscolorparser/latest/csscolorparser/
+    [
+        colour_scc.r as f32,
+        colour_scc.g as f32,
+        colour_scc.b as f32,
+        colour_scc.a as f32,
+    ]
+}
+
+fn coordinates_of_way(way_id: u64) -> GeographicCoordinates {
     // DONT USE:   https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 
-    let url = format!(
-        "https://api.openstreetmap.org/api/0.6/way/{}/full.json",
-        way_id
-    );
+    let url = format!("{}way/{}/full.json", API_URL, way_id);
 
     // Get OSM data from API and convert Json to Rust types. See https://serde.rs
     let json_way: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
 
-    let mut lat: f64 = 0.0;
-    let mut lon: f64 = 0.0;
-    let mut nodes_divider: f64 = 0.;
+    let mut latitude: f64 = 0.0;
+    let mut longitude: f64 = 0.0;
+    let mut nodes_divider: f64 = -1.;
 
     // add the coordinates of all nodes
     for element in json_way.elements {
         if element.element_type == NODE {
-            if nodes_divider > 0. {
-                lat += element.lat.unwrap();
-                lon += element.lon.unwrap();
-                nodes_divider += 1.0;
+            if nodes_divider >= 0. {
+                latitude += element.lat.unwrap();
+                longitude += element.lon.unwrap();
             }
+            nodes_divider += 1.0;
         }
     }
     // calculate and return everedge
-    lat /= nodes_divider;
-    lon /= nodes_divider;
-    let result = GeoPos { lat, lon };
-    println!("geopos_of_way: {:?}", result);
-    result
+    latitude /= nodes_divider;
+    longitude /= nodes_divider;
+    GeographicCoordinates {
+        latitude,
+        longitude,
+    }
 }
 
 fn scan_json(
     commands: &mut Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    geo_pos_at_gpu0: GeoPos,
+    coordinates_at_ground_position_null: GeographicCoordinates,
 ) {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     let range = 15.0 / LAT_FAKT; // First test with 15 meter
-    let left = geo_pos_at_gpu0.lon - range;
-    let right = geo_pos_at_gpu0.lon + range;
-    let top = geo_pos_at_gpu0.lat + range;
-    let bottom = geo_pos_at_gpu0.lat - range;
-    let left_top = to_position(&geo_pos_at_gpu0, left, top);
-    // GET                                          /api/0.6/map?bbox=left,bottom,right,top
+    let left = coordinates_at_ground_position_null.longitude - range;
+    let right = coordinates_at_ground_position_null.longitude + range;
+    let top = coordinates_at_ground_position_null.latitude + range;
+    let bottom = coordinates_at_ground_position_null.latitude - range;
+    // let left_top = to_position(&CoordinatesAtGroundPositionNull, left, top);
+    // println!("range: left_top={} url={}", left_top, url);
+    // GET   /api/0.6/map?bbox=left,bottom,right,top
     let url = format!(
-        "https://api.openstreetmap.org/api/0.6/map.json?bbox={},{},{},{}",
-        left, bottom, right, top
+        "{}map.json?bbox={},{},{},{}",
+        API_URL, left, bottom, right, top
     );
-    println!("range: left_top={} url={}", left_top, url);
     // range: x=4209900.5 z=-4290712 url=
     // https://api.openstreetmap.org/api/0.6/map.json?bbox=11.135635953165316,49.75577293983198,11.135905980168015,49.75604296683468
     // https://api.openstreetmap.org/api/0.6/map.json?bbox=76.36808519471933,64.41713173392363,76.75875957883649,64.50167155517451
@@ -200,7 +191,11 @@ fn scan_json(
     for element in json_map.elements {
         if element.element_type == NODE {
             let osm_node = OsmNode {
-                pos: to_position(&geo_pos_at_gpu0, element.lat.unwrap(), element.lon.unwrap()),
+                position: to_position(
+                    &coordinates_at_ground_position_null,
+                    element.lat.unwrap(),
+                    element.lon.unwrap(),
+                ),
             };
             nodes_map.insert(element.id, osm_node);
             // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
@@ -208,7 +203,7 @@ fn scan_json(
 
         // todo: string!("way") {
         if element.element_type == WAY {
-            println!("element = {:?}", element);
+            // println!("element = {:?}", element);
             let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
             let building_part = tags.building_part.unwrap_or(NO.to_string());
             // let name = tags.name.unwrap_or("-/-".to_string());
@@ -222,7 +217,7 @@ fn scan_json(
                 parse_colour(tags.colour.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
             let roof_colour =
                 parse_colour(tags.roof_colour.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
-            println!("colors: {:?} {:?}", colour, roof_colour);
+            // println!("colors: {:?} {:?}", colour, roof_colour);
 
             // Height
             let mut min_height = 0.0;
@@ -248,16 +243,16 @@ fn scan_json(
             let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
             let mut roof_polygon: Vec<Point> = vec![];
             let mut roof_positions: Vec<Position> = vec![];
-            let mut sum_x = 0.0;
-            let mut sum_z = 0.0;
+            let mut sum_east = 0.0;
+            let mut sum_north = 0.0;
 
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index, node_id) in nodes.iter().rev().enumerate() {
                 let node = nodes_map.get(&node_id).unwrap();
 
-                let this_pos_down = [node.pos.x, min_height, node.pos.z];
-                let this_pos_up = [node.pos.x, part_height, node.pos.z];
-                let roof_point = Point::new(node.pos.x, node.pos.z);
+                let this_pos_down = [node.position.east, min_height, node.position.north];
+                let this_pos_up = [node.position.east, part_height, node.position.north];
+                let roof_point = Point::new(node.position.east, node.position.north);
 
                 if index > 0 {
                     // skip first node = last
@@ -271,21 +266,22 @@ fn scan_json(
                     // The polygon node list is "closed": Last is connected to first
                     roof_polygon.push(roof_point);
                     roof_positions.push(this_pos_up);
-                    sum_x += node.pos.x;
-                    sum_z += node.pos.z;
+                    sum_east += node.position.east;
+                    sum_north += node.position.north;
                 }
                 last_pos_down = this_pos_down;
                 last_pos_up = this_pos_up;
             }
             // center of way
-            let count = (nodes.len() - 1) as f32;
-            sum_x /= count;
-            sum_z /= count;
+            const LAST_AS_IT_IS_EQUAL_TO_FIRST: usize = 1;
+            let count = (nodes.len() - LAST_AS_IT_IS_EQUAL_TO_FIRST) as f32;
+            sum_east /= count;
+            sum_north /= count;
 
             if roof_shape == "pyramidal".to_string() {
                 cmesh.push_pyramid(
                     roof_positions,
-                    [sum_x, part_height + roof_height, sum_z],
+                    [sum_east, part_height + roof_height, sum_north],
                     roof_colour,
                 );
             } else if roof_shape == "onion".to_string() {
@@ -293,7 +289,10 @@ fn scan_json(
                     part_height,
                     roof_height,
                     roof_polygon,
-                    Point { x: sum_x, y: sum_z },
+                    Point {
+                        x: sum_east,
+                        y: sum_north,
+                    },
                     roof_colour,
                 );
             } else if roof_shape == "hipped".to_string() {
@@ -317,27 +316,13 @@ fn scan_json(
     }
 }
 
-// MAIN ///////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// BEVY ///////////////////////////////////////////////////////////////////////////////////////////
 
-// https://github.com/DerKarlos/obi/tree/master/src
-
-fn main() -> Result<(), Box<dyn Error>> {
-    //fn main() -> Result<()> {
-    println!("Hi, I'm OBI, the OSM Buiding Inspector");
-
-    // BEVY-App
-    App::new()
-        .add_plugins(DefaultPlugins)
-        // set the global default clear colour
-        .insert_resource(ClearColor(Color::srgb(0.0, 0.5, 0.0)))
-        .add_systems(Startup, setup)
-        .add_systems(Update, input_handler)
-        .run();
-
-    Ok(())
-}
-
-// BEVY ////////////////////
+// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
+// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
+#[derive(Component)]
+struct Controled;
 
 fn setup(
     mut commands: Commands,
@@ -348,22 +333,30 @@ fn setup(
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let reifenberg_id = 121486088;
 
-    // get geo-position at the 0 position of the GPU
-    let geo_pos_at_gpu0 = if false {
+    let coordinates_at_ground_position_null = if false {
         // Todo: remove test
-        geopos_of_way(reifenberg_id)
+        coordinates_of_way(reifenberg_id)
     } else {
-        GeoPos {
-            lat: 49.755907953,
-            lon: 11.135770967,
+        GeographicCoordinates {
+            latitude: 49.755907953,
+            longitude: 11.135770967,
         }
     };
-    commands.insert_resource(GeoPosAtGPU0 {
-        _pos: geo_pos_at_gpu0.clone(),
+    println!(
+        "coordinates_of_way: {:?}",
+        coordinates_at_ground_position_null
+    );
+    commands.insert_resource(CoordinatesAtGroundPositionNull {
+        _pos: coordinates_at_ground_position_null.clone(),
     });
 
     // Dodo: get building ... other way
-    scan_json(&mut commands, meshes, materials, geo_pos_at_gpu0);
+    scan_json(
+        &mut commands,
+        meshes,
+        materials,
+        coordinates_at_ground_position_null,
+    );
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
@@ -405,12 +398,21 @@ fn input_handler(
         }
     }
     if keyboard_input.pressed(KeyCode::KeyY) {
+        // German: Z
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
             //println!("Key y");
         }
     }
+    if keyboard_input.pressed(KeyCode::KeyU) {
+        // German: Z
+        for mut transform in &mut query {
+            transform.rotate_y(-time.delta_seconds() / 1.2);
+            //println!("Key y");
+        }
+    }
     if keyboard_input.pressed(KeyCode::KeyZ) {
+        // German: Y
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
@@ -428,21 +430,18 @@ type ColorAlpha = [f32; 4];
 type Position = [f32; 3];
 //type XzVec = [f32;2];
 
-/** Factor to calculate meters from gps geo.decimals (latitude, Nort/South position) */
+/** Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
 static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 static PI: f32 = std::f32::consts::PI;
 
-fn to_position(geo_pos: &GeoPos, lat: f64, lon: f64) -> XzPos {
+fn to_position(coordiantes: &GeographicCoordinates, lat: f64, lon: f64) -> GroundPosition {
     // the closer to the pole, the smaller the tiles size in meters get
     let lon_fakt = LAT_FAKT * ((lat / 180. * PI as f64).abs()).cos(); // Longitude(Längengrad) West/East factor
-                                                                      // actual geo pos - other geo pos = relative geo/meter scene pos
-    let x = (lon - geo_pos.lon) * lon_fakt;
-    let z = (lat - geo_pos.lat) * LAT_FAKT;
+                                                                      // actual coor - other coor = relative grad/meter ground position
+    let east = ((lon - coordiantes.longitude) * lon_fakt) as f32;
+    let north = ((lat - coordiantes.latitude) * LAT_FAKT) as f32;
     /*return*/
-    XzPos {
-        x: x as f32,
-        z: z as f32,
-    }
+    GroundPosition { east, north }
 }
 
 // "CLASS" Custom Mesh /////////////////////////////////////////
@@ -641,4 +640,25 @@ impl CMesh {
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.position_vertices.clone())
         .with_inserted_indices(Indices::U32(self.indices.clone()))
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// MAIN ///////////////////////////////////////////////////////////////////////////////////////////
+
+// https://github.com/DerKarlos/obi/tree/master/src
+
+fn main() -> Result<(), Box<dyn Error>> {
+    //fn main() -> Result<()> {
+    println!("*********  Hi, I'm OBI, the OSM Buiding Inspector  *********");
+
+    // BEVY-App
+    App::new()
+        .add_plugins(DefaultPlugins)
+        // set the global default clear colour
+        .insert_resource(ClearColor(Color::srgb(0.0, 0.5, 0.0)))
+        .add_systems(Startup, setup)
+        .add_systems(Update, input_handler)
+        .run();
+
+    Ok(())
 }
