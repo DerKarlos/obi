@@ -1,26 +1,19 @@
 // OBI main
 
-// use error_chain::error_chain;
+use std::collections::HashMap;
 use std::error::Error;
+use std::fmt;
+// use error_chain::error_chain;
 
 use reqwest;
 use serde::Deserialize;
-use std::collections::HashMap;
-use std::fmt;
-
-use bevy::prelude::*;
-use bevy::render::{
-    mesh::Indices, //VertexAttributeValues},
-    render_asset::RenderAssetUsages,
-    render_resource::PrimitiveTopology,
-};
 
 //e triangulate::{self, formats, Polygon};
 use csscolorparser::parse;
 use triangulation::{Delaunay, Point};
 
 // Constants / Parameters
-const MULTI_MESH: bool = true;
+const MULTI_MESH: bool = false;
 const GPU_POS_NULL: [f32; 3] = [0.0, 0.0, 0.0];
 
 // error_chain! {
@@ -158,11 +151,11 @@ fn coordinates_of_way(way_id: u64) -> GeographicCoordinates {
 }
 
 fn scan_json(
-    commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    // commands: &mut Commands,
+    // mut meshes: ResMut<Assets<Mesh>>,
+    // mut materials: ResMut<Assets<StandardMaterial>>,
     coordinates_at_ground_position_null: GeographicCoordinates,
-) {
+) -> Vec<OsmMesh> {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     let range = 15.0 / LAT_FAKT; // First test with 15 meter
     let left = coordinates_at_ground_position_null.longitude - range;
@@ -185,8 +178,9 @@ fn scan_json(
 
     //let nodes_divider = Map(id:u64, node:OsmNode);
     let mut nodes_map = HashMap::new();
+    let mut osm_meshes = Vec::new();
 
-    let mut cmesh = CMesh::new();
+    let mut osm_mesh = OsmMesh::new();
 
     for element in json_map.elements {
         if element.element_type == NODE {
@@ -257,7 +251,7 @@ fn scan_json(
 
                 if index > 0 {
                     // skip first node = last
-                    cmesh.push_square(
+                    osm_mesh.push_square(
                         last_pos_down,
                         this_pos_down,
                         last_pos_up,
@@ -279,14 +273,15 @@ fn scan_json(
             sum_east /= count;
             sum_north /= count;
 
-            if roof_shape == "pyramidal".to_string() {
-                cmesh.push_pyramid(
+            match roof_shape.as_str() {
+                //
+                "pyramidal" => osm_mesh.push_pyramid(
                     roof_positions,
                     [sum_east, part_height + roof_height, sum_north],
                     roof_colour,
-                );
-            } else if roof_shape == "onion".to_string() {
-                cmesh.push_onion(
+                ),
+
+                "onion" => osm_mesh.push_onion(
                     part_height,
                     roof_height,
                     roof_polygon,
@@ -295,188 +290,41 @@ fn scan_json(
                         y: sum_north,
                     },
                     roof_colour,
-                );
-            } else if roof_shape == "hipped".to_string() {
-                cmesh.push_flat(roof_positions, roof_polygon, roof_colour);
-            } else if roof_shape == "gabled".to_string() {
-                cmesh.push_flat(roof_positions, roof_polygon, roof_colour);
-            } else if roof_shape == "flat".to_string() {
-                cmesh.push_flat(roof_positions, roof_polygon, roof_colour);
+                ),
+
+                _ => osm_mesh.push_flat(roof_positions, roof_polygon, roof_colour),
             }
 
             if MULTI_MESH {
                 //println!("MULTI_MESH");
-                cmesh.spawn(commands, &mut meshes, &mut materials);
-                cmesh = CMesh::new();
+                osm_meshes.push(osm_mesh);
+                osm_mesh = OsmMesh::new();
             }
         }
     }
 
     if !MULTI_MESH {
-        cmesh.spawn(commands, &mut meshes, &mut materials)
+        osm_meshes.push(osm_mesh);
     }
-}
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// BEVY ///////////////////////////////////////////////////////////////////////////////////////////
-
-// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
-#[derive(Component)]
-struct Controled;
-
-fn setup(
-    mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
-) {
-    // Testing with this moderate complex building
-    // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
-    let reifenberg_id = 121486088;
-
-    let coordinates_at_ground_position_null = if false {
-        // Todo: remove test
-        coordinates_of_way(reifenberg_id)
-    } else {
-        GeographicCoordinates {
-            latitude: 49.755907953,
-            longitude: 11.135770967,
-        }
-    };
-    println!(
-        "coordinates_of_way: {:?}",
-        coordinates_at_ground_position_null
-    );
-    commands.insert_resource(CoordinatesAtGroundPositionNull {
-        _pos: coordinates_at_ground_position_null.clone(),
-    });
-
-    // Dodo: get building ... other way
-    scan_json(
-        &mut commands,
-        meshes,
-        materials,
-        coordinates_at_ground_position_null,
-    );
-
-    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
-    let camera_and_light_transform =
-        Transform::from_xyz(30., 20., 30.).looking_at(Vec3::new(0., 10., 0.), Vec3::Y);
-
-    // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
-
-    // Light up the scene.
-    //commands.spawn(PointLightBundle {
-    //    transform: camera_and_light_transform,
-    //    ..default()
-    //});
-
-    // Light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform::from_xyz(400., 500., 400.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
-}
-
-// System to receive input from the user,
-// check out examples/input/ for more examples about user input.
-fn input_handler(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Controled>>,
-    time: Res<Time>,
-) {
-    if keyboard_input.pressed(KeyCode::KeyX) {
-        for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyY) {
-        // German: Z
-        for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
-            //println!("Key y");
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyU) {
-        // German: Z
-        for mut transform in &mut query {
-            transform.rotate_y(-time.delta_seconds() / 1.2);
-            //println!("Key y");
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyZ) {
-        // German: Y
-        for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyR) {
-        for mut transform in &mut query {
-            transform.look_to(Vec3::NEG_Z, Vec3::Y);
-        }
-    }
-}
-
-// ??? //////////////////////
-
-type ColorAlpha = [f32; 4];
-type Position = [f32; 3];
-//type XzVec = [f32;2];
-
-/** Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
-static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
-static PI: f32 = std::f32::consts::PI;
-
-fn to_position(coordiantes: &GeographicCoordinates, lat: f64, lon: f64) -> GroundPosition {
-    // the closer to the pole, the smaller the tiles size in meters get
-    let lon_fakt = LAT_FAKT * ((lat / 180. * PI as f64).abs()).cos(); // Longitude(Längengrad) West/East factor
-                                                                      // actual coor - other coor = relative grad/meter ground position
-    let east = ((lon - coordiantes.longitude) * lon_fakt) as f32;
-    let north = ((lat - coordiantes.latitude) * LAT_FAKT) as f32;
-    /*return*/
-    GroundPosition { east, north }
+    osm_meshes
 }
 
 // "CLASS" Custom Mesh /////////////////////////////////////////
 
-struct CMesh {
+pub struct OsmMesh {
     colors: Vec<ColorAlpha>,          // format: Float32x4
     position_vertices: Vec<Position>, // 3 coordinates * x Positions. The corners are NOT reused to get hard Kanten
     indices: Vec<u32>,
 }
 
-impl CMesh {
+impl OsmMesh {
     pub fn new() -> Self {
         Self {
             colors: vec![],
             position_vertices: vec![],
             indices: vec![],
         }
-    }
-
-    pub fn spawn(
-        &mut self,
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        materials: &mut ResMut<Assets<StandardMaterial>>,
-    ) {
-        let mesh_handle = meshes.add(self.get_mesh());
-        commands.spawn((
-            PbrBundle {
-                mesh: mesh_handle,
-                material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
-                ..default()
-            },
-            Controled,
-        ));
     }
 
     pub fn push_onion(
@@ -610,10 +458,10 @@ impl CMesh {
         self.colors.push(colour);
         self.colors.push(colour);
         // Push the for positions
-        self.position_vertices.push(down_left); // +0     2---3
+        self.position_vertices.push(down_left); //  +0     2---3
         self.position_vertices.push(down_right); // +1     |   |
-        self.position_vertices.push(up_left); // +2     0---1
-        self.position_vertices.push(up_right); // +3
+        self.position_vertices.push(up_left); //    +2     0---1
+        self.position_vertices.push(up_right); //   +3
                                                // First treeangle
         self.indices.push((index + 0) as u32); //     2
         self.indices.push((index + 1) as u32); //     | \
@@ -623,16 +471,165 @@ impl CMesh {
         self.indices.push((index + 3) as u32); //       \ |
         self.indices.push((index + 2) as u32); //         1
     }
+}
 
-    pub fn get_mesh(&self) -> Mesh {
-        Mesh::new(
-            PrimitiveTopology::TriangleList,
-            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-        )
-        .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, self.colors.clone())
-        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.position_vertices.clone())
-        .with_inserted_indices(Indices::U32(self.indices.clone()))
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// BEVY ///////////////////////////////////////////////////////////////////////////////////////////
+
+use bevy::prelude::*;
+use bevy::render::{
+    mesh::Indices, //VertexAttributeValues},
+    render_asset::RenderAssetUsages,
+    render_resource::PrimitiveTopology,
+};
+
+// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
+// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
+#[derive(Component)]
+struct Controled;
+
+pub fn spawn_osm_mesh(
+    osm_mesh: OsmMesh,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+) {
+    let mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.colors.clone())
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, osm_mesh.position_vertices.clone())
+    .with_inserted_indices(Indices::U32(osm_mesh.indices.clone()));
+
+    let mesh_handle = meshes.add(mesh);
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh_handle,
+            material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
+            ..default()
+        },
+        Controled,
+    ));
+}
+
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // Testing with this moderate complex building
+    // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
+    let reifenberg_id = 121486088;
+
+    let coordinates_at_ground_position_null = if false {
+        // Todo: remove test
+        coordinates_of_way(reifenberg_id)
+    } else {
+        GeographicCoordinates {
+            latitude: 49.755907953,
+            longitude: 11.135770967,
+        }
+    };
+    println!(
+        "coordinates_of_way: {:?}",
+        coordinates_at_ground_position_null
+    );
+    commands.insert_resource(CoordinatesAtGroundPositionNull {
+        _pos: coordinates_at_ground_position_null.clone(),
+    });
+
+    // Dodo: get building ... other way
+    let osm_meshes = scan_json(coordinates_at_ground_position_null);
+
+    for mesh in osm_meshes {
+        spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
+
+    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
+    let camera_and_light_transform =
+        Transform::from_xyz(30., 20., 30.).looking_at(Vec3::new(0., 10., 0.), Vec3::Y);
+
+    // Camera in 3D space.
+    commands.spawn(Camera3dBundle {
+        transform: camera_and_light_transform,
+        ..default()
+    });
+
+    // Light up the scene.
+    //commands.spawn(PointLightBundle {
+    //    transform: camera_and_light_transform,
+    //    ..default()
+    //});
+
+    // Light
+    commands.spawn(PointLightBundle {
+        point_light: PointLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        transform: Transform::from_xyz(400., 500., 400.).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
+}
+
+// System to receive input from the user,
+// check out examples/input/ for more examples about user input.
+fn input_handler(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut query: Query<&mut Transform, With<Controled>>,
+    time: Res<Time>,
+) {
+    if keyboard_input.pressed(KeyCode::KeyX) {
+        for mut transform in &mut query {
+            transform.rotate_x(time.delta_seconds() / 1.2);
+        }
+    }
+    if keyboard_input.pressed(KeyCode::KeyY) {
+        // German: Z
+        for mut transform in &mut query {
+            transform.rotate_y(time.delta_seconds() / 1.2);
+            //println!("Key y");
+        }
+    }
+    if keyboard_input.pressed(KeyCode::KeyU) {
+        // German: Z
+        for mut transform in &mut query {
+            transform.rotate_y(-time.delta_seconds() / 1.2);
+            //println!("Key y");
+        }
+    }
+    if keyboard_input.pressed(KeyCode::KeyZ) {
+        // German: Y
+        for mut transform in &mut query {
+            transform.rotate_z(time.delta_seconds() / 1.2);
+        }
+    }
+    if keyboard_input.pressed(KeyCode::KeyR) {
+        for mut transform in &mut query {
+            transform.look_to(Vec3::NEG_Z, Vec3::Y);
+        }
+    }
+}
+
+// ??? //////////////////////
+
+type ColorAlpha = [f32; 4];
+type Position = [f32; 3];
+//type XzVec = [f32;2];
+
+/** Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
+static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
+static PI: f32 = std::f32::consts::PI;
+
+fn to_position(coordiantes: &GeographicCoordinates, lat: f64, lon: f64) -> GroundPosition {
+    // the closer to the pole, the smaller the tiles size in meters get
+    let lon_fakt = LAT_FAKT * ((lat / 180. * PI as f64).abs()).cos(); // Longitude(Längengrad) West/East factor
+                                                                      // actual coor - other coor = relative grad/meter ground position
+    let east = ((lon - coordiantes.longitude) * lon_fakt) as f32;
+    let north = ((lat - coordiantes.latitude) * LAT_FAKT) as f32;
+    /*return*/
+    GroundPosition { east, north }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
