@@ -245,6 +245,7 @@ fn scan_json(
             let mut roof_positions: Vec<Position> = vec![];
             let mut sum_east = 0.0;
             let mut sum_north = 0.0;
+            println!("roof_shape: {}", roof_shape);
 
             // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
             for (index, node_id) in nodes.iter().rev().enumerate() {
@@ -360,7 +361,7 @@ fn setup(
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
-        Transform::from_xyz(40., 40., 40.).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform::from_xyz(30., 20., 30.).looking_at(Vec3::new(0., 10., 0.), Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -487,32 +488,24 @@ impl CMesh {
         colour: [f32; 4],
     ) {
         let shape_curve = [
-            // -x-     |y|   from OSMgo, taken from picture pixle coordinates
-            [0.0606, 0.0054],
-            [0.1202, 0.0094],
-            [0.2248, 0.0510],
-            [0.3096, 0.0981],
-            [0.3807, 0.1571],
-            [0.4351, 0.2207],
-            [0.4759, 0.2992],
-            [0.4947, 0.3754],
-            [0.5000, 0.4454],
-            [0.4937, 0.5231],
-            [0.4769, 0.5875],
-            [0.4330, 0.6857],
-            [0.3817, 0.7604],
-            [0.3263, 0.8232],
-            [0.2709, 0.8727],
-            [0.2092, 0.9190],
-            [0.1527, 0.9544],
-            [0.0847, 0.9866],
-            [0.0428, 0.9976],
-            [0.0000, 1.0000],
+            // -x- |y|    The curve is about "taken" from F4map.com
+            [1.00, 0.00],
+            [1.12, 0.09],
+            [1.27, 0.15],
+            [1.36, 0.27],
+            [1.28, 0.42],
+            [1.10, 0.51],
+            [0.95, 0.53],
+            [0.62, 0.58],
+            [0.49, 0.61],
+            [0.21, 0.69],
+            [0.10, 0.79],
+            [0.00, 1.00],
         ];
 
         let columns = roof_polygon.len() as i32;
         let to_next_column = columns * 2;
-        let roof_rel = roof_height / 3.5; // relation of height and with of the standard "onion" shape
+        let _roof_rel = roof_height / 3.5; // relation of height and with of the standard "onion" shape
 
         for point in shape_curve {
             // process all rings
@@ -522,8 +515,8 @@ impl CMesh {
             //println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
 
             let column_point = roof_polygon.last().unwrap();
-            let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
-            let pos_z = (column_point.y - pike.y) * curve_radius * roof_rel + pike.y;
+            let pos_x = (column_point.x - pike.x) * curve_radius + pike.x;
+            let pos_z = (column_point.y - pike.y) * curve_radius + pike.y; // * roof_rel
             let mut last_pos = [pos_x, part_height + roof_height * curve_up, pos_z];
 
             for column_point in roof_polygon.iter() {
@@ -534,8 +527,8 @@ impl CMesh {
                 self.colors.push(colour);
 
                 // push vertices
-                let pos_x = (column_point.x - pike.x) * curve_radius * roof_rel + pike.x;
-                let pos_z = (column_point.y - pike.y) * curve_radius * roof_rel + pike.y;
+                let pos_x = (column_point.x - pike.x) * curve_radius + pike.x;
+                let pos_z = (column_point.y - pike.y) * curve_radius + pike.y;
                 let this_pos = [pos_x, part_height + roof_height * curve_up, pos_z];
                 //println!("pso x z {} {} {:?} {:?}",pos_x,pos_z,last_pos,this_pos);
                 let index = self.position_vertices.len() as i32;
