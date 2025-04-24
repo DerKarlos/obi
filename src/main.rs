@@ -25,11 +25,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Testing with this moderate complex building
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
-    let reifenberg_id = 121486088;
+    let _reifenberg_id = 121486088;
+    let _westminster_id = 367642719;
+    let id = _westminster_id;
+    let scale = 10.0;
+    let range = 15.0 * scale;
 
-    let ground_null_coordinates = if false {
+    let ground_null_coordinates = if true {
         // Todo: remove test
-        coordinates_of_way(reifenberg_id)
+        coordinates_of_way(id)
     } else {
         // Default for Reifenberg:
         GeographicCoordinates {
@@ -39,9 +43,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     //println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
 
-    let osm_meshes = scan_json(&ground_null_coordinates);
+    let osm_meshes = scan_json(&ground_null_coordinates, range);
 
-    bevy_init(osm_meshes);
+    bevy_init(osm_meshes, scale);
 
     Ok(())
 }

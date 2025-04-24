@@ -152,9 +152,9 @@ pub fn coordinates_of_way(way_id: u64) -> GeographicCoordinates {
     }
 }
 
-pub fn scan_json(ground_null_coordinates: &GeographicCoordinates) -> Vec<OsmMesh> {
+pub fn scan_json(ground_null_coordinates: &GeographicCoordinates, range: f64) -> Vec<OsmMesh> {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-    let range = 15.0 / LAT_FAKT; // First test with 15 meter
+    let range = range / LAT_FAKT; // First test with 15 meter
     let left = ground_null_coordinates.longitude - range;
     let right = ground_null_coordinates.longitude + range;
     let top = ground_null_coordinates.latitude + range;
@@ -195,6 +195,13 @@ pub fn scan_json(ground_null_coordinates: &GeographicCoordinates) -> Vec<OsmMesh
         // todo: string!("way") {
         if element.element_type == WAY {
             // println!("element = {:?}", element);
+            //let tags_option = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
+
+            if element.tags.is_none() {
+                println!("way without tags! ID {}", element.id);
+                continue;
+            }
+
             let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
             let building_part = tags.building_part.unwrap_or(NO.to_string());
             // let name = tags.name.unwrap_or("-/-".to_string());

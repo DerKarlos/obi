@@ -13,6 +13,7 @@ use bevy::render::{
 #[derive(Resource)]
 struct OsmMeshes {
     vec: Vec<OsmMesh>,
+    scale: f64,
 }
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
@@ -57,26 +58,34 @@ fn input_handler(
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyY) {
-        // German: Z
+    if keyboard_input.pressed(KeyCode::KeyS) {
+        for mut transform in &mut query {
+            transform.rotate_x(-time.delta_seconds() / 1.2);
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::KeyY /* Z in German */) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
-            //println!("Key y");
         }
     }
     if keyboard_input.pressed(KeyCode::KeyU) {
-        // German: Z
         for mut transform in &mut query {
             transform.rotate_y(-time.delta_seconds() / 1.2);
-            //println!("Key y");
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyZ) {
-        // German: Y
+
+    if keyboard_input.pressed(KeyCode::KeyZ /* Y in German */) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
     }
+    if keyboard_input.pressed(KeyCode::KeyA) {
+        for mut transform in &mut query {
+            transform.rotate_z(-time.delta_seconds() / 1.2);
+        }
+    }
+
     if keyboard_input.pressed(KeyCode::KeyR) {
         for mut transform in &mut query {
             transform.look_to(Vec3::NEG_Z, Vec3::Y);
@@ -91,8 +100,9 @@ fn setup(
     osm_meshes: Res<OsmMeshes>,
 ) {
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
-    let camera_and_light_transform =
-        Transform::from_xyz(30., 20., 30.).looking_at(Vec3::new(0., 10., 0.), Vec3::Y);
+    let s = osm_meshes.scale as f32;
+    let camera_and_light_transform = Transform::from_xyz(30. * s, 20. * s, 30. * s)
+        .looking_at(Vec3::new(0., s * 10., 0.), Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -100,10 +110,13 @@ fn setup(
         ..default()
     });
 
-    // Light
+    // Todo: https://bevyengine.org/examples/camera/camera-orbit/
+
+    // Light - ??? No reaction!
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
+            intensity: 1.,
             ..default()
         },
         transform: Transform::from_xyz(400., 500., 400.).looking_at(Vec3::ZERO, Vec3::Y),
@@ -115,13 +128,15 @@ fn setup(
     }
 }
 
-pub fn bevy_init(osm_meshes: Vec<OsmMesh>) {
+pub fn bevy_init(osm_meshes: Vec<OsmMesh>, scale: f64) {
     // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::srgb(0.0, 0.3, 0.0)))
-        //.insert_resource(OsmMeshes(osm_meshes))
-        .insert_resource(OsmMeshes { vec: osm_meshes })
+        .insert_resource(OsmMeshes {
+            vec: osm_meshes,
+            scale,
+        })
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
         .run();
