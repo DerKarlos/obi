@@ -2,10 +2,15 @@ use std::error::Error;
 // use error_chain::error_chain;
 
 mod bevy_ui;
-mod json_osm;
+mod input_api;
+mod input_json;
+mod render;
+
 use bevy_ui::bevy_init;
 
-use crate::json_osm::{coordinates_of_way, scan_json, GeographicCoordinates};
+use crate::input_api::GeographicCoordinates;
+use crate::input_json::{coordinates_of_way, scan_json};
+use crate::render::scan_osm;
 
 // error_chain! {
 //     foreign_links {
@@ -43,9 +48,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     //println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
 
-    let osm_meshes = scan_json(&ground_null_coordinates, range);
+    let buildings_or_parts = scan_json(&ground_null_coordinates, range);
+    let osm_meshes = scan_osm(buildings_or_parts);
 
     bevy_init(osm_meshes, scale);
 
     Ok(())
 }
+
+// Todo: cargo clippy / run per key B for Build
