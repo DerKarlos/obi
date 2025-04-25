@@ -1,7 +1,10 @@
 //e triangulate::{self, formats, Polygon};
 use triangulation::{Delaunay, Point};
 
-use crate::input_api::{BuildingOrPart, ColorAlpha};
+use crate::input_api::{BuildingOrPart, RenderColor, RoofShape};
+
+// Bevy pbr color needs f32, The parse has no .to_f32_array???}
+// https://docs.rs/csscolorparser/latest/csscolorparser/
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
@@ -13,24 +16,29 @@ type Position = [f32; 3];
 static MULTI_MESH: bool = false;
 static GPU_POS_NULL: [f32; 3] = [0.0, 0.0, 0.0];
 
+static DEFAULT_WALL_COLOR: [f32; 4] = [0.5, 0.5, 0.5, 1.0]; // "grey"
+static DEFAULT_ROOF_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0]; // "red"
+
+static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
+
 pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMesh> {
     let mut osm_meshes = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
 
     for building_or_part in buildings_or_parts {
-        let part_height = building_or_part.height.unwrap();
-        let min_height = building_or_part.min_height.unwrap();
+        let part_height = building_or_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
+        let min_height = building_or_part.min_height.unwrap_or(0.0);
         let roof = building_or_part.roof.unwrap();
-        let roof_height = roof.height.unwrap();
+        let roof_height = roof.height.unwrap_or(0.0);
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
         let mut last_pos_down = GPU_POS_NULL;
         let mut last_pos_up = GPU_POS_NULL;
         let mut sum_east = 0.;
         let mut sum_north = 0.;
-        let colour = building_or_part.color.unwrap();
-        let roof_colour = roof.color.unwrap();
+        let colour = building_or_part.color.unwrap_or(DEFAULT_WALL_COLOR);
+        let roof_colour = roof.color.unwrap_or(DEFAULT_ROOF_COLOR);
 
         let mut roof_polygon: Vec<Point> = Vec::new();
         let mut roof_positions: Vec<[f32; 3]> = Vec::new();
@@ -66,15 +74,15 @@ pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMesh> {
         sum_east /= count;
         sum_north /= count;
 
-        match roof.shape.unwrap().as_str() {
+        match roof.shape {
             //
-            "pyramidal" => osm_mesh.push_pyramid(
+            crate::input_api::RoofShape::Phyramidal => osm_mesh.push_pyramid(
                 roof_positions,
                 [sum_east, part_height + roof_height, sum_north],
                 roof_colour,
             ),
 
-            "onion" => osm_mesh.push_onion(
+            RoofShape::Onion => osm_mesh.push_onion(
                 part_height,
                 roof_height,
                 roof_polygon,
@@ -106,7 +114,7 @@ pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMesh> {
 
 pub struct OsmMesh {
     // todo: not pub but fn get
-    pub colors: Vec<ColorAlpha>,          // format: Float32x4
+    pub colors: Vec<RenderColor>,         // format: Float32x4
     pub position_vertices: Vec<Position>, // 3 coordinates * x Positions. The corners are NOT reused to get hard Kanten
     pub indices: Vec<u32>,
 }

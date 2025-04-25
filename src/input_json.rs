@@ -7,18 +7,15 @@ use serde::Deserialize;
 //use csscolorparser::parse;
 //use triangulation::{Delaunay, Point};
 
-use crate::input_api::{BuildingOrPart, GeographicCoordinates, GroundPosition, OsmNode, Roof};
+use crate::input_api::{
+    BuildingOrPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, Roof, RoofShape,
+};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // JOSN ///////////////////////////////////////////////////////////////////////////////////////////
 
 static YES: &str = "yes";
 static NO: &str = "no";
-
-static DEFAULT_WALL_COLOR: &str = "grey";
-static DEFAULT_ROOF_COLOR: &str = "red";
-
-static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
 
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
@@ -60,16 +57,43 @@ struct JsonData {
     elements: Vec<JosnElement>,
 }
 
-fn parse_colour(colour: String) -> [f32; 4] {
-    let colour_scc: csscolorparser::Color = parse(colour.as_str()).unwrap();
-    // Bevy pbr color needs f32, The parse has no .to_f32_array???}
-    // https://docs.rs/csscolorparser/latest/csscolorparser/
-    [
-        colour_scc.r as f32,
-        colour_scc.g as f32,
-        colour_scc.b as f32,
-        colour_scc.a as f32,
-    ]
+fn parse_height(height: Option<String>) -> Option<f32> {
+    //if
+    height.as_ref()?;
+    //    is_none() {
+    //    return None;
+    //};
+
+    match height.unwrap().as_str().parse() {
+        Ok(height) => Some(height),
+
+        Err(error) => {
+            println!("parse_height: {}", error);
+            None
+        }
+    }
+}
+
+fn parse_color(colour: Option<String>) -> Option<RenderColor> {
+    //if
+    colour.as_ref()?;
+    //    is_none() {
+    //    return None;
+    //};
+
+    match parse(colour.unwrap().as_str()) {
+        Ok(colour_scc) => Some([
+            colour_scc.r as f32,
+            colour_scc.g as f32,
+            colour_scc.b as f32,
+            colour_scc.a as f32,
+        ]),
+
+        Err(error) => {
+            println!("parse_colour: {}", error);
+            None
+        }
+    }
 }
 
 fn to_position(coordiantes: &GeographicCoordinates, lat: f64, lon: f64) -> GroundPosition {
@@ -153,48 +177,53 @@ fn way(
     };
 
     // Colors and Materials
-    let colour: [f32; 4] = parse_colour(tags.colour.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
-    let roof_colour = parse_colour(tags.roof_colour.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
+    let color = parse_color(tags.colour);
+    let roof_color = parse_color(tags.roof_colour);
     // println!("colors: {:?} {:?}", colour, roof_colour);
 
-    // Height
-    let mut min_height = 0.0;
-    let mut part_height = DEFAULT_BUILDING_HEIGHT;
-    let mut roof_height = 0.0;
-    if let Some(height) = tags.min_height {
-        min_height = height.parse().unwrap();
+    // Heights
+    let min_height = parse_height(tags.min_height);
+    let mut part_height = parse_height(tags.height);
+    let roof_height = parse_height(tags.roof_height);
+    if roof_height.is_some() {
+        part_height = Some(part_height.unwrap() - roof_height.unwrap());
     }
-    if let Some(height) = tags.height {
-        part_height = height.parse().unwrap();
-    }
-    if let Some(height) = tags.roof_height {
-        roof_height = height.parse().unwrap();
-        part_height -= roof_height;
-    }
-    let roof_shape = tags.roof_shape.unwrap_or("flat".to_string());
+    let roof_shape = tags.roof_shape;
+    let shape: RoofShape = match roof_shape {
+        None => RoofShape::None,
+        Some(shape) => match shape.as_str() {
+            "flat" => RoofShape::Flat,
+            "onion" => RoofShape::Onion,
+            "pyramidal" => RoofShape::Phyramidal,
+            _ => {
+                println!("roof_shape Unknown: {}", shape);
+                RoofShape::Unknown
+            }
+        },
+    };
 
     // Get building footprint from nodes
     let nodes = element.nodes.unwrap();
 
-    let mut positions: Vec<GroundPosition> = Vec::new();
+    let mut foodprint: Vec<GroundPosition> = Vec::new();
     for node_id in nodes.iter().rev() {
         let node = nodes_map.get(node_id).unwrap();
-        positions.push(node.position);
+        foodprint.push(node.position);
     }
 
-    println!("roof_shape: {}", roof_shape);
+    println!("roof_shape: {:?}", shape);
     let roof = Roof {
-        shape: Some(roof_shape),
-        height: Some(roof_height),
-        color: Some(roof_colour),
+        shape,
+        height: roof_height,
+        color: roof_color,
     };
     let building_or_part = BuildingOrPart {
         _part: true, // ??? not only parts!
-        height: Some(part_height),
-        min_height: Some(min_height),
+        height: part_height,
+        min_height,
         roof: Some(roof),
-        foodprint: positions,
-        color: Some(colour),
+        foodprint,
+        color,
     };
 
     buildings_or_parts.push(building_or_part);
