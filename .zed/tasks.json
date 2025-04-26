@@ -1,0 +1,14 @@
+[
+  {
+    "label": "cargo run",
+    "use_new_terminal": false,
+    "command": "cargo run",
+    "tags": ["cargo"]
+  },
+  {
+    "label": "cargo build",
+    "use_new_terminal": false,
+    "command": "cargo build",
+    "tags": ["cargo"]
+  }
+]

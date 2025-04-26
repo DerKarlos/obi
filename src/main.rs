@@ -1,17 +1,17 @@
-use std::error::Error;
-// use error_chain::error_chain;
-
 mod bevy_ui;
-mod input_api;
 mod input_json;
-mod render;
+mod obi_api_in;
+mod obi_api_out;
+mod render_3d;
 
 use bevy_ui::bevy_init;
+use std::error::Error;
 
-use crate::input_api::GeographicCoordinates;
 use crate::input_json::{coordinates_of_way, scan_json};
-use crate::render::scan_osm;
+use crate::obi_api_in::GeographicCoordinates;
+use crate::render_3d::scan_osm;
 
+// use error_chain::error_chain;
 // error_chain! {
 //     foreign_links {
 //         Io(std::io::Error);

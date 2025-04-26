@@ -1,4 +1,4 @@
-use crate::render::OsmMesh;
+use crate::obi_api_out::OsmMesh;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // BEVY ///////////////////////////////////////////////////////////////////////////////////////////
@@ -31,9 +31,12 @@ pub fn spawn_osm_mesh(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.colors.clone())
-    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, osm_mesh.position_vertices.clone())
-    .with_inserted_indices(Indices::U32(osm_mesh.indices.clone()));
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        osm_mesh.vertices_positions.clone(),
+    )
+    .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
 
     let mesh_handle = meshes.add(mesh);
     commands.spawn((
@@ -132,7 +135,7 @@ pub fn bevy_init(osm_meshes: Vec<OsmMesh>, scale: f64) {
     // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::srgb(0.0, 0.3, 0.0)))
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.5)))
         .insert_resource(OsmMeshes {
             vec: osm_meshes,
             scale,

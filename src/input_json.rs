@@ -1,13 +1,8 @@
-use std::collections::HashMap;
-
 use csscolorparser::parse;
 use serde::Deserialize;
+use std::collections::HashMap;
 
-//e triangulate::{self, formats, Polygon};
-//use csscolorparser::parse;
-//use triangulation::{Delaunay, Point};
-
-use crate::input_api::{
+use crate::obi_api_in::{
     BuildingOrPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, Roof, RoofShape,
 };
 
@@ -44,8 +39,9 @@ struct JosnTags {
     #[serde(rename = "roof:shape")]
     roof_shape: Option<String>,
     #[serde(rename = "roof:colour")]
-    roof_colour: Option<String>,
-    colour: Option<String>,
+    roof_color: Option<String>,
+    #[serde(rename = "colour")]
+    color: Option<String>,
     #[serde(rename = "roof:height")]
     roof_height: Option<String>,
     height: Option<String>,
@@ -74,19 +70,21 @@ fn parse_height(height: Option<String>) -> Option<f32> {
     }
 }
 
-fn parse_color(colour: Option<String>) -> Option<RenderColor> {
-    //if
-    colour.as_ref()?;
-    //    is_none() {
-    //    return None;
-    //};
+fn parse_color(color: Option<String>) -> Option<RenderColor> {
+    // color.as_ref()?;
 
-    match parse(colour.unwrap().as_str()) {
-        Ok(colour_scc) => Some([
-            colour_scc.r as f32,
-            colour_scc.g as f32,
-            colour_scc.b as f32,
-            colour_scc.a as f32,
+    if color.is_none() {
+        return None;
+    };
+
+    // Bevy pbr color needs f32, The parse has no .to_f32_array???}
+    // https://docs.rs/csscolorparser/latest/csscolorparser/
+    match parse(color.unwrap().as_str()) {
+        Ok(color_scc) => Some([
+            color_scc.r as f32,
+            color_scc.g as f32,
+            color_scc.b as f32,
+            color_scc.a as f32,
         ]),
 
         Err(error) => {
@@ -177,9 +175,9 @@ fn way(
     };
 
     // Colors and Materials
-    let color = parse_color(tags.colour);
-    let roof_color = parse_color(tags.roof_colour);
-    // println!("colors: {:?} {:?}", colour, roof_colour);
+    let color = parse_color(tags.color);
+    let roof_color = parse_color(tags.roof_color);
+    // println!("colors: {:?} {:?}", color, roof_color);
 
     // Heights
     let min_height = parse_height(tags.min_height);
