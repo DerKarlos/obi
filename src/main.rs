@@ -1,14 +1,15 @@
+mod api_in;
+mod api_out;
 mod bevy_ui;
 mod input_json;
-mod obi_api_in;
-mod obi_api_out;
 mod render_3d;
 
 use bevy_ui::bevy_init;
+use input_json::coordinates_of_way_center;
 use std::error::Error;
 
-use crate::input_json::{coordinates_of_way, scan_json};
-use crate::obi_api_in::GeographicCoordinates;
+use crate::api_in::GeographicCoordinates;
+use crate::input_json::{get_json_range, scan_json};
 use crate::render_3d::scan_osm;
 
 // use error_chain::error_chain;
@@ -32,13 +33,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let _reifenberg_id = 121486088;
     let _westminster_id = 367642719;
-    let id = _westminster_id;
-    let scale = 10.0;
+    let id = _reifenberg_id;
+    let scale = 2.0;
     let range = 15.0 * scale;
 
     let ground_null_coordinates = if true {
         // Todo: remove test
-        coordinates_of_way(id)
+        //let json_data = get_json_way(id);
+        // println!("json_data {:?} ", json_data);
+
+        //let buildings_or_parts = scan_json(
+        //    json_data,
+        //    &GeographicCoordinates {
+        //        latitude: 0.,
+        //        longitude: 0.,
+        //    },
+        //);
+
+        //GeographicCoordinates {
+        //    latitude: buildings_or_parts[0].center.north as f64,
+        //    longitude: buildings_or_parts[0].center.east as f64,
+        //}
+
+        coordinates_of_way_center(id)
     } else {
         // Default for Reifenberg:
         GeographicCoordinates {
@@ -46,9 +63,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             longitude: 11.135770967,
         }
     };
-    //println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
+    println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
 
-    let buildings_or_parts = scan_json(&ground_null_coordinates, range);
+    let json_data = get_json_range(range, &ground_null_coordinates);
+    let buildings_or_parts = scan_json(json_data, &ground_null_coordinates);
     let osm_meshes = scan_osm(buildings_or_parts);
 
     bevy_init(osm_meshes, scale);

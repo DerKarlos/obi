@@ -1,7 +1,7 @@
 use triangulation::{Delaunay, Point};
 //e triangulate::{self, formats, Polygon};
-use crate::obi_api_in::{BuildingOrPart, RoofShape};
-use crate::obi_api_out::{GpuPosition, OsmMeshAttributes};
+use crate::api_in::{BuildingOrPart, RoofShape};
+use crate::api_out::{GpuPosition, OsmMeshAttributes};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,7 +69,7 @@ pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMeshAttribute
 
         match roof.shape {
             //
-            crate::obi_api_in::RoofShape::Phyramidal => osm_mesh.push_pyramid(
+            crate::api_in::RoofShape::Phyramidal => osm_mesh.push_pyramid(
                 roof_positions,
                 [sum_east, part_height + roof_height, sum_north],
                 roof_color,
@@ -115,6 +115,56 @@ impl OsmMesh {
         }
     }
 
+    pub fn push_flat(
+        &mut self,
+        positions: Vec<GpuPosition>,
+        roof_polygon: Vec<Point>,
+        color: [f32; 4],
+    ) {
+        let roof_index_offset = self.attributes.vertices_positions.len();
+        let triangulation = Delaunay::new(&roof_polygon).unwrap();
+        //println!("triangles: {:?}",&triangulation.dcel.vertices);
+        let indices = triangulation.dcel.vertices;
+        for index in indices {
+            self.attributes
+                .indices_to_vertices
+                .push((roof_index_offset + index) as u32);
+        }
+
+        for position in positions {
+            self.attributes.vertices_positions.push(position);
+            self.attributes.vertices_colors.push(color);
+        }
+    }
+
+    pub fn push_pyramid(
+        &mut self,
+        positions: Vec<GpuPosition>,
+        pike: GpuPosition,
+        color: [f32; 4],
+    ) {
+        let roof_index_offset = self.attributes.vertices_positions.len();
+        let pike_index_offset = positions.len();
+        for (index, position) in positions.iter().enumerate() {
+            self.attributes.vertices_positions.push(*position);
+            self.attributes.vertices_colors.push(color);
+
+            let index1 = index;
+            let mut index2 = index + 1;
+            if index2 >= positions.len() {
+                index2 = 0
+            };
+            self.push_indices([
+                (roof_index_offset + index2),
+                (roof_index_offset + index1),
+                (roof_index_offset + pike_index_offset),
+            ]);
+        }
+        self.attributes.vertices_positions.push(pike);
+        self.attributes.vertices_colors.push(color);
+        //println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
+    }
+
     pub fn push_onion(
         &mut self,
         part_height: f32,
@@ -139,7 +189,7 @@ impl OsmMesh {
             [0.00, 1.00],
         ];
 
-        let columns = roof_polygon.len() as i32;
+        let columns = roof_polygon.len();
         let to_next_column = columns * 2;
 
         // process all rings
@@ -163,87 +213,26 @@ impl OsmMesh {
                 let pos_z = (column_point.y - pike.y) * curve_radius + pike.y;
                 let this_pos = [pos_x, part_height + roof_height * curve_up, pos_z];
                 // push indices
-                let index = self.attributes.vertices_positions.len() as i32;
+                let index = self.attributes.vertices_positions.len();
                 self.attributes.vertices_positions.push(last_pos); // right vertice different than left to get corneres
                 self.attributes.vertices_positions.push(this_pos); // left - up=down to not get corners
                 last_pos = this_pos;
                 //println!("pso x z {} {} {:?} {:?}",pos_x,pos_z,last_pos,this_pos);
 
+                // not if it is the last point/ring of the curve
                 if curve_radius > 0. {
-                    // not if it is the last point/ring of the curve
-                    // Push indices, first treeangle
-                    self.attributes.indices_to_vertices.push(index as u32); // 0     2
-                    self.attributes.indices_to_vertices.push((index + 1) as u32); // 1     | \
-                    self.attributes
-                        .indices_to_vertices
-                        .push((index + to_next_column) as u32); // 2     0---1
-                                                                // Secound treeangle
-                    self.attributes.indices_to_vertices.push((index + 1) as u32); // 0     2---1
-                    self.attributes
-                        .indices_to_vertices
-                        .push((index + to_next_column + 1) as u32); // 1       \ |
-                    self.attributes
-                        .indices_to_vertices
-                        .push((index + to_next_column) as u32); // 2         0
-                                                                //println!("index {} {}",index,index+to_next_column);
+                    // Push indices. First treeangle
+                    self.push_indices([(index + 1), (index/**/), (index + to_next_column)]);
+                    // Secound treeangle
+                    self.push_indices([
+                        index + 1,
+                        index + to_next_column,
+                        index + to_next_column + 1,
+                    ]);
                 }
             } // ring
         } // all rings
     } // OsmMesh
-
-    pub fn push_flat(
-        &mut self,
-        positions: Vec<GpuPosition>,
-        roof_polygon: Vec<Point>,
-        color: [f32; 4],
-    ) {
-        let triangulation = Delaunay::new(&roof_polygon).unwrap();
-        //println!("triangles: {:?}",&triangulation.dcel.vertices);
-        let indices = triangulation.dcel.vertices;
-
-        let roof_index_offset = self.attributes.vertices_positions.len();
-        for position in positions {
-            self.attributes.vertices_positions.push(position);
-            self.attributes.vertices_colors.push(color);
-        }
-        for index in indices {
-            self.attributes
-                .indices_to_vertices
-                .push((roof_index_offset + index) as u32);
-        }
-    }
-
-    pub fn push_pyramid(
-        &mut self,
-        positions: Vec<GpuPosition>,
-        pike: GpuPosition,
-        color: [f32; 4],
-    ) {
-        let roof_index_offset = self.attributes.vertices_positions.len();
-        let pike_index_offset = positions.len();
-        for (index, position) in positions.iter().enumerate() {
-            self.attributes.vertices_positions.push(*position);
-            self.attributes.vertices_colors.push(color);
-
-            let index1 = index;
-            let mut index2 = index + 1;
-            if index2 >= positions.len() {
-                index2 = 0
-            }
-            self.attributes
-                .indices_to_vertices
-                .push((roof_index_offset + index1) as u32);
-            self.attributes
-                .indices_to_vertices
-                .push((roof_index_offset + index2) as u32);
-            self.attributes
-                .indices_to_vertices
-                .push((roof_index_offset + pike_index_offset) as u32);
-        }
-        self.attributes.vertices_positions.push(pike);
-        self.attributes.vertices_colors.push(color);
-        //println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
-    }
 
     pub fn push_square(
         &mut self,
@@ -253,26 +242,29 @@ impl OsmMesh {
         up_right: GpuPosition,
         color: [f32; 4],
     ) {
-        const O: usize = 0; // To make the columns nice,  + 0 gets a clippy warning
-                            // First index of the comming 4 positions
+        // First index of the comming 4 positions
         let index = self.attributes.vertices_positions.len();
+
         // Push the for colors
         self.attributes.vertices_colors.push(color);
         self.attributes.vertices_colors.push(color);
         self.attributes.vertices_colors.push(color);
         self.attributes.vertices_colors.push(color);
+
         // Push the for positions
         self.attributes.vertices_positions.push(down_left); //  +0     2---3
         self.attributes.vertices_positions.push(down_right); // +1     |   |
         self.attributes.vertices_positions.push(up_left); //    +2     0---1
         self.attributes.vertices_positions.push(up_right); //   +3
-                                                           // First treeangle
-        self.attributes.indices_to_vertices.push((index + O) as u32); //     2
-        self.attributes.indices_to_vertices.push((index + 1) as u32); //     | \
-        self.attributes.indices_to_vertices.push((index + 2) as u32); //     0---1
-                                                                      // Secound treeangle
-        self.attributes.indices_to_vertices.push((index + 1) as u32); //     2---3
-        self.attributes.indices_to_vertices.push((index + 3) as u32); //       \ |
-        self.attributes.indices_to_vertices.push((index + 2) as u32); //         1
+
+        // Push first and second treeangle
+        self.push_indices([index /*....*/, index + 2, index + 1]);
+        self.push_indices([index /*.*/+ 1, index + 2, index + 3]);
+    }
+
+    pub fn push_indices(&mut self, indexi: [usize; 3]) {
+        self.attributes.indices_to_vertices.push(indexi[0] as u32);
+        self.attributes.indices_to_vertices.push(indexi[1] as u32);
+        self.attributes.indices_to_vertices.push(indexi[2] as u32);
     }
 }

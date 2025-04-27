@@ -8,8 +8,8 @@ pub struct GeographicCoordinates {
 
 #[derive(Clone, Copy, Debug)]
 pub struct GroundPosition {
-    pub east: f32,
     pub north: f32,
+    pub east: f32,
 }
 
 impl std::fmt::Display for GroundPosition {
@@ -42,9 +42,10 @@ pub struct Roof {
 
 pub struct BuildingOrPart {
     pub _part: bool,
+    pub foodprint: Vec<GroundPosition>,
+    pub _center: GroundPosition,
     pub height: Option<f32>,
     pub min_height: Option<f32>,
     pub roof: Option<Roof>,
-    pub foodprint: Vec<GroundPosition>,
     pub color: Option<RenderColor>,
 }

@@ -1,14 +1,22 @@
 [
   {
-    "label": "cargo run",
+    "label": "run",
     "use_new_terminal": false,
     "command": "cargo run",
     "tags": ["cargo"]
   },
+
   {
-    "label": "cargo build",
+    "label": "build",
     "use_new_terminal": false,
     "command": "cargo build",
+    "tags": ["cargo"]
+  },
+
+  {
+    "label": "clippy",
+    "use_new_terminal": false,
+    "command": "cargo clippy",
     "tags": ["cargo"]
   }
 ]

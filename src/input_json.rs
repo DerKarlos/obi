@@ -2,7 +2,7 @@ use csscolorparser::parse;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::obi_api_in::{
+use crate::api_in::{
     BuildingOrPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, Roof, RoofShape,
 };
 
@@ -49,7 +49,7 @@ struct JosnTags {
 }
 
 #[derive(Deserialize, Debug)]
-struct JsonData {
+pub struct JsonData {
     elements: Vec<JosnElement>,
 }
 
@@ -71,11 +71,10 @@ fn parse_height(height: Option<String>) -> Option<f32> {
 }
 
 fn parse_color(color: Option<String>) -> Option<RenderColor> {
-    // color.as_ref()?;
-
-    if color.is_none() {
-        return None;
-    };
+    //if color.is_none() {
+    //    return None;
+    //};
+    color.as_ref()?;
 
     // Bevy pbr color needs f32, The parse has no .to_f32_array???}
     // https://docs.rs/csscolorparser/latest/csscolorparser/
@@ -94,17 +93,31 @@ fn parse_color(color: Option<String>) -> Option<RenderColor> {
     }
 }
 
-fn to_position(coordiantes: &GeographicCoordinates, lat: f64, lon: f64) -> GroundPosition {
+fn to_position(
+    ground_null_coordinates: &GeographicCoordinates,
+    latitude: f64,
+    longitude: f64,
+) -> GroundPosition {
+    if ground_null_coordinates.latitude == 0. {
+        return GroundPosition {
+            north: latitude as f32,
+            east: longitude as f32,
+        };
+    }
+
     // the closer to the pole, the smaller the tiles size in meters get
-    let lon_fakt = LAT_FAKT * ((lat / 180. * PI as f64).abs()).cos(); // Longitude(Längengrad) West/East factor
-                                                                      // actual coor - other coor = relative grad/meter ground position
-    let east = ((lon - coordiantes.longitude) * lon_fakt) as f32;
-    let north = ((lat - coordiantes.latitude) * LAT_FAKT) as f32;
-    /*return*/
-    GroundPosition { east, north }
+    let lon_fakt = LAT_FAKT * ((latitude / 180. * PI as f64).abs()).cos();
+    // Longitude(Längengrad) West/East factor
+    // actual coor - other coor = relative grad/meter ground position
+
+    let north = ((latitude - ground_null_coordinates.latitude) * LAT_FAKT) as f32;
+    let east = ((longitude - ground_null_coordinates.longitude) * lon_fakt) as f32;
+
+    GroundPosition { north, east }
 }
 
-pub fn coordinates_of_way(way_id: u64) -> GeographicCoordinates {
+/**/
+pub fn coordinates_of_way_center(way_id: i64) -> GeographicCoordinates {
     // DONT USE:   https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
@@ -136,6 +149,7 @@ pub fn coordinates_of_way(way_id: u64) -> GeographicCoordinates {
         longitude,
     }
 }
+/**/
 
 fn node(
     element: JosnElement,
@@ -203,12 +217,19 @@ fn way(
     // Get building footprint from nodes
     let nodes = element.nodes.unwrap();
 
+    let mut north = 0.;
+    let mut east = 0.;
     let mut foodprint: Vec<GroundPosition> = Vec::new();
     for node_id in nodes.iter().rev() {
         let node = nodes_map.get(node_id).unwrap();
+        east += node.position.east;
+        north += node.position.north;
         foodprint.push(node.position);
     }
-
+    let count = nodes.len() as f32;
+    north /= count;
+    east /= count;
+    let center = GroundPosition { north, east };
     println!("roof_shape: {:?}", shape);
     let roof = Roof {
         shape,
@@ -216,24 +237,24 @@ fn way(
         color: roof_color,
     };
     let building_or_part = BuildingOrPart {
-        _part: true, // ??? not only parts!
+        _part: part != NO, // ??? not only parts!
+        foodprint,
+        _center: center,
         height: part_height,
         min_height,
         roof: Some(roof),
-        foodprint,
         color,
     };
 
     buildings_or_parts.push(building_or_part);
 }
 
-pub fn scan_json(
-    ground_null_coordinates: &GeographicCoordinates,
-    range: f64,
-) -> Vec<BuildingOrPart> {
-    let mut buildings_or_parts: Vec<BuildingOrPart> = Vec::new();
-    let mut nodes_map = HashMap::new();
+pub fn _get_json_way(way_id: i64) -> JsonData {
+    let url = format!("{}way/{}/full.json", API_URL, way_id);
+    reqwest::blocking::get(url).unwrap().json().unwrap()
+}
 
+pub fn get_json_range(range: f64, ground_null_coordinates: &GeographicCoordinates) -> JsonData {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     let range = range / LAT_FAKT; // First test with 15 meter
     let left = ground_null_coordinates.longitude - range;
@@ -247,14 +268,20 @@ pub fn scan_json(
         "{}map.json?bbox={},{},{},{}",
         API_URL, left, bottom, right, top
     );
-    // range: x=4209900.5 z=-4290712 url=
-    // https://api.openstreetmap.org/api/0.6/map.json?bbox=11.135635953165316,49.75577293983198,11.135905980168015,49.75604296683468
-    // https://api.openstreetmap.org/api/0.6/map.json?bbox=76.36808519471933,64.41713173392363,76.75875957883649,64.50167155517451
 
-    //t url = format!("https://api.openstreetmap.org/api/0.6/way/{}/full.json", way_id);
-    let json_map: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    // let json_map: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    reqwest::blocking::get(url).unwrap().json().unwrap()
+}
 
-    for element in json_map.elements {
+pub fn scan_json(
+    json_data: JsonData,
+    ground_null_coordinates: &GeographicCoordinates,
+) -> Vec<BuildingOrPart> {
+    let mut buildings_or_parts: Vec<BuildingOrPart> = Vec::new();
+    let mut nodes_map = HashMap::new();
+
+    for element in json_data.elements {
+        // println!("element.element_type: {}", element.element_type);
         match element.element_type.as_str() {
             "node" => node(element, ground_null_coordinates, &mut nodes_map),
             "way" => way(element, &mut buildings_or_parts, &mut nodes_map),

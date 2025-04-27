@@ -1,4 +1,4 @@
-use crate::obi_api_out::OsmMeshAttributes;
+use crate::api_out::OsmMeshAttributes;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // BEVY ///////////////////////////////////////////////////////////////////////////////////////////
@@ -31,12 +31,12 @@ pub fn spawn_osm_mesh(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     )
+    .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()))
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         osm_mesh.vertices_positions.clone(),
-    )
-    .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
+    );
 
     let mesh_handle = meshes.add(mesh);
     commands.spawn((
