@@ -1,4 +1,4 @@
-use crate::obi_api_out::OsmMesh;
+use crate::obi_api_out::OsmMeshAttributes;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // BEVY ///////////////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +12,7 @@ use bevy::render::{
 
 #[derive(Resource)]
 struct OsmMeshes {
-    vec: Vec<OsmMesh>,
+    vec: Vec<OsmMeshAttributes>,
     scale: f64,
 }
 
@@ -22,7 +22,7 @@ struct OsmMeshes {
 struct Controled;
 
 pub fn spawn_osm_mesh(
-    osm_mesh: &OsmMesh,
+    osm_mesh: &OsmMeshAttributes,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -104,25 +104,30 @@ fn setup(
 ) {
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let s = osm_meshes.scale as f32;
-    let camera_and_light_transform = Transform::from_xyz(30. * s, 20. * s, 30. * s)
-        .looking_at(Vec3::new(0., s * 10., 0.), Vec3::Y);
+    let camera_transform = Transform::from_xyz(0. * s, 10. * s, 30. * s)
+        .looking_at(Vec3::new(0., s * 0., 0.), Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
+        transform: camera_transform,
         ..default()
     });
+
+    // camera
+    //commands.spawn((Camera3d::default(), camera_transform));
 
     // Todo: https://bevyengine.org/examples/camera/camera-orbit/
 
     // Light - ??? No reaction!
+    let s = 50.;
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             shadows_enabled: true,
-            intensity: 1.,
+            // https://bevyengine.org/examples/3d-rendering/shadow-caster-receiver/
+            intensity: 1_000_000.0,
             ..default()
         },
-        transform: Transform::from_xyz(400., 500., 400.).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(s * 4., s * 5., s * 40.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -131,7 +136,7 @@ fn setup(
     }
 }
 
-pub fn bevy_init(osm_meshes: Vec<OsmMesh>, scale: f64) {
+pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
     // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)

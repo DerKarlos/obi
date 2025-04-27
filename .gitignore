@@ -2,3 +2,4 @@
 Cargo.lock
 .vscode/launch.json
 .DS_Store
+/main.dSYM

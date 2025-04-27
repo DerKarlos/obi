@@ -6,14 +6,14 @@ pub type RenderColor = [f32; 4];
 pub type GpuPosition = [f32; 3];
 
 // Mesh render attributes (may be mor later)
-pub struct OsmMesh {
+pub struct OsmMeshAttributes {
     pub vertices_colors: Vec<RenderColor>,    // format: Float32x4
     pub vertices_positions: Vec<GpuPosition>, // 3 coordinates * x Positions. The corners are NOT reused to get hard Kanten
     pub indices_to_vertices: Vec<u32>,
     // todo?: not pub but fn get
 }
 
-impl OsmMesh {
+impl OsmMeshAttributes {
     pub fn new() -> Self {
         Self {
             vertices_colors: vec![],
