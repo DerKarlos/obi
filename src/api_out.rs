@@ -1,4 +1,4 @@
-// Internal Interface of OBI between a renderer and output modules/crates
+// Internal Interface of the crate/lib between a renderer and output modules/crates
 
 // Internal type of the 3d-renderer. It's just luck, it is the same as needed for the gpu-renderer Bevy ;-)
 pub type RenderColor = [f32; 4];

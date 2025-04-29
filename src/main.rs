@@ -8,28 +8,18 @@ use bevy_ui::bevy_init;
 use input_json::coordinates_of_way_center;
 use std::error::Error;
 
-use crate::api_in::GeographicCoordinates;
+//e crate::api_in::GeographicCoordinates;
 use crate::input_json::{get_json_range, scan_json};
 use crate::render_3d::scan_osm;
-
-// use error_chain::error_chain;
-// error_chain! {
-//     foreign_links {
-//         Io(std::io::Error);
-//         HttpRequest(reqwest::Error);
-//     }
-// }
+// Todo? use error_chain::error_chain;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// MAIN ///////////////////////////////////////////////////////////////////////////////////////////
-
-// https://github.com/DerKarlos/obi/tree/master/src
+// MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 
 fn main() -> Result<(), Box<dyn Error>> {
-    //fn main() -> Result<()> {
-    println!("*********  Hi, I'm OBI, the OSM Buiding Inspector  *********");
+    println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
 
-    // Testing with this moderate complex building
+    // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let _reifenberg_id = 121486088;
     let _westminster_id = 367642719;
@@ -37,32 +27,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let scale = 2.0;
     let range = 15.0 * scale;
 
-    let ground_null_coordinates = if true {
-        // Todo: remove test
-        //let json_data = get_json_way(id);
-        // println!("json_data {:?} ", json_data);
-
-        //let buildings_or_parts = scan_json(
-        //    json_data,
-        //    &GeographicCoordinates {
-        //        latitude: 0.,
-        //        longitude: 0.,
-        //    },
-        //);
-
-        //GeographicCoordinates {
-        //    latitude: buildings_or_parts[0].center.north as f64,
-        //    longitude: buildings_or_parts[0].center.east as f64,
-        //}
-
-        coordinates_of_way_center(id)
-    } else {
-        // Default for Reifenberg:
-        GeographicCoordinates {
-            latitude: 49.755907953,
-            longitude: 11.135770967,
-        }
-    };
+    let ground_null_coordinates = coordinates_of_way_center(id);
     println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
 
     let json_data = get_json_range(range, &ground_null_coordinates);
@@ -73,5 +38,3 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
-
-// Todo: cargo clippy / run per key B for Build

@@ -27,7 +27,7 @@ struct JosnElement {
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
-    tags: Option<JosnTags>, // todo: use a map
+    tags: Option<JosnTags>, // todo?: use a map
 }
 
 #[derive(Deserialize, Debug, Clone, Default)]
@@ -176,7 +176,7 @@ fn way(
     //let tags_option = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
 
     if element.tags.is_none() {
-        println!("way without tags! ID {}", element.id);
+        println!("way without tags! ID: {}", element.id);
         return;
     }
 
@@ -208,7 +208,7 @@ fn way(
             "onion" => RoofShape::Onion,
             "pyramidal" => RoofShape::Phyramidal,
             _ => {
-                println!("roof_shape Unknown: {}", shape);
+                println!("Warning: roof_shape Unknown: {}", shape);
                 RoofShape::Unknown
             }
         },
@@ -216,20 +216,31 @@ fn way(
 
     // Get building footprint from nodes
     let nodes = element.nodes.unwrap();
+    if nodes.len() < 3 {
+        println!("Building with < 3 corners! id: {}", element.id);
+        return;
+    }
+    if nodes[0] != nodes[nodes.len() - 1] {
+        println!("Building with < 3 corners! id: {}", element.id);
+    }
+    // else { todo("drop last and modulo index") }
 
-    let mut north = 0.;
-    let mut east = 0.;
-    let mut foodprint: Vec<GroundPosition> = Vec::new();
+    let mut sum_north = 0.;
+    let mut sum_east = 0.;
+    let mut _longest_side_length = 0;
+    let mut _longest_side_index = 0;
+    let mut footprint: Vec<GroundPosition> = Vec::new();
     for node_id in nodes.iter().rev() {
         let node = nodes_map.get(node_id).unwrap();
-        east += node.position.east;
-        north += node.position.north;
-        foodprint.push(node.position);
+        sum_east += node.position.east;
+        sum_north += node.position.north;
+        footprint.push(node.position);
     }
     let count = nodes.len() as f32;
-    north /= count;
-    east /= count;
-    let center = GroundPosition { north, east };
+    let center = GroundPosition {
+        north: sum_north / count,
+        east: sum_east / count,
+    };
     println!("roof_shape: {:?}", shape);
     let roof = Roof {
         shape,
@@ -238,7 +249,8 @@ fn way(
     };
     let building_or_part = BuildingOrPart {
         _part: part != NO, // ??? not only parts!
-        foodprint,
+        footprint,
+        _longest_side_index,
         _center: center,
         height: part_height,
         min_height,
@@ -285,7 +297,10 @@ pub fn scan_json(
         match element.element_type.as_str() {
             "node" => node(element, ground_null_coordinates, &mut nodes_map),
             "way" => way(element, &mut buildings_or_parts, &mut nodes_map),
-            _ => println!("Unknown element type: {}", element.element_type),
+            _ => println!(
+                "Error: Unknown element type: {}  id: {}",
+                element.element_type, element.id
+            ),
         }
     }
 

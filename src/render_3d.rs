@@ -20,74 +20,9 @@ pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMeshAttribute
 
     let mut osm_mesh = OsmMesh::new();
     for building_or_part in buildings_or_parts {
-        let part_height = building_or_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
-        let min_height = building_or_part.min_height.unwrap_or(0.0);
-        let roof = building_or_part.roof.unwrap();
-        let roof_height = roof.height.unwrap_or(0.0);
-        // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
+        osm_mesh.prepare_roof(&building_or_part);
 
-        let mut last_pos_down = GPU_POS_NULL;
-        let mut last_pos_up = GPU_POS_NULL;
-        let mut sum_east = 0.;
-        let mut sum_north = 0.;
-        let color = building_or_part.color.unwrap_or(DEFAULT_WALL_COLOR);
-        let roof_color = roof.color.unwrap_or(DEFAULT_ROOF_COLOR);
-
-        let mut roof_polygon: Vec<Point> = Vec::new();
-        let mut roof_positions: Vec<[f32; 3]> = Vec::new();
-
-        // The polygon node list is "closed": Last is connected to first
-        for (index, position) in building_or_part.foodprint.iter().rev().enumerate() {
-            let this_pos_down = [position.east, min_height, position.north];
-            let this_pos_up = [position.east, part_height, position.north];
-            let roof_point = Point::new(position.east, position.north);
-            // skip first node = last
-            if index > 0 {
-                // Walls
-                osm_mesh.push_square(
-                    last_pos_down,
-                    this_pos_down,
-                    last_pos_up,
-                    this_pos_up,
-                    color,
-                );
-
-                // Roof
-                roof_polygon.push(roof_point);
-                roof_positions.push(this_pos_up);
-                sum_east += position.east;
-                sum_north += position.north;
-            }
-            last_pos_down = this_pos_down;
-            last_pos_up = this_pos_up;
-        }
-        // center of way
-        const LAST_AS_IT_IS_EQUAL_TO_FIRST: usize = 1;
-        let count = (building_or_part.foodprint.len() - LAST_AS_IT_IS_EQUAL_TO_FIRST) as f32;
-        sum_east /= count;
-        sum_north /= count;
-
-        match roof.shape {
-            //
-            crate::api_in::RoofShape::Phyramidal => osm_mesh.push_pyramid(
-                roof_positions,
-                [sum_east, part_height + roof_height, sum_north],
-                roof_color,
-            ),
-
-            RoofShape::Onion => osm_mesh.push_onion(
-                part_height,
-                roof_height,
-                roof_polygon,
-                Point {
-                    x: sum_east,
-                    y: sum_north,
-                },
-                roof_color,
-            ),
-
-            _ => osm_mesh.push_flat(roof_positions, roof_polygon, roof_color),
-        }
+        osm_mesh.push_building_or_part(&building_or_part);
 
         if MULTI_MESH {
             //println!("MULTI_MESH");
@@ -115,6 +50,116 @@ impl OsmMesh {
         }
     }
 
+    pub fn push_building_or_part(&mut self, building_or_part: &BuildingOrPart) {
+        let part_height = building_or_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
+        let min_height = building_or_part.min_height.unwrap_or(0.0);
+        let roof = building_or_part.roof.unwrap().clone();
+        let roof_height = roof.height.unwrap_or(0.0);
+        // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
+
+        let color = building_or_part.color.unwrap_or(DEFAULT_WALL_COLOR);
+        let roof_color = roof.color.unwrap_or(DEFAULT_ROOF_COLOR);
+
+        let mut roof_polygon: Vec<Point> = Vec::new();
+        let mut roof_positions: Vec<[f32; 3]> = Vec::new();
+
+        // The polygon node list is "closed": Last is connected to first
+        let mut last_pos_down = GPU_POS_NULL;
+        let mut last_pos_up = GPU_POS_NULL;
+        let mut sum_east = 0.;
+        let mut sum_north = 0.;
+        for (index, position) in building_or_part.footprint.iter().rev().enumerate() {
+            let part_height = self.calc_roof_position_height(part_height, &roof.shape);
+            let this_pos_down = [position.east, min_height, position.north];
+            let this_pos_up = [position.east, part_height, position.north];
+            let roof_point = Point::new(position.east, position.north);
+            // skip first node = last
+            if index > 0 {
+                // Walls
+                self.push_square(
+                    last_pos_down,
+                    this_pos_down,
+                    last_pos_up,
+                    this_pos_up,
+                    color,
+                );
+
+                // Roof
+                roof_polygon.push(roof_point);
+                roof_positions.push(this_pos_up);
+            }
+            last_pos_down = this_pos_down;
+            last_pos_up = this_pos_up;
+        }
+
+        // The polygon node list is "closed": Last is connected to first
+        for (index, position) in building_or_part.footprint.iter().rev().enumerate() {
+            let part_height = self.calc_roof_position_height(part_height, &roof.shape);
+            let this_pos_down = [position.east, min_height, position.north];
+            let this_pos_up = [position.east, part_height, position.north];
+            let roof_point = Point::new(position.east, position.north);
+            // skip first node = last
+            if index > 0 {
+                // Walls
+                self.push_square(
+                    last_pos_down,
+                    this_pos_down,
+                    last_pos_up,
+                    this_pos_up,
+                    color,
+                );
+
+                // Roof
+                roof_polygon.push(roof_point);
+                roof_positions.push(this_pos_up);
+                sum_east += position.east;
+                sum_north += position.north;
+            }
+            last_pos_down = this_pos_down;
+            last_pos_up = this_pos_up;
+        }
+        // center of way
+        const LAST_AS_IT_IS_EQUAL_TO_FIRST: usize = 1;
+        let count = (building_or_part.footprint.len() - LAST_AS_IT_IS_EQUAL_TO_FIRST) as f32;
+        sum_east /= count;
+        sum_north /= count;
+
+        match roof.shape {
+            //
+            crate::api_in::RoofShape::Phyramidal => self.push_pyramid(
+                roof_positions,
+                [sum_east, part_height + roof_height, sum_north],
+                roof_color,
+            ),
+
+            RoofShape::Onion => self.push_onion(
+                part_height,
+                roof_height,
+                roof_polygon,
+                Point {
+                    x: sum_east,
+                    y: sum_north,
+                },
+                roof_color,
+            ),
+
+            _ => self.push_flat(roof_positions, roof_polygon, roof_color),
+        }
+    }
+
+    fn prepare_roof(&mut self, _x: &BuildingOrPart) {
+        // calc longest side and direction
+        // Add positions below roof first etc.
+        // rotate a foodprint mirror
+        // prepare height calculation
+    }
+
+    fn calc_roof_position_height(&mut self, part_height: f32, roof_shape: &RoofShape) -> f32 {
+        match roof_shape {
+            _ => part_height,
+        }
+    }
+
     pub fn push_flat(
         &mut self,
         positions: Vec<GpuPosition>,
@@ -137,6 +182,8 @@ impl OsmMesh {
         }
     }
 
+    // todo: pyramide, dome and onion the same except a different curves. Use same code,
+    // todo: For all 3: less points: cornsers, much points: rounded
     pub fn push_pyramid(
         &mut self,
         positions: Vec<GpuPosition>,
