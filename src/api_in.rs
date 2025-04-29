@@ -47,7 +47,7 @@ pub struct BuildingOrPart {
     pub _part: bool,
     pub footprint: Vec<GroundPosition>,
     pub _longest_side_index: u32,
-    pub _center: GroundPosition,
+    pub center: GroundPosition,
     pub height: Option<f32>,
     pub min_height: Option<f32>,
     pub roof: Option<Roof>,

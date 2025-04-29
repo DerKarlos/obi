@@ -1,17 +1,17 @@
 use triangulation::{Delaunay, Point};
 //e triangulate::{self, formats, Polygon};
-use crate::api_in::{BuildingOrPart, RoofShape};
-use crate::api_out::{GpuPosition, OsmMeshAttributes};
+use crate::api_in::{BuildingOrPart, GroundPosition, RoofShape};
+use crate::api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
 
 // Constants / Parameters
 static MULTI_MESH: bool = false;
-static GPU_POS_NULL: [f32; 3] = [0.0, 0.0, 0.0];
+static GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
-static DEFAULT_WALL_COLOR: [f32; 4] = [0.5, 0.5, 0.5, 1.0]; // "grey"
-static DEFAULT_ROOF_COLOR: [f32; 4] = [1.0, 0.0, 0.0, 1.0]; // "red"
+static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
+static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
 
 static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
 
@@ -61,13 +61,12 @@ impl OsmMesh {
         let roof_color = roof.color.unwrap_or(DEFAULT_ROOF_COLOR);
 
         let mut roof_polygon: Vec<Point> = Vec::new();
-        let mut roof_positions: Vec<[f32; 3]> = Vec::new();
+        let mut roof_positions: Vec<GpuPosition> = Vec::new();
 
+        //// Push all Walls ////
         // The polygon node list is "closed": Last is connected to first
         let mut last_pos_down = GPU_POS_NULL;
         let mut last_pos_up = GPU_POS_NULL;
-        let mut sum_east = 0.;
-        let mut sum_north = 0.;
         for (index, position) in building_or_part.footprint.iter().rev().enumerate() {
             let part_height = self.calc_roof_position_height(part_height, &roof.shape);
             let this_pos_down = [position.east, min_height, position.north];
@@ -84,62 +83,31 @@ impl OsmMesh {
                     color,
                 );
 
-                // Roof
+                // Roof Points for triangulation and Onion, Positions for a Pyramide
                 roof_polygon.push(roof_point);
                 roof_positions.push(this_pos_up);
             }
             last_pos_down = this_pos_down;
             last_pos_up = this_pos_up;
         }
-
-        // The polygon node list is "closed": Last is connected to first
-        for (index, position) in building_or_part.footprint.iter().rev().enumerate() {
-            let part_height = self.calc_roof_position_height(part_height, &roof.shape);
-            let this_pos_down = [position.east, min_height, position.north];
-            let this_pos_up = [position.east, part_height, position.north];
-            let roof_point = Point::new(position.east, position.north);
-            // skip first node = last
-            if index > 0 {
-                // Walls
-                self.push_square(
-                    last_pos_down,
-                    this_pos_down,
-                    last_pos_up,
-                    this_pos_up,
-                    color,
-                );
-
-                // Roof
-                roof_polygon.push(roof_point);
-                roof_positions.push(this_pos_up);
-                sum_east += position.east;
-                sum_north += position.north;
-            }
-            last_pos_down = this_pos_down;
-            last_pos_up = this_pos_up;
-        }
-        // center of way
-        const LAST_AS_IT_IS_EQUAL_TO_FIRST: usize = 1;
-        let count = (building_or_part.footprint.len() - LAST_AS_IT_IS_EQUAL_TO_FIRST) as f32;
-        sum_east /= count;
-        sum_north /= count;
 
         match roof.shape {
             //
             crate::api_in::RoofShape::Phyramidal => self.push_pyramid(
+                [
+                    building_or_part.center.east,
+                    part_height + roof_height,
+                    building_or_part.center.north,
+                ],
                 roof_positions,
-                [sum_east, part_height + roof_height, sum_north],
                 roof_color,
             ),
 
             RoofShape::Onion => self.push_onion(
+                roof_polygon,
+                building_or_part.center,
                 part_height,
                 roof_height,
-                roof_polygon,
-                Point {
-                    x: sum_east,
-                    y: sum_north,
-                },
                 roof_color,
             ),
 
@@ -162,9 +130,9 @@ impl OsmMesh {
 
     pub fn push_flat(
         &mut self,
-        positions: Vec<GpuPosition>,
+        roof_positions: Vec<GpuPosition>,
         roof_polygon: Vec<Point>,
-        color: [f32; 4],
+        color: RenderColor,
     ) {
         let roof_index_offset = self.attributes.vertices_positions.len();
         let triangulation = Delaunay::new(&roof_polygon).unwrap();
@@ -176,7 +144,7 @@ impl OsmMesh {
                 .push((roof_index_offset + index) as u32);
         }
 
-        for position in positions {
+        for position in roof_positions {
             self.attributes.vertices_positions.push(position);
             self.attributes.vertices_colors.push(color);
         }
@@ -184,21 +152,22 @@ impl OsmMesh {
 
     // todo: pyramide, dome and onion the same except a different curves. Use same code,
     // todo: For all 3: less points: cornsers, much points: rounded
+    // todo: Kirche dachkegel ist nicht mittig über zwiebel!
     pub fn push_pyramid(
         &mut self,
-        positions: Vec<GpuPosition>,
         pike: GpuPosition,
-        color: [f32; 4],
+        roof_positions: Vec<GpuPosition>,
+        color: RenderColor,
     ) {
         let roof_index_offset = self.attributes.vertices_positions.len();
-        let pike_index_offset = positions.len();
-        for (index, position) in positions.iter().enumerate() {
+        let pike_index_offset = roof_positions.len();
+        for (index, position) in roof_positions.iter().enumerate() {
             self.attributes.vertices_positions.push(*position);
             self.attributes.vertices_colors.push(color);
 
             let index1 = index;
             let mut index2 = index + 1;
-            if index2 >= positions.len() {
+            if index2 >= roof_positions.len() {
                 index2 = 0
             };
             self.push_indices([
@@ -214,11 +183,11 @@ impl OsmMesh {
 
     pub fn push_onion(
         &mut self,
+        roof_polygon: Vec<Point>,
+        pike: GroundPosition,
         part_height: f32,
         roof_height: f32,
-        roof_polygon: Vec<Point>,
-        pike: Point,
-        color: [f32; 4],
+        color: RenderColor,
     ) {
         let shape_curve = [
             // -x- |y|    The curve is about "taken" from F4map.com
@@ -246,9 +215,9 @@ impl OsmMesh {
             //println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
 
             let column_point = roof_polygon.last().unwrap();
-            let pos_x = (column_point.x - pike.x) * curve_radius + pike.x;
-            let pos_z = (column_point.y - pike.y) * curve_radius + pike.y; // * roof_rel
-            let mut last_pos = [pos_x, part_height + roof_height * curve_up, pos_z];
+            let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
+            let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
+            let mut last_pos = [gpu_x, part_height + roof_height * curve_up, gpu_z];
 
             // process one ring
             for column_point in roof_polygon.iter() {
@@ -256,9 +225,10 @@ impl OsmMesh {
                 self.attributes.vertices_colors.push(color);
                 self.attributes.vertices_colors.push(color);
                 // push vertices
-                let pos_x = (column_point.x - pike.x) * curve_radius + pike.x;
-                let pos_z = (column_point.y - pike.y) * curve_radius + pike.y;
-                let this_pos = [pos_x, part_height + roof_height * curve_up, pos_z];
+                let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
+                let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
+                let this_pos = [gpu_x, part_height + roof_height * curve_up, gpu_z];
+
                 // push indices
                 let index = self.attributes.vertices_positions.len();
                 self.attributes.vertices_positions.push(last_pos); // right vertice different than left to get corneres
@@ -287,7 +257,7 @@ impl OsmMesh {
         down_right: GpuPosition,
         up_left: GpuPosition,
         up_right: GpuPosition,
-        color: [f32; 4],
+        color: RenderColor,
     ) {
         // First index of the comming 4 positions
         let index = self.attributes.vertices_positions.len();

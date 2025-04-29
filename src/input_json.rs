@@ -220,7 +220,7 @@ fn way(
         println!("Building with < 3 corners! id: {}", element.id);
         return;
     }
-    if nodes[0] != nodes[nodes.len() - 1] {
+    if nodes.first().unwrap() != nodes.last().unwrap() {
         println!("Building with < 3 corners! id: {}", element.id);
     }
     // else { todo("drop last and modulo index") }
@@ -251,7 +251,7 @@ fn way(
         _part: part != NO, // ??? not only parts!
         footprint,
         _longest_side_index,
-        _center: center,
+        center,
         height: part_height,
         min_height,
         roof: Some(roof),
