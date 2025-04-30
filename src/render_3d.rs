@@ -10,16 +10,11 @@ use crate::api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 static MULTI_MESH: bool = false;
 static GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
-static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
-static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
-
-static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
-
-pub fn scan_osm(buildings_or_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
+pub fn scan_osm(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
-    for building_part in buildings_or_parts {
+    for building_part in building_parts {
         osm_mesh.prepare_roof(&building_part);
 
         osm_mesh.push_building_or_part(&building_part);
@@ -51,13 +46,13 @@ impl OsmMesh {
     }
 
     pub fn push_building_or_part(&mut self, building_part: &BuildingPart) {
-        let part_height = building_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
-        let min_height = building_part.min_height.unwrap_or(0.0);
-        let roof_height = building_part.roof_height.unwrap_or(0.0);
+        let wall_height = building_part.wall_height;
+        let min_height = building_part.min_height;
+        let roof_height = building_part.roof_height;
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
-        let color = building_part.color.unwrap_or(DEFAULT_WALL_COLOR);
-        let roof_color = building_part.roof_color.unwrap_or(DEFAULT_ROOF_COLOR);
+        let color = building_part.color;
+        let roof_color = building_part.roof_color;
 
         let mut roof_polygon: Vec<Point> = Vec::new();
         let mut roof_positions: Vec<GpuPosition> = Vec::new();
@@ -67,10 +62,9 @@ impl OsmMesh {
         let mut last_pos_down = GPU_POS_NULL;
         let mut last_pos_up = GPU_POS_NULL;
         for (index, position) in building_part.footprint.iter().rev().enumerate() {
-            let part_height =
-                self.calc_roof_position_height(part_height, &building_part.roof_shape);
+            let height = self.calc_roof_position_height(wall_height, &building_part.roof_shape);
             let this_pos_down = [position.east, min_height, position.north];
-            let this_pos_up = [position.east, part_height, position.north];
+            let this_pos_up = [position.east, height, position.north];
             let roof_point = Point::new(position.east, position.north);
             // skip first node = last
             if index > 0 {
@@ -96,7 +90,7 @@ impl OsmMesh {
             crate::api_in::RoofShape::Phyramidal => self.push_pyramid(
                 [
                     building_part.center.east,
-                    part_height + roof_height,
+                    wall_height + roof_height,
                     building_part.center.north,
                 ],
                 roof_positions,
@@ -106,7 +100,7 @@ impl OsmMesh {
             RoofShape::Onion => self.push_onion(
                 roof_polygon,
                 building_part.center,
-                part_height,
+                wall_height,
                 roof_height,
                 roof_color,
             ),
@@ -122,11 +116,11 @@ impl OsmMesh {
         // prepare height calculation
     }
 
-    fn calc_roof_position_height(&mut self, part_height: f32, roof_shape: &RoofShape) -> f32 {
+    fn calc_roof_position_height(&mut self, wall_height: f32, roof_shape: &RoofShape) -> f32 {
         match roof_shape {
-            RoofShape::Onion => part_height, // todo
-            RoofShape::Phyramidal => part_height,
-            _ => part_height,
+            RoofShape::Onion => wall_height, // todo
+            RoofShape::Phyramidal => wall_height,
+            _ => wall_height,
         }
     }
 
@@ -186,7 +180,7 @@ impl OsmMesh {
         &mut self,
         roof_polygon: Vec<Point>,
         pike: GroundPosition,
-        part_height: f32,
+        wall_height: f32,
         roof_height: f32,
         color: RenderColor,
     ) {
@@ -218,7 +212,7 @@ impl OsmMesh {
             let column_point = roof_polygon.last().unwrap();
             let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
             let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
-            let mut last_pos = [gpu_x, part_height + roof_height * curve_up, gpu_z];
+            let mut last_pos = [gpu_x, wall_height + roof_height * curve_up, gpu_z];
 
             // process one ring
             for column_point in roof_polygon.iter() {
@@ -228,7 +222,7 @@ impl OsmMesh {
                 // push vertices
                 let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
                 let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
-                let this_pos = [gpu_x, part_height + roof_height * curve_up, gpu_z];
+                let this_pos = [gpu_x, wall_height + roof_height * curve_up, gpu_z];
 
                 // push indices
                 let index = self.attributes.vertices_positions.len();

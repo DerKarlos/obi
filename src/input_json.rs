@@ -14,9 +14,14 @@ static NO: &str = "no";
 
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
-static PI: f32 = std::f32::consts::PI;
+/* Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
 static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
-/** Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
+static PI: f32 = std::f32::consts::PI;
+
+static DEFAULT_WALL_COLOR: &str = "grey"; // RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
+static DEFAULT_ROOF_COLOR: &str = "red"; // RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
+static DEFAULT_WALL_HEIGHT: f32 = 2.0 * 3.0; // two floors with each 3 meters
+static DEFAULT_ROOF_HEIGHT: f32 = 0.0;
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
 #[derive(Deserialize, Debug)]
@@ -53,42 +58,35 @@ pub struct JsonData {
     elements: Vec<JosnElement>,
 }
 
-fn parse_height(height: Option<String>) -> Option<f32> {
-    //if
-    height.as_ref()?;
-    //    is_none() {
-    //    return None;
-    //};
+fn parse_height(height: Option<String>, default: f32) -> f32 {
+    if height.is_none() {
+        return default;
+    }
 
     match height.unwrap().as_str().parse() {
-        Ok(height) => Some(height),
+        Ok(height) => height,
 
         Err(error) => {
-            println!("parse_height: {}", error);
-            None
+            println!("Error! parse_height: {}", error);
+            DEFAULT_ROOF_HEIGHT
         }
     }
 }
 
-fn parse_color(color: Option<String>) -> Option<RenderColor> {
-    //if color.is_none() {
-    //    return None;
-    //};
-    color.as_ref()?;
-
+fn parse_color(color: String) -> RenderColor {
     // Bevy pbr color needs f32, The parse has no .to_f32_array???}
     // https://docs.rs/csscolorparser/latest/csscolorparser/
-    match parse(color.unwrap().as_str()) {
-        Ok(color_scc) => Some([
+    match parse(color.as_str()) {
+        Ok(color_scc) => [
             color_scc.r as f32,
             color_scc.g as f32,
             color_scc.b as f32,
             color_scc.a as f32,
-        ]),
+        ],
 
         Err(error) => {
             println!("parse_colour: {}", error);
-            None
+            [0.5, 0.5, 1.0, 1.0] // "light blue?"
         }
     }
 }
@@ -169,37 +167,45 @@ fn node(
 
 fn way(
     element: JosnElement,
-    buildings_or_parts: &mut Vec<BuildingPart>,
+    building_parts: &mut Vec<BuildingPart>,
     nodes_map: &mut HashMap<u64, OsmNode>,
 ) {
     // println!("element = {:?}", element);
     //let tags_option = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
 
     if element.tags.is_none() {
-        println!("way without tags! ID: {}", element.id);
+        println!("way without tags! ID: {} Multipolligon?", element.id);
         return;
     }
 
-    let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
-    let part = tags.building_part.unwrap_or(NO.to_string());
-    // let name = tags.name.unwrap_or("-/-".to_string());
-    // println!(" Way: building = {:?}  name = {:?}" name,);
-    if part != YES {
-        return; // ??? not only parts!
+    let tags = element.tags.as_ref().unwrap(); // JosnTags { ..default() }; //ttt
+    let string_no = &NO.to_string();
+    let part = tags.building_part.as_ref().unwrap_or(string_no);
+
+    // ??? not only parts!
+    if part == YES {
+        building(element, building_parts, nodes_map);
     };
+}
+
+fn building(
+    element: JosnElement,
+    building_parts: &mut Vec<BuildingPart>,
+    nodes_map: &mut HashMap<u64, OsmNode>,
+) {
+    // println!(" Way: building = {:?}  name = {:?}" name,);
+    let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
 
     // Colors and Materials
-    let color = parse_color(tags.color);
-    let roof_color = parse_color(tags.roof_color);
-    // println!("colors: {:?} {:?}", color, roof_color);
+    let color = parse_color(tags.color.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
+    let roof_color = parse_color(tags.roof_color.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
 
     // Heights
-    let min_height = parse_height(tags.min_height);
-    let mut part_height = parse_height(tags.height);
-    let roof_height = parse_height(tags.roof_height);
-    if roof_height.is_some() {
-        part_height = Some(part_height.unwrap() - roof_height.unwrap());
-    }
+    let min_height = parse_height(tags.min_height, 0.0);
+    let roof_height = parse_height(tags.roof_height, DEFAULT_ROOF_HEIGHT);
+    let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
+
+    // Shape of the roof. All buildings have a roof, even if it is not tagged
     let roof_shape = tags.roof_shape;
     let shape: RoofShape = match roof_shape {
         None => RoofShape::None,
@@ -209,7 +215,7 @@ fn way(
             "pyramidal" => RoofShape::Phyramidal,
             _ => {
                 println!("Warning: roof_shape Unknown: {}", shape);
-                RoofShape::Unknown
+                RoofShape::Flat // todo: gabled and geographic dependend
             }
         },
     };
@@ -246,11 +252,11 @@ fn way(
     };
     println!("roof_shape: {:?}", shape);
     let building_part = BuildingPart {
-        _part: part != NO, // ??? not only parts!
+        _part: true, // ??? not only parts!
         footprint,
         _longest_side_index,
         center,
-        height: part_height,
+        wall_height,
         min_height,
         color,
         roof_shape: shape,
@@ -258,7 +264,7 @@ fn way(
         roof_color,
     };
 
-    buildings_or_parts.push(building_part);
+    building_parts.push(building_part);
 }
 
 pub fn _get_json_way(way_id: i64) -> JsonData {
@@ -289,14 +295,14 @@ pub fn scan_json(
     json_data: JsonData,
     ground_null_coordinates: &GeographicCoordinates,
 ) -> Vec<BuildingPart> {
-    let mut buildings_or_parts: Vec<BuildingPart> = Vec::new();
+    let mut building_parts: Vec<BuildingPart> = Vec::new();
     let mut nodes_map = HashMap::new();
 
     for element in json_data.elements {
         // println!("element.element_type: {}", element.element_type);
         match element.element_type.as_str() {
             "node" => node(element, ground_null_coordinates, &mut nodes_map),
-            "way" => way(element, &mut buildings_or_parts, &mut nodes_map),
+            "way" => way(element, &mut building_parts, &mut nodes_map),
             _ => println!(
                 "Error: Unknown element type: {}  id: {}",
                 element.element_type, element.id
@@ -304,5 +310,5 @@ pub fn scan_json(
         }
     }
 
-    buildings_or_parts
+    building_parts
 }

@@ -29,8 +29,10 @@ pub type RenderColor = [f32; 4];
 #[derive(Clone, Copy, Debug)]
 pub enum RoofShape {
     None,
-    Unknown,
+    _Unknown,
     Flat,
+    _Skillion,
+    _Gabled,
     Onion,
     Phyramidal,
 }
@@ -42,10 +44,10 @@ pub struct BuildingPart {
     pub footprint: Vec<GroundPosition>,
     pub _longest_side_index: u32,
     pub center: GroundPosition,
-    pub height: Option<f32>,
-    pub min_height: Option<f32>,
-    pub color: Option<RenderColor>,
+    pub wall_height: f32,
+    pub min_height: f32,
+    pub color: RenderColor,
     pub roof_shape: RoofShape,
-    pub roof_height: Option<f32>,
-    pub roof_color: Option<RenderColor>,
+    pub roof_height: f32,
+    pub roof_color: RenderColor,
 }

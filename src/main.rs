@@ -1,14 +1,19 @@
-mod api_in;
-mod api_out;
-mod bevy_ui;
+// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
 mod input_json;
+// Interface from an input modules to a renderer
+mod api_in;
+// 3D and 2D rendere are possible
 mod render_3d;
+// Interface from an rederer to an output
+mod api_out;
+// Variouns outputs are possible (UI, create a GLB file)
+mod bevy_ui;
 
+// other crates
 use bevy_ui::bevy_init;
 use input_json::coordinates_of_way_center;
 use std::error::Error;
-
-//e crate::api_in::GeographicCoordinates;
+// this crate
 use crate::input_json::{get_json_range, scan_json};
 use crate::render_3d::scan_osm;
 // Todo? use error_chain::error_chain;
@@ -31,8 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
 
     let json_data = get_json_range(range, &ground_null_coordinates);
-    let buildings_or_parts = scan_json(json_data, &ground_null_coordinates);
-    let osm_meshes = scan_osm(buildings_or_parts);
+    let building_parts = scan_json(json_data, &ground_null_coordinates);
+    let osm_meshes = scan_osm(building_parts);
 
     bevy_init(osm_meshes, scale);
 
