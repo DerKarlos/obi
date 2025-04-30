@@ -1,6 +1,6 @@
 use triangulation::{Delaunay, Point};
 //e triangulate::{self, formats, Polygon};
-use crate::api_in::{BuildingOrPart, GroundPosition, RoofShape};
+use crate::api_in::{BuildingPart, GroundPosition, RoofShape};
 use crate::api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,14 +15,14 @@ static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
 
 static DEFAULT_BUILDING_HEIGHT: f32 = 10.0;
 
-pub fn scan_osm(buildings_or_parts: Vec<BuildingOrPart>) -> Vec<OsmMeshAttributes> {
+pub fn scan_osm(buildings_or_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
-    for building_or_part in buildings_or_parts {
-        osm_mesh.prepare_roof(&building_or_part);
+    for building_part in buildings_or_parts {
+        osm_mesh.prepare_roof(&building_part);
 
-        osm_mesh.push_building_or_part(&building_or_part);
+        osm_mesh.push_building_or_part(&building_part);
 
         if MULTI_MESH {
             //println!("MULTI_MESH");
@@ -50,15 +50,14 @@ impl OsmMesh {
         }
     }
 
-    pub fn push_building_or_part(&mut self, building_or_part: &BuildingOrPart) {
-        let part_height = building_or_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
-        let min_height = building_or_part.min_height.unwrap_or(0.0);
-        let roof = building_or_part.roof.unwrap().clone();
-        let roof_height = roof.height.unwrap_or(0.0);
+    pub fn push_building_or_part(&mut self, building_part: &BuildingPart) {
+        let part_height = building_part.height.unwrap_or(DEFAULT_BUILDING_HEIGHT);
+        let min_height = building_part.min_height.unwrap_or(0.0);
+        let roof_height = building_part.roof_height.unwrap_or(0.0);
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
-        let color = building_or_part.color.unwrap_or(DEFAULT_WALL_COLOR);
-        let roof_color = roof.color.unwrap_or(DEFAULT_ROOF_COLOR);
+        let color = building_part.color.unwrap_or(DEFAULT_WALL_COLOR);
+        let roof_color = building_part.roof_color.unwrap_or(DEFAULT_ROOF_COLOR);
 
         let mut roof_polygon: Vec<Point> = Vec::new();
         let mut roof_positions: Vec<GpuPosition> = Vec::new();
@@ -67,8 +66,9 @@ impl OsmMesh {
         // The polygon node list is "closed": Last is connected to first
         let mut last_pos_down = GPU_POS_NULL;
         let mut last_pos_up = GPU_POS_NULL;
-        for (index, position) in building_or_part.footprint.iter().rev().enumerate() {
-            let part_height = self.calc_roof_position_height(part_height, &roof.shape);
+        for (index, position) in building_part.footprint.iter().rev().enumerate() {
+            let part_height =
+                self.calc_roof_position_height(part_height, &building_part.roof_shape);
             let this_pos_down = [position.east, min_height, position.north];
             let this_pos_up = [position.east, part_height, position.north];
             let roof_point = Point::new(position.east, position.north);
@@ -91,13 +91,13 @@ impl OsmMesh {
             last_pos_up = this_pos_up;
         }
 
-        match roof.shape {
+        match building_part.roof_shape {
             //
             crate::api_in::RoofShape::Phyramidal => self.push_pyramid(
                 [
-                    building_or_part.center.east,
+                    building_part.center.east,
                     part_height + roof_height,
-                    building_or_part.center.north,
+                    building_part.center.north,
                 ],
                 roof_positions,
                 roof_color,
@@ -105,7 +105,7 @@ impl OsmMesh {
 
             RoofShape::Onion => self.push_onion(
                 roof_polygon,
-                building_or_part.center,
+                building_part.center,
                 part_height,
                 roof_height,
                 roof_color,
@@ -115,7 +115,7 @@ impl OsmMesh {
         }
     }
 
-    fn prepare_roof(&mut self, _x: &BuildingOrPart) {
+    fn prepare_roof(&mut self, _x: &BuildingPart) {
         // calc longest side and direction
         // Add positions below roof first etc.
         // rotate a foodprint mirror
@@ -124,6 +124,8 @@ impl OsmMesh {
 
     fn calc_roof_position_height(&mut self, part_height: f32, roof_shape: &RoofShape) -> f32 {
         match roof_shape {
+            RoofShape::Onion => part_height, // todo
+            RoofShape::Phyramidal => part_height,
             _ => part_height,
         }
     }
@@ -151,8 +153,7 @@ impl OsmMesh {
     }
 
     // todo: pyramide, dome and onion the same except a different curves. Use same code,
-    // todo: For all 3: less points: cornsers, much points: rounded
-    // todo: Kirche dachkegel ist nicht mittig über zwiebel!
+    // todo: For all 3 shapetypes: less points: cornsers, much points: rounded
     pub fn push_pyramid(
         &mut self,
         pike: GpuPosition,

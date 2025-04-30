@@ -35,21 +35,17 @@ pub enum RoofShape {
     Phyramidal,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Roof {
-    pub shape: RoofShape,
-    pub height: Option<f32>,
-    pub color: Option<RenderColor>,
-}
-
+// A builiding without parts is its onw part or itselve is a part
 #[derive(Clone, Debug)]
-pub struct BuildingOrPart {
+pub struct BuildingPart {
     pub _part: bool,
     pub footprint: Vec<GroundPosition>,
     pub _longest_side_index: u32,
     pub center: GroundPosition,
     pub height: Option<f32>,
     pub min_height: Option<f32>,
-    pub roof: Option<Roof>,
     pub color: Option<RenderColor>,
+    pub roof_shape: RoofShape,
+    pub roof_height: Option<f32>,
+    pub roof_color: Option<RenderColor>,
 }

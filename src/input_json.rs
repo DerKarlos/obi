@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::api_in::{
-    BuildingOrPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, Roof, RoofShape,
+    BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, RoofShape,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -169,7 +169,7 @@ fn node(
 
 fn way(
     element: JosnElement,
-    buildings_or_parts: &mut Vec<BuildingOrPart>,
+    buildings_or_parts: &mut Vec<BuildingPart>,
     nodes_map: &mut HashMap<u64, OsmNode>,
 ) {
     // println!("element = {:?}", element);
@@ -230,35 +230,35 @@ fn way(
     let mut _longest_side_length = 0;
     let mut _longest_side_index = 0;
     let mut footprint: Vec<GroundPosition> = Vec::new();
-    for node_id in nodes.iter().rev() {
+    for (index, node_id) in nodes.iter().rev().enumerate() {
+        //r (index, position) in building_part.footprint.iter().rev().enumerate() {
         let node = nodes_map.get(node_id).unwrap();
-        sum_east += node.position.east;
-        sum_north += node.position.north;
         footprint.push(node.position);
+        if index > 0 {
+            sum_east += node.position.east;
+            sum_north += node.position.north;
+        }
     }
-    let count = nodes.len() as f32;
+    let count = nodes.len() as f32 - 1.;
     let center = GroundPosition {
         north: sum_north / count,
         east: sum_east / count,
     };
     println!("roof_shape: {:?}", shape);
-    let roof = Roof {
-        shape,
-        height: roof_height,
-        color: roof_color,
-    };
-    let building_or_part = BuildingOrPart {
+    let building_part = BuildingPart {
         _part: part != NO, // ??? not only parts!
         footprint,
         _longest_side_index,
         center,
         height: part_height,
         min_height,
-        roof: Some(roof),
         color,
+        roof_shape: shape,
+        roof_height,
+        roof_color,
     };
 
-    buildings_or_parts.push(building_or_part);
+    buildings_or_parts.push(building_part);
 }
 
 pub fn _get_json_way(way_id: i64) -> JsonData {
@@ -288,8 +288,8 @@ pub fn get_json_range(range: f64, ground_null_coordinates: &GeographicCoordinate
 pub fn scan_json(
     json_data: JsonData,
     ground_null_coordinates: &GeographicCoordinates,
-) -> Vec<BuildingOrPart> {
-    let mut buildings_or_parts: Vec<BuildingOrPart> = Vec::new();
+) -> Vec<BuildingPart> {
+    let mut buildings_or_parts: Vec<BuildingPart> = Vec::new();
     let mut nodes_map = HashMap::new();
 
     for element in json_data.elements {
