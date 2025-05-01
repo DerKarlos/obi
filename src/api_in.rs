@@ -50,10 +50,18 @@ pub enum RoofShape {
     None,
     _Unknown,
     Flat,
-    _Skillion,
+    Skillion,
     _Gabled,
     Onion,
     Phyramidal,
+}
+
+#[derive(Clone, Debug)]
+pub struct BoundingBox {
+    pub _north_min: f32,
+    pub _north_max: f32,
+    pub east_min: f32,
+    pub east_max: f32,
 }
 
 // A builiding without parts is its onw part or itselve is a part
@@ -62,6 +70,7 @@ pub struct BuildingPart {
     pub _part: bool,
     pub footprint: Vec<GroundPosition>,
     pub center: GroundPosition,
+    pub bounding_box: BoundingBox,
     pub wall_height: f32,
     pub min_height: f32,
     pub color: RenderColor,

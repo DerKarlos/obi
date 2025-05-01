@@ -62,7 +62,7 @@ impl OsmMesh {
         let mut last_pos_down = GPU_POS_NULL;
         let mut last_pos_up = GPU_POS_NULL;
         for (index, position) in building_part.footprint.iter().rev().enumerate() {
-            let height = self.calc_roof_position_height(wall_height, &building_part.roof_shape);
+            let height = self.calc_roof_position_height(position, &building_part);
             let this_pos_down = [position.east, min_height, position.north];
             let this_pos_up = [position.east, height, position.north];
             let roof_point = Point::new(position.east, position.north);
@@ -117,11 +117,36 @@ impl OsmMesh {
         // prepare height calculation
     }
 
-    fn calc_roof_position_height(&mut self, wall_height: f32, roof_shape: &RoofShape) -> f32 {
-        match roof_shape {
-            RoofShape::Onion => wall_height, // todo
-            RoofShape::Phyramidal => wall_height,
-            _ => wall_height,
+    fn calc_skillion_position_height(
+        &mut self,
+        position: &GroundPosition,
+        building_part: &BuildingPart,
+    ) -> f32 {
+        let angle = -building_part.roof_angle;
+        let center = building_part.center;
+        // const pointX =  (point.x - center[0]) * Math.cos(angle) - (point.y - center[1]) * Math.sin(angle);
+        // const pointY = -(point.x - center[0]) * Math.sin(angle) - (point.y - center[1]) * Math.cos(angle);
+        let east = (position.east - center.east) * f32::cos(angle)
+            - (position.north - center.north) * f32::sin(angle);
+        //  let north = (position.east  - center.east)  * f32::sin(angle)
+        //            - (position.north - center.north) * f32::cos(angle);
+        let inclination = building_part.roof_height
+            / (building_part.bounding_box.east_max - building_part.bounding_box.east_min); // Höhen/Tiefe der Nodes/Ecken berechenen
+
+        // if (y >= -0.001) { // It's the roof, not the lower floor of the building(block)
+        -f32::abs(east - building_part.bounding_box.east_min) * inclination // !!: If the roof is "left" of the hightest side, it also must go down
+    }
+
+    fn calc_roof_position_height(
+        &mut self,
+        position: &GroundPosition,
+        building_part: &BuildingPart,
+    ) -> f32 {
+        match building_part.roof_shape {
+            RoofShape::Skillion => self.calc_skillion_position_height(position, building_part),
+            RoofShape::Onion => building_part.wall_height, // todo
+            RoofShape::Phyramidal => building_part.wall_height,
+            _ => building_part.wall_height,
         }
     }
 

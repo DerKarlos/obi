@@ -3,7 +3,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::api_in::{
-    BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor, RoofShape,
+    BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor,
+    RoofShape,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,6 +234,7 @@ fn building(
         None => RoofShape::None,
         Some(roof_shape) => match roof_shape.as_str() {
             "flat" => RoofShape::Flat,
+            "skillion" => RoofShape::Skillion,
             "onion" => RoofShape::Onion,
             "pyramidal" => RoofShape::Phyramidal,
             _ => {
@@ -296,11 +298,18 @@ fn building(
         north: sum_north / count,
         east: sum_east / count,
     };
+    let bounding_box = BoundingBox {
+        _north_min: north_min,
+        _north_max: north_max,
+        east_min,
+        east_max,
+    };
     println!("roof_shape: {:?}", roof_shape);
     let building_part = BuildingPart {
         _part: true, // ??? not only parts!
         footprint,
         center,
+        bounding_box,
         wall_height,
         min_height,
         color,
