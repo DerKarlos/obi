@@ -18,6 +18,11 @@ use crate::input_json::{get_json_range, scan_json};
 use crate::render_3d::scan_osm;
 // Todo? use error_chain::error_chain;
 
+/**** Project patterns ****************************************************************************
+ * Don't use apreviations, as Rust does
+ * Always north before east, like in GroundPosition
+ */
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 

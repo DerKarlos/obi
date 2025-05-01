@@ -18,6 +18,25 @@ impl std::fmt::Display for GroundPosition {
     }
 }
 
+/*
+#[derive(Clone, Copy, Debug)]
+pub struct HeightPosition {
+    pub north: f32,
+    pub east: f32,
+    pub height: f32,
+}
+
+impl GroundPosition {
+    fn _add_height(&self, height: f32) -> HeightPosition {
+        HeightPosition {
+            north: self.north,
+            east: self.east,
+            height,
+        }
+    }
+}
+*/
+
 #[derive(Clone, Copy, Debug)]
 pub struct OsmNode {
     pub position: GroundPosition,
@@ -42,12 +61,12 @@ pub enum RoofShape {
 pub struct BuildingPart {
     pub _part: bool,
     pub footprint: Vec<GroundPosition>,
-    pub _longest_side_index: u32,
     pub center: GroundPosition,
     pub wall_height: f32,
     pub min_height: f32,
     pub color: RenderColor,
     pub roof_shape: RoofShape,
     pub roof_height: f32,
+    pub roof_angle: f32,
     pub roof_color: RenderColor,
 }

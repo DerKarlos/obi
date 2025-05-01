@@ -108,10 +108,10 @@ fn to_position(
     // Longitude(Längengrad) West/East factor
     // actual coor - other coor = relative grad/meter ground position
 
-    let north = ((latitude - ground_null_coordinates.latitude) * LAT_FAKT) as f32;
-    let east = ((longitude - ground_null_coordinates.longitude) * lon_fakt) as f32;
-
-    GroundPosition { north, east }
+    GroundPosition {
+        north: ((latitude - ground_null_coordinates.latitude) * LAT_FAKT) as f32,
+        east: ((longitude - ground_null_coordinates.longitude) * lon_fakt) as f32,
+    }
 }
 
 /**/
@@ -120,10 +120,7 @@ pub fn coordinates_of_way_center(way_id: i64) -> GeographicCoordinates {
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 
-    let url = format!("{}way/{}/full.json", API_URL, way_id);
-
-    // Get OSM data from API and convert Json to Rust types. See https://serde.rs
-    let json_way: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    let json_way: JsonData = get_json_way(way_id);
 
     let mut latitude: f64 = 0.0;
     let mut longitude: f64 = 0.0;
@@ -148,6 +145,32 @@ pub fn coordinates_of_way_center(way_id: i64) -> GeographicCoordinates {
     }
 }
 /**/
+
+impl GroundPosition {
+    fn new() -> Self {
+        Self {
+            north: 0.,
+            east: 0.,
+        }
+    }
+
+    fn distance_angle_to_other(&self, other: GroundPosition) -> (f32, f32) {
+        let a = self.north - other.north;
+        let b = self.east - other.east;
+        let distance = f32::sqrt(a * a + b * b);
+
+        // Its atan2(y,x)   NOT:x,y!
+        // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
+        let mut angle: f32 = f32::atan2(self.north - other.north, self.east - other.east);
+        if angle >= PI / 2. {
+            angle -= PI;
+        } else if angle < -PI {
+            angle += 2. * PI;
+        }
+
+        (distance, angle)
+    }
+}
 
 fn node(
     element: JosnElement,
@@ -206,15 +229,14 @@ fn building(
     let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
 
     // Shape of the roof. All buildings have a roof, even if it is not tagged
-    let roof_shape = tags.roof_shape;
-    let shape: RoofShape = match roof_shape {
+    let roof_shape: RoofShape = match tags.roof_shape {
         None => RoofShape::None,
-        Some(shape) => match shape.as_str() {
+        Some(roof_shape) => match roof_shape.as_str() {
             "flat" => RoofShape::Flat,
             "onion" => RoofShape::Onion,
             "pyramidal" => RoofShape::Phyramidal,
             _ => {
-                println!("Warning: roof_shape Unknown: {}", shape);
+                println!("Warning: roof_shape Unknown: {}", roof_shape);
                 RoofShape::Flat // todo: gabled and geographic dependend
             }
         },
@@ -233,16 +255,40 @@ fn building(
 
     let mut sum_north = 0.;
     let mut sum_east = 0.;
-    let mut _longest_side_length = 0;
-    let mut _longest_side_index = 0;
     let mut footprint: Vec<GroundPosition> = Vec::new();
+    let mut last_position: GroundPosition = GroundPosition::new();
+    let mut longest_distance: f32 = 0.0;
+    let mut roof_angle: f32 = 0.0;
+    let mut north_min: f32 = 1e9;
+    let mut north_max: f32 = -1e9;
+    let mut east_min: f32 = 1e9;
+    let mut east_max: f32 = -1e9;
     for (index, node_id) in nodes.iter().rev().enumerate() {
         //r (index, position) in building_part.footprint.iter().rev().enumerate() {
         let node = nodes_map.get(node_id).unwrap();
         footprint.push(node.position);
         if index > 0 {
-            sum_east += node.position.east;
+            north_min = north_min.min(node.position.north);
+            north_max = north_max.min(node.position.north);
+            east_min = east_min.min(node.position.east);
+            east_max = east_max.min(node.position.east);
             sum_north += node.position.north;
+            sum_east += node.position.east;
+            let (distance, angle) = node.position.distance_angle_to_other(last_position);
+            if longest_distance < distance {
+                longest_distance = distance;
+                roof_angle = angle;
+            }
+        }
+        last_position = node.position;
+
+        // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
+        if east_max - east_min > north_max - north_min {
+            roof_angle = if roof_angle > 0. {
+                roof_angle - PI / 2.
+            } else {
+                roof_angle + PI / 2.
+            }
         }
     }
     let count = nodes.len() as f32 - 1.;
@@ -250,24 +296,25 @@ fn building(
         north: sum_north / count,
         east: sum_east / count,
     };
-    println!("roof_shape: {:?}", shape);
+    println!("roof_shape: {:?}", roof_shape);
     let building_part = BuildingPart {
         _part: true, // ??? not only parts!
         footprint,
-        _longest_side_index,
         center,
         wall_height,
         min_height,
         color,
-        roof_shape: shape,
+        roof_shape,
         roof_height,
+        roof_angle,
         roof_color,
     };
 
     building_parts.push(building_part);
 }
 
-pub fn _get_json_way(way_id: i64) -> JsonData {
+pub fn get_json_way(way_id: i64) -> JsonData {
+    //// Get OSM data from API and convert Json to Rust types. See https://serde.rs
     let url = format!("{}way/{}/full.json", API_URL, way_id);
     reqwest::blocking::get(url).unwrap().json().unwrap()
 }

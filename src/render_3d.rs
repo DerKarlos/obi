@@ -109,7 +109,8 @@ impl OsmMesh {
         }
     }
 
-    fn prepare_roof(&mut self, _x: &BuildingPart) {
+    fn prepare_roof(&mut self, building_part: &BuildingPart) {
+        println!("angle: {}", building_part.roof_angle);
         // calc longest side and direction
         // Add positions below roof first etc.
         // rotate a foodprint mirror
