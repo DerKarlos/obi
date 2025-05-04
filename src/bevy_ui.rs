@@ -125,7 +125,7 @@ fn setup(
         point_light: PointLight {
             shadows_enabled: true,
             // https://bevyengine.org/examples/3d-rendering/shadow-caster-receiver/
-            intensity: 1_000_000.0,
+            intensity: 1_000_000.0 * 10.,
             ..default()
         },
         transform: Transform::from_xyz(s * 4., s * 5., s * 40.).looking_at(Vec3::ZERO, Vec3::Y),

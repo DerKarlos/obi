@@ -32,18 +32,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let _reifenberg_id = 121486088; // scale 1.5
-    let _passau_dom_id = 24771505; // scale 5
+    let _passau_dom_id = 24771505; // scale 5   unten: 136144290  oben: 136144289
     let _westminster_id = 367642719;
-    let id = _reifenberg_id;
-    let scale = 2.;
+    let id = _passau_dom_id;
+    let scale = 5.;
     let range = 15.0 * scale;
+    let show_only: u64 = 136144290;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
-    println!("ground_null_coordinates: {:?}", &ground_null_coordinates);
+    //println!(
+    //    "id {} => ground_null_coordinates: {:?}\n",
+    //    id, &ground_null_coordinates
+    //);
 
     let json_data = get_json_range(range, &ground_null_coordinates);
-    let building_parts = scan_json(json_data, &ground_null_coordinates);
+    let building_parts = scan_json(json_data, &ground_null_coordinates, show_only);
     let osm_meshes = scan_osm(building_parts);
+
+    println!("");
 
     bevy_init(osm_meshes, scale);
 

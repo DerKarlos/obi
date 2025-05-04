@@ -12,6 +12,16 @@ pub struct GroundPosition {
     pub east: f32,
 }
 
+impl GroundPosition {
+    pub fn rotate_around_center(self, angle: f32, center: GroundPosition) -> GroundPosition {
+        let north = (self.north - center.north) * f32::cos(angle)
+            - (self.east - center.east) * f32::sin(angle);
+        let east = (self.east - center.east) * f32::cos(angle)
+            - (self.north - center.north) * f32::sin(angle);
+        GroundPosition { north, east }
+    }
+}
+
 impl std::fmt::Display for GroundPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.east, self.north)

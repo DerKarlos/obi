@@ -122,19 +122,27 @@ impl OsmMesh {
         position: &GroundPosition,
         building_part: &BuildingPart,
     ) -> f32 {
-        let angle = -building_part.roof_angle;
-        let center = building_part.center;
-        // const pointX =  (point.x - center[0]) * Math.cos(angle) - (point.y - center[1]) * Math.sin(angle);
-        // const pointY = -(point.x - center[0]) * Math.sin(angle) - (point.y - center[1]) * Math.cos(angle);
-        let east = (position.east - center.east) * f32::cos(angle)
-            - (position.north - center.north) * f32::sin(angle);
-        //  let north = (position.east  - center.east)  * f32::sin(angle)
-        //            - (position.north - center.north) * f32::cos(angle);
+        let east = position
+            .rotate_around_center(-building_part.roof_angle, building_part.center)
+            .east;
         let inclination = building_part.roof_height
             / (building_part.bounding_box.east - building_part.bounding_box.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
+        // ttt
+        //println!(
+        //    "{:?} {:?} {:?} {:?} {:?} {:?} ",
+        //    -building_part.roof_angle,
+        //    east,
+        //    inclination,
+        //    building_part.roof_height,
+        //    building_part.bounding_box.east - building_part.bounding_box.west,
+        //    f32::abs(east - building_part.bounding_box.west) * inclination,
+        //);
+
         // if (y >= -0.001) { // It's the roof, not the lower floor of the building(block)
-        -f32::abs(east - building_part.bounding_box.west) * inclination // !!: If the roof is "left" of the hightest side, it also must go down
+        building_part.wall_height + building_part.roof_height
+            - f32::abs(east - building_part.bounding_box.west) * inclination
+        // !!: If the roof is "left" of the hightest side, it also must go down
     }
 
     fn calc_roof_position_height(
@@ -202,7 +210,7 @@ impl OsmMesh {
         }
         self.attributes.vertices_positions.push(pike);
         self.attributes.vertices_colors.push(color);
-        //println!("ttt rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
+        //println!("rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
     }
 
     pub fn push_onion(

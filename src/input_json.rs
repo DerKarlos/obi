@@ -206,19 +206,20 @@ fn way(
     element: JosnElement,
     building_parts: &mut Vec<BuildingPart>,
     nodes_map: &mut HashMap<u64, OsmNode>,
+    show_only: u64,
 ) {
     // println!("element = {:?}", element);
-    //let tags_option = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
+
+    if show_only > 0 && element.id != show_only {
+        return;
+    } // tttt
 
     if element.tags.is_none() {
-        println!(
-            "way without tags! ID: {} Relation or Multipolligon?",
-            element.id
-        );
+        // ttt println!(            "way without tags! ID: {} Relation or Multipolligon?",            element.id        );
         return;
     }
 
-    let tags = element.tags.as_ref().unwrap(); // JosnTags { ..default() }; //ttt
+    let tags = element.tags.as_ref().unwrap();
     let string_no = &NO.to_string();
     let part = tags.building_part.as_ref().unwrap_or(string_no);
 
@@ -234,16 +235,11 @@ fn building(
     nodes_map: &mut HashMap<u64, OsmNode>,
 ) {
     // println!(" Way: building = {:?}  name = {:?}" name,);
-    let tags = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
+    let tags = element.tags.unwrap();
 
     // Colors and Materials
     let color = parse_color(tags.color.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
     let roof_color = parse_color(tags.roof_color.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
-
-    // Heights
-    let min_height = parse_height(tags.min_height, 0.0);
-    let roof_height = parse_height(tags.roof_height, DEFAULT_ROOF_HEIGHT);
-    let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
 
     // Shape of the roof. All buildings have a roof, even if it is not tagged
     let roof_shape: RoofShape = match tags.roof_shape {
@@ -260,6 +256,16 @@ fn building(
         },
     };
 
+    let default_roof_heigt = match roof_shape {
+        RoofShape::Skillion => 9.0,
+        _ => DEFAULT_ROOF_HEIGHT,
+    };
+
+    // Heights
+    let min_height = parse_height(tags.min_height, 0.0);
+    let roof_height = parse_height(tags.roof_height, default_roof_heigt);
+    let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
+
     // Get building footprint from nodes
     let nodes = element.nodes.unwrap();
     if nodes.len() < 3 {
@@ -270,28 +276,15 @@ fn building(
         println!("Building with < 3 corners! id: {}", element.id);
     }
     // else { todo("drop last and modulo index") }
-    //
-    // https://github.com/mattdesl/is-clockwise/blob/master/index.js
-    /*
-    function isClockwise(poly) {
-        var sum = 0
-        for (var i=0; i<poly.length-1; i++) {
-            var cur = poly[i],
-                next = poly[i+1]
-            sum += (next[0] - cur[0]) * (next[1] + cur[1])
-        }
-        return sum > 0
-    }
-    */
 
     let mut sum_north = 0.;
     let mut sum_east = 0.;
     let mut footprint: Vec<GroundPosition> = Vec::new();
+    let mut footprint_rotated: Vec<GroundPosition> = Vec::new();
     let mut last_position = GroundPosition::new();
     let mut longest_distance = 0.;
     let mut roof_angle = 0.;
-    let mut last_angle = 0.;
-    let mut angle_sum = 0.;
+    let mut clockwise_sum = 0.;
     let mut bounding_box = BoundingBox::new();
 
     for (index, node_id) in nodes.iter().rev().enumerate() {
@@ -303,28 +296,19 @@ fn building(
             sum_north += node.position.north;
             sum_east += node.position.east;
             let (distance, angle) = node.position.distance_angle_to_other(last_position);
-            println!("        angle  {}", angle);
             if longest_distance < distance {
                 longest_distance = distance;
                 roof_angle = angle;
             }
-            if index > 1 {
-                angle_sum += (angle - last_angle) % RAD360;
-            }
-            last_angle = angle;
+            clockwise_sum += (node.position.north - last_position.north)
+                * (node.position.east + last_position.east);
         } // 0
         last_position = node.position;
     } // nodes
 
-    println!("id: {} angle sum {}", element.id, angle_sum);
-    let is_clockwise = angle_sum > 0.0;
+    let is_clockwise = clockwise_sum > 0.0;
     if !is_clockwise {
         footprint.reverse();
-    } // ttt
-
-    // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
-    if bounding_box.east_larger_than_nord() {
-        roof_angle = rotate_90_degrees(roof_angle);
     }
 
     let count = nodes.len() as f32 - 1.;
@@ -332,7 +316,20 @@ fn building(
         north: sum_north / count,
         east: sum_east / count,
     };
-    println!("roof_shape: {:?}", roof_shape);
+
+    let mut bounding_box_rotated = BoundingBox::new();
+    for position in &footprint {
+        let rotated_position = position.rotate_around_center(roof_angle, center);
+        footprint_rotated.push(rotated_position);
+        bounding_box_rotated.include(rotated_position);
+    }
+
+    // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
+    if bounding_box_rotated.east_larger_than_nord() {
+        roof_angle = rotate_90_degrees(roof_angle);
+    }
+
+    println!("id: {} roof_shape: {:?}", element.id, roof_shape);
     let building_part = BuildingPart {
         _part: true, // ??? not only parts!
         footprint,
@@ -378,6 +375,7 @@ pub fn get_json_range(range: f64, ground_null_coordinates: &GeographicCoordinate
 pub fn scan_json(
     json_data: JsonData,
     ground_null_coordinates: &GeographicCoordinates,
+    show_only: u64,
 ) -> Vec<BuildingPart> {
     let mut building_parts: Vec<BuildingPart> = Vec::new();
     let mut nodes_map = HashMap::new();
@@ -386,7 +384,7 @@ pub fn scan_json(
         // println!("element.element_type: {}", element.element_type);
         match element.element_type.as_str() {
             "node" => node(element, ground_null_coordinates, &mut nodes_map),
-            "way" => way(element, &mut building_parts, &mut nodes_map),
+            "way" => way(element, &mut building_parts, &mut nodes_map, show_only),
             _ => (), //println!(  todo
                      //    "Error: Unknown element type: {}  id: {}",
                      //    element.element_type, element.id
