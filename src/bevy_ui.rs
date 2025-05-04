@@ -56,29 +56,30 @@ fn input_handler(
     mut query: Query<&mut Transform, With<Controled>>,
     time: Res<Time>,
 ) {
-    if keyboard_input.pressed(KeyCode::KeyX) {
+    if keyboard_input.pressed(KeyCode::ArrowDown) {
         for mut transform in &mut query {
             transform.rotate_x(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyS) {
+    if keyboard_input.pressed(KeyCode::ArrowUp) {
         for mut transform in &mut query {
             transform.rotate_x(-time.delta_seconds() / 1.2);
         }
     }
 
-    if keyboard_input.pressed(KeyCode::KeyY /* Z in German */) {
+    if keyboard_input.pressed(KeyCode::ArrowLeft /* KeyY Z in German */) {
         for mut transform in &mut query {
             transform.rotate_y(time.delta_seconds() / 1.2);
         }
     }
-    if keyboard_input.pressed(KeyCode::KeyU) {
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
+        // KeyU
         for mut transform in &mut query {
             transform.rotate_y(-time.delta_seconds() / 1.2);
         }
     }
 
-    if keyboard_input.pressed(KeyCode::KeyZ /* Y in German */) {
+    if keyboard_input.pressed(KeyCode::KeyZ /*  Y in German */) {
         for mut transform in &mut query {
             transform.rotate_z(time.delta_seconds() / 1.2);
         }
@@ -104,8 +105,8 @@ fn setup(
 ) {
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let s = osm_meshes.scale as f32;
-    let camera_transform = Transform::from_xyz(0. * s, 10. * s, 30. * s)
-        .looking_at(Vec3::new(0., s * 0., 0.), Vec3::Y);
+    let camera_transform = Transform::from_xyz(0. * s, 20. * s, 30. * s)
+        .looking_at(Vec3::new(0., s * 5., 0.), Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {

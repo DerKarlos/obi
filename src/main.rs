@@ -31,11 +31,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
-    let _reifenberg_id = 121486088;
+    let _reifenberg_id = 121486088; // scale 1.5
+    let _passau_dom_id = 24771505; // scale 5
     let _westminster_id = 367642719;
-    let _passau_dom_id = 24771505;
-    let id = _passau_dom_id;
-    let scale = 5.0;
+    let id = _reifenberg_id;
+    let scale = 2.;
     let range = 15.0 * scale;
 
     let ground_null_coordinates = coordinates_of_way_center(id);

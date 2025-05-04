@@ -58,10 +58,32 @@ pub enum RoofShape {
 
 #[derive(Clone, Debug)]
 pub struct BoundingBox {
-    pub _north_min: f32,
-    pub _north_max: f32,
-    pub east_min: f32,
-    pub east_max: f32,
+    pub north: f32,
+    pub south: f32,
+    pub east: f32,
+    pub west: f32,
+}
+
+impl BoundingBox {
+    pub fn new() -> Self {
+        BoundingBox {
+            north: f32::MIN,
+            south: f32::MAX,
+            east: f32::MIN,
+            west: f32::MAX,
+        }
+    }
+
+    pub fn include(&mut self, position: GroundPosition) {
+        self.north = self.north.max(position.north);
+        self.south = self.south.min(position.north);
+        self.east = self.east.max(position.east);
+        self.west = self.west.min(position.east);
+    }
+
+    pub fn east_larger_than_nord(&self) -> bool {
+        self.east - self.west > self.north - self.south
+    }
 }
 
 // A builiding without parts is its onw part or itselve is a part

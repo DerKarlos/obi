@@ -18,11 +18,17 @@ static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 /* Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
 static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 static PI: f32 = std::f32::consts::PI;
+static RAD90: f32 = std::f32::consts::PI / 2.0;
+static RAD360: f32 = std::f32::consts::PI * 2.0;
 
 static DEFAULT_WALL_COLOR: &str = "grey"; // RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
 static DEFAULT_ROOF_COLOR: &str = "red"; // RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
 static DEFAULT_WALL_HEIGHT: f32 = 2.0 * 3.0; // two floors with each 3 meters
 static DEFAULT_ROOF_HEIGHT: f32 = 0.0;
+
+fn rotate_90_degrees(angle: f32) -> f32 {
+    (angle + RAD90) % RAD360
+}
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
 #[derive(Deserialize, Debug)]
@@ -64,11 +70,17 @@ fn parse_height(height: Option<String>, default: f32) -> f32 {
         return default;
     }
 
-    match height.unwrap().as_str().parse() {
+    let mut hu = height.unwrap();
+
+    if hu.ends_with("m") {
+        hu = hu.strip_suffix("m").unwrap().to_string();
+    }
+
+    match hu.as_str().trim().parse() {
         Ok(height) => height,
 
         Err(error) => {
-            println!("Error! parse_height: {}", error);
+            println!("Error! parse_height: {} for:{}:", error, hu);
             DEFAULT_ROOF_HEIGHT
         }
     }
@@ -162,13 +174,14 @@ impl GroundPosition {
 
         // Its atan2(y,x)   NOT:x,y!
         // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
-        let mut angle: f32 = f32::atan2(self.north - other.north, self.east - other.east);
-        if angle >= PI / 2. {
-            angle -= PI;
-        } else if angle < -PI {
-            angle += 2. * PI;
+        let angle: f32 = f32::atan2(self.north - other.north, self.east - other.east) % RAD360;
+        /*
+        if (angle >= Math.PI ) {
+          angle -= Math.PI;
+        } else if (angle < -Math.PI) {  // 1. Error in Code of Building-Viewer?!
+          angle += 2 * Math.PI; // 2. Error in Code of Building-Viewer?!
         }
-
+        */
         (distance, angle)
     }
 }
@@ -198,7 +211,10 @@ fn way(
     //let tags_option = element.tags.unwrap(); // JosnTags { ..default() }; //ttt
 
     if element.tags.is_none() {
-        println!("way without tags! ID: {} Multipolligon?", element.id);
+        println!(
+            "way without tags! ID: {} Relation or Multipolligon?",
+            element.id
+        );
         return;
     }
 
@@ -238,7 +254,7 @@ fn building(
             "onion" => RoofShape::Onion,
             "pyramidal" => RoofShape::Phyramidal,
             _ => {
-                println!("Warning: roof_shape Unknown: {}", roof_shape);
+                //ttt println!("Warning: roof_shape Unknown: {}", roof_shape);
                 RoofShape::Flat // todo: gabled and geographic dependend
             }
         },
@@ -254,55 +270,67 @@ fn building(
         println!("Building with < 3 corners! id: {}", element.id);
     }
     // else { todo("drop last and modulo index") }
+    //
+    // https://github.com/mattdesl/is-clockwise/blob/master/index.js
+    /*
+    function isClockwise(poly) {
+        var sum = 0
+        for (var i=0; i<poly.length-1; i++) {
+            var cur = poly[i],
+                next = poly[i+1]
+            sum += (next[0] - cur[0]) * (next[1] + cur[1])
+        }
+        return sum > 0
+    }
+    */
 
     let mut sum_north = 0.;
     let mut sum_east = 0.;
     let mut footprint: Vec<GroundPosition> = Vec::new();
-    let mut last_position: GroundPosition = GroundPosition::new();
-    let mut longest_distance: f32 = 0.0;
-    let mut roof_angle: f32 = 0.0;
-    let mut north_min: f32 = 1e9;
-    let mut north_max: f32 = -1e9;
-    let mut east_min: f32 = 1e9;
-    let mut east_max: f32 = -1e9;
+    let mut last_position = GroundPosition::new();
+    let mut longest_distance = 0.;
+    let mut roof_angle = 0.;
+    let mut last_angle = 0.;
+    let mut angle_sum = 0.;
+    let mut bounding_box = BoundingBox::new();
+
     for (index, node_id) in nodes.iter().rev().enumerate() {
         //r (index, position) in building_part.footprint.iter().rev().enumerate() {
         let node = nodes_map.get(node_id).unwrap();
         footprint.push(node.position);
         if index > 0 {
-            north_min = north_min.min(node.position.north);
-            north_max = north_max.min(node.position.north);
-            east_min = east_min.min(node.position.east);
-            east_max = east_max.min(node.position.east);
+            bounding_box.include(node.position);
             sum_north += node.position.north;
             sum_east += node.position.east;
             let (distance, angle) = node.position.distance_angle_to_other(last_position);
+            println!("        angle  {}", angle);
             if longest_distance < distance {
                 longest_distance = distance;
                 roof_angle = angle;
             }
-        }
-        last_position = node.position;
-
-        // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
-        if east_max - east_min > north_max - north_min {
-            roof_angle = if roof_angle > 0. {
-                roof_angle - PI / 2.
-            } else {
-                roof_angle + PI / 2.
+            if index > 1 {
+                angle_sum += (angle - last_angle) % RAD360;
             }
-        }
+            last_angle = angle;
+        } // 0
+        last_position = node.position;
+    } // nodes
+
+    println!("id: {} angle sum {}", element.id, angle_sum);
+    let is_clockwise = angle_sum > 0.0;
+    if !is_clockwise {
+        footprint.reverse();
+    } // ttt
+
+    // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
+    if bounding_box.east_larger_than_nord() {
+        roof_angle = rotate_90_degrees(roof_angle);
     }
+
     let count = nodes.len() as f32 - 1.;
     let center = GroundPosition {
         north: sum_north / count,
         east: sum_east / count,
-    };
-    let bounding_box = BoundingBox {
-        _north_min: north_min,
-        _north_max: north_max,
-        east_min,
-        east_max,
     };
     println!("roof_shape: {:?}", roof_shape);
     let building_part = BuildingPart {
@@ -359,10 +387,10 @@ pub fn scan_json(
         match element.element_type.as_str() {
             "node" => node(element, ground_null_coordinates, &mut nodes_map),
             "way" => way(element, &mut building_parts, &mut nodes_map),
-            _ => println!(
-                "Error: Unknown element type: {}  id: {}",
-                element.element_type, element.id
-            ),
+            _ => (), //println!(  todo
+                     //    "Error: Unknown element type: {}  id: {}",
+                     //    element.element_type, element.id
+                     //),
         }
     }
 

@@ -77,7 +77,7 @@ impl OsmMesh {
                     color,
                 );
 
-                // Roof Points for triangulation and Onion, Positions for a Pyramide
+                // Roof Points for triangulation and Onion, Positions for a Phyramide
                 roof_polygon.push(roof_point);
                 roof_positions.push(this_pos_up);
             }
@@ -87,7 +87,7 @@ impl OsmMesh {
 
         match building_part.roof_shape {
             //
-            crate::api_in::RoofShape::Phyramidal => self.push_pyramid(
+            RoofShape::Phyramidal => self.push_phyramid(
                 [
                     building_part.center.east,
                     wall_height + roof_height,
@@ -109,9 +109,9 @@ impl OsmMesh {
         }
     }
 
-    fn prepare_roof(&mut self, building_part: &BuildingPart) {
-        println!("angle: {}", building_part.roof_angle);
-        // calc longest side and direction
+    fn prepare_roof(&mut self, _building_part: &BuildingPart) {
+        // println!("angle: {}", _building_part.roof_angle);
+        // todo:
         // Add positions below roof first etc.
         // rotate a foodprint mirror
         // prepare height calculation
@@ -131,10 +131,10 @@ impl OsmMesh {
         //  let north = (position.east  - center.east)  * f32::sin(angle)
         //            - (position.north - center.north) * f32::cos(angle);
         let inclination = building_part.roof_height
-            / (building_part.bounding_box.east_max - building_part.bounding_box.east_min); // Höhen/Tiefe der Nodes/Ecken berechenen
+            / (building_part.bounding_box.east - building_part.bounding_box.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         // if (y >= -0.001) { // It's the roof, not the lower floor of the building(block)
-        -f32::abs(east - building_part.bounding_box.east_min) * inclination // !!: If the roof is "left" of the hightest side, it also must go down
+        -f32::abs(east - building_part.bounding_box.west) * inclination // !!: If the roof is "left" of the hightest side, it also must go down
     }
 
     fn calc_roof_position_height(
@@ -144,8 +144,11 @@ impl OsmMesh {
     ) -> f32 {
         match building_part.roof_shape {
             RoofShape::Skillion => self.calc_skillion_position_height(position, building_part),
+
             RoofShape::Onion => building_part.wall_height, // todo
+
             RoofShape::Phyramidal => building_part.wall_height,
+
             _ => building_part.wall_height,
         }
     }
@@ -172,9 +175,9 @@ impl OsmMesh {
         }
     }
 
-    // todo: pyramide, dome and onion the same except a different curves. Use same code,
+    // todo: phyramide, dome and onion the same except a different curves. Use same code,
     // todo: For all 3 shapetypes: less points: cornsers, much points: rounded
-    pub fn push_pyramid(
+    pub fn push_phyramid(
         &mut self,
         pike: GpuPosition,
         roof_positions: Vec<GpuPosition>,
@@ -192,8 +195,8 @@ impl OsmMesh {
                 index2 = 0
             };
             self.push_indices([
-                (roof_index_offset + index2),
                 (roof_index_offset + index1),
+                (roof_index_offset + index2),
                 (roof_index_offset + pike_index_offset),
             ]);
         }
@@ -210,7 +213,7 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let shape_curve = [
+        let extrude_curve_scale = [
             // -x- |y|    The curve is about "taken" from F4map.com
             [1.00, 0.00],
             [1.12, 0.09],
@@ -227,28 +230,28 @@ impl OsmMesh {
         ];
 
         let columns = roof_polygon.len();
-        let to_next_column = columns * 2;
+        let one_column = columns * 2;
 
         // process all rings
-        for point in shape_curve {
-            let curve_radius = point[0] as f32;
-            let curve_up = point[1] as f32;
-            //println!("scale {} {} {} {}",curve_up,curve_radius, to_next_column, roof_height);
+        for scale in extrude_curve_scale {
+            let scale_radius = scale[0] as f32;
+            let scale_up = scale[1] as f32;
+            //println!("scale {} {} {} {}",curve_up,curve_radius, one_column, roof_height);
 
-            let column_point = roof_polygon.last().unwrap();
-            let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
-            let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
-            let mut last_pos = [gpu_x, wall_height + roof_height * curve_up, gpu_z];
+            let edge_position = roof_polygon.last().unwrap();
+            let gpu_x = (edge_position.x - pike.east) * scale_radius + pike.east;
+            let gpu_z = (edge_position.y - pike.north) * scale_radius + pike.north; // * roof_rel
+            let mut last_pos = [gpu_x, wall_height + roof_height * scale_up, gpu_z];
 
             // process one ring
-            for column_point in roof_polygon.iter() {
+            for edge_position in roof_polygon.iter() {
                 // push colors
                 self.attributes.vertices_colors.push(color);
                 self.attributes.vertices_colors.push(color);
                 // push vertices
-                let gpu_x = (column_point.x - pike.east) * curve_radius + pike.east;
-                let gpu_z = (column_point.y - pike.north) * curve_radius + pike.north; // * roof_rel
-                let this_pos = [gpu_x, wall_height + roof_height * curve_up, gpu_z];
+                let gpu_x = (edge_position.x - pike.east) * scale_radius + pike.east;
+                let gpu_z = (edge_position.y - pike.north) * scale_radius + pike.north; // * roof_rel
+                let this_pos = [gpu_x, wall_height + roof_height * scale_up, gpu_z];
 
                 // push indices
                 let index = self.attributes.vertices_positions.len();
@@ -258,15 +261,10 @@ impl OsmMesh {
                 //println!("pso x z {} {} {:?} {:?}",pos_x,pos_z,last_pos,this_pos);
 
                 // not if it is the last point/ring of the curve
-                if curve_radius > 0. {
-                    // Push indices. First treeangle
-                    self.push_indices([(index + 1), (index/**/), (index + to_next_column)]);
-                    // Secound treeangle
-                    self.push_indices([
-                        index + 1,
-                        index + to_next_column,
-                        index + to_next_column + 1,
-                    ]);
+                if scale_radius > 0. {
+                    // Push indices of two treeangles
+                    self.push_indices([index, index + 1, index + one_column]);
+                    self.push_indices([index + 1, index + one_column + 1, index + one_column]);
                 }
             } // ring
         } // all rings
@@ -296,8 +294,8 @@ impl OsmMesh {
         self.attributes.vertices_positions.push(up_right); //   +3
 
         // Push first and second treeangle
-        self.push_indices([index /*....*/, index + 2, index + 1]);
-        self.push_indices([index /*.*/+ 1, index + 2, index + 3]);
+        self.push_indices([index /*....*/, index + 1, index + 2]);
+        self.push_indices([index /*.*/+ 1, index + 3, index + 2]);
     }
 
     pub fn push_indices(&mut self, indexi: [usize; 3]) {
