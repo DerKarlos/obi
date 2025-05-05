@@ -27,24 +27,35 @@ pub fn spawn_osm_mesh(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
 ) {
+    // println!("{:?}", osm_mesh.vertices_colors);
+    // println!("p {:?} c {:?} i {:?}", osm_mesh.vertices_positions.len(), osm_mesh.vertices_colors.len(), osm_mesh.indices_to_vertices.len() );
+    //let mut mesh = Mesh::from(Cuboid::default());
+
+    let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
+    let mut uvs: Vec<[f32; 2]> = Vec::new();
+    uvs.push([0.; 2]); // todo: allways 0. is ok?
+    let uvs = uvs.repeat(count);
+
+    let mut normals: Vec<[f32; 3]> = Vec::new();
+    normals.push([1.; 3]); // todo: allways 1. is ok?
+    let normals = normals.repeat(count);
+
     let mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     )
-    .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()))
-    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         osm_mesh.vertices_positions.clone(),
-    );
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
+    .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
 
-    let mesh_handle = meshes.add(mesh);
     commands.spawn((
-        PbrBundle {
-            mesh: mesh_handle,
-            material: materials.add(Color::srgb(1.0, 1.0, 1.0)),
-            ..default()
-        },
+        Mesh3d(meshes.add(mesh)),
+        MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
         Controled,
     ));
 }
@@ -58,35 +69,35 @@ fn input_handler(
 ) {
     if keyboard_input.pressed(KeyCode::ArrowDown) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
+            transform.rotate_x(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::ArrowUp) {
         for mut transform in &mut query {
-            transform.rotate_x(-time.delta_seconds() / 1.2);
+            transform.rotate_x(-time.delta_secs() / 1.2);
         }
     }
 
     if keyboard_input.pressed(KeyCode::ArrowLeft /* KeyY Z in German */) {
         for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
+            transform.rotate_y(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::ArrowRight) {
         // KeyU
         for mut transform in &mut query {
-            transform.rotate_y(-time.delta_seconds() / 1.2);
+            transform.rotate_y(-time.delta_secs() / 1.2);
         }
     }
 
     if keyboard_input.pressed(KeyCode::KeyZ /*  Y in German */) {
         for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
+            transform.rotate_z(time.delta_secs() / 1.2);
         }
     }
     if keyboard_input.pressed(KeyCode::KeyA) {
         for mut transform in &mut query {
-            transform.rotate_z(-time.delta_seconds() / 1.2);
+            transform.rotate_z(-time.delta_secs() / 1.2);
         }
     }
 
@@ -103,38 +114,40 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     osm_meshes: Res<OsmMeshes>,
 ) {
-    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
-    let s = osm_meshes.scale as f32;
-    let camera_transform = Transform::from_xyz(0. * s, 20. * s, 30. * s)
-        .looking_at(Vec3::new(0., s * 5., 0.), Vec3::Y);
-
-    // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_transform,
-        ..default()
-    });
-
-    // camera
-    //commands.spawn((Camera3d::default(), camera_transform));
-
-    // Todo: https://bevyengine.org/examples/camera/camera-orbit/
-
-    // Light - ??? No reaction!
-    let s = 50.;
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            shadows_enabled: true,
-            // https://bevyengine.org/examples/3d-rendering/shadow-caster-receiver/
-            intensity: 1_000_000.0 * 10.,
-            ..default()
-        },
-        transform: Transform::from_xyz(s * 4., s * 5., s * 40.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
-
     for mesh in &osm_meshes.vec {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
+
+    let s = osm_meshes.scale as f32;
+    // circular base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(10.0 * s))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+    // cube
+    /*
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0 * s, 1.0 * s, 1.0 * s))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    )); */
+
+    // light
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            intensity: (2000000. * s),
+            range: 100. * s,
+            ..default()
+        },
+        Transform::from_xyz(4.0 * s, 8.0 * s, 4.0 * s),
+    ));
+    // camera
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5 * s, 4.5 * s, 9.0 * s).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
@@ -144,7 +157,7 @@ pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.5)))
         .insert_resource(OsmMeshes {
             vec: osm_meshes,
-            scale,
+            scale: scale,
         })
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
