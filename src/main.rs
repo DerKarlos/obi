@@ -24,6 +24,10 @@ use crate::render_3d::scan_osm;
  * Now and then check for all clone() and copy() to be realy needed
  */
 
+/**** TODO ***************************************************************************************
+ * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452
+ */
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 
@@ -32,11 +36,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
-    let _reifenberg_id = 121486088; // scale 1.5
-    let _passau_dom_id = 24771505; // scale 5   unten: 136144290  oben: 136144289
-    let _westminster_id = 367642719;
-    let id = _passau_dom_id;
-    let scale = 15.;
+    let _reifenberg_id = 121486088; // scale 5
+    let _passau_dom_id = 24771505; // scale 15   unten: 136144290  oben: 136144289
+    let _westminster_id = 367642719; // 25
+    let _taj_mahal_id = 375257537;
+    let _marienplatz_id = 223907278; // 15
+
+    let id = _westminster_id;
+    let scale = 25.;
     let range = 10.0 * scale;
     let show_only: u64 = 0; //136144290;
 

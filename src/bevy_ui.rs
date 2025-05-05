@@ -29,7 +29,6 @@ pub fn spawn_osm_mesh(
 ) {
     // println!("{:?}", osm_mesh.vertices_colors);
     // println!("p {:?} c {:?} i {:?}", osm_mesh.vertices_positions.len(), osm_mesh.vertices_colors.len(), osm_mesh.indices_to_vertices.len() );
-    //let mut mesh = Mesh::from(Cuboid::default());
 
     let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
     let mut uvs: Vec<[f32; 2]> = Vec::new();
@@ -121,32 +120,26 @@ fn setup(
     let s = osm_meshes.scale as f32;
     // circular base
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(10.0 * s))),
+        Mesh3d(meshes.add(Circle::new(15.0 * s))),
         MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
-    // cube
-    /*
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0 * s, 1.0 * s, 1.0 * s))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
-    )); */
 
     // light
     commands.spawn((
         PointLight {
             shadows_enabled: true,
-            intensity: (2000000. * s),
+            intensity: (100000000. * s),
             range: 100. * s,
             ..default()
         },
-        Transform::from_xyz(4.0 * s, 8.0 * s, 4.0 * s),
+        Transform::from_xyz(10.0 * s, 20.0 * s, 10.0 * s),
     ));
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.5 * s, 4.5 * s, 9.0 * s).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-2.5 * s, 4.5 * s, 9.0 * s)
+            .looking_at(Vec3::new(0., 2. * s, 0.), Vec3::Y),
     ));
 }
 
