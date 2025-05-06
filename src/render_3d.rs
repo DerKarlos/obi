@@ -8,7 +8,7 @@ use crate::api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 
 // Constants / Parameters
 static MULTI_MESH: bool = false;
-static GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
+static _GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
 pub fn scan_osm(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
@@ -45,6 +45,18 @@ impl OsmMesh {
         }
     }
 
+    fn _calc_pos_up_down(
+        &mut self,
+        position: &GroundPosition,
+        building_part: &BuildingPart,
+    ) -> ([f32; 3], [f32; 3]) {
+        let height = self.calc_roof_position_height(&position, &building_part);
+        (
+            [position.east, building_part.min_height, position.north],
+            [position.east, height, position.north],
+        )
+    }
+
     pub fn push_building_part(&mut self, building_part: &BuildingPart) {
         let min_height = building_part.min_height;
         let wall_height = building_part.wall_height;
@@ -61,28 +73,31 @@ impl OsmMesh {
 
         //// Push all Walls ////
         // The polygon node list is "closed": Last is connected to first
-        let mut last_pos_down = GPU_POS_NULL;
-        let mut last_pos_up = GPU_POS_NULL;
-        for (index, position) in building_part.footprint.iter().rev().enumerate() {
+
+        let position = building_part.footprint.first().unwrap();
+        //let mut (last_pos_down,last_pos_up) = self.calc_pos_up_down(position,building_part)
+        // todo: fn for next 3 lines
+        let height = self.calc_roof_position_height(position, &building_part);
+        let mut last_pos_down = [position.east, min_height, position.north];
+        let mut last_pos_up = [position.east, height, position.north];
+
+        // Whay rev() ?  Better chane push_square order ???
+        for position in building_part.footprint.iter().rev() {
             let height = self.calc_roof_position_height(position, &building_part);
             let this_pos_down = [position.east, min_height, position.north];
             let this_pos_up = [position.east, height, position.north];
+            // Walls
+            self.push_square(
+                last_pos_down,
+                this_pos_down,
+                last_pos_up,
+                this_pos_up,
+                color,
+            );
+            // Roof Points for triangulation and Onion, Positions for a Phyramide
             let roof_point = Point::new(position.east, position.north);
-            // skip first node = last
-            if index > 0 {
-                // Walls
-                self.push_square(
-                    last_pos_down,
-                    this_pos_down,
-                    last_pos_up,
-                    this_pos_up,
-                    color,
-                );
-
-                // Roof Points for triangulation and Onion, Positions for a Phyramide
-                roof_polygon.push(roof_point);
-                roof_positions.push(this_pos_up);
-            }
+            roof_polygon.push(roof_point);
+            roof_positions.push(this_pos_up);
             last_pos_down = this_pos_down;
             last_pos_up = this_pos_up;
         }
@@ -129,7 +144,7 @@ impl OsmMesh {
             .east;
         let inclination = building_part.roof_height
             // This is wront!  we neet the rotated east-west !!!  todo
-            / (building_part.bounding_box.east - building_part.bounding_box.west); // Höhen/Tiefe der Nodes/Ecken berechenen
+            / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         // ttt
         //println!(

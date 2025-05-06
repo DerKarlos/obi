@@ -160,7 +160,7 @@ pub fn coordinates_of_way_center(way_id: i64) -> GeographicCoordinates {
 /**/
 
 impl GroundPosition {
-    fn new() -> Self {
+    fn _new() -> Self {
         Self {
             north: 0.,
             east: 0.,
@@ -267,13 +267,15 @@ fn building(
     let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
 
     // Get building footprint from nodes
-    let nodes = element.nodes.unwrap();
+    let mut nodes = element.nodes.unwrap();
     if nodes.len() < 3 {
         println!("Building with < 3 corners! id: {}", element.id);
         return;
     }
     if nodes.first().unwrap() != nodes.last().unwrap() {
         println!("Building with < 3 corners! id: {}", element.id);
+    } else {
+        nodes.pop();
     }
     // else { todo("drop last and modulo index") }
 
@@ -281,28 +283,26 @@ fn building(
     let mut sum_east = 0.;
     let mut footprint: Vec<GroundPosition> = Vec::new();
     let mut footprint_rotated: Vec<GroundPosition> = Vec::new();
-    let mut last_position = GroundPosition::new();
+    let mut last_position = nodes_map.get(nodes.last().unwrap()).unwrap().position;
     let mut longest_distance = 0.;
     let mut roof_angle = 0.;
     let mut clockwise_sum = 0.;
     let mut bounding_box = BoundingBox::new();
 
-    for (index, node_id) in nodes.iter().rev().enumerate() {
+    for node_id in nodes.iter() {
         //r (index, position) in building_part.footprint.iter().rev().enumerate() {
         let node = nodes_map.get(node_id).unwrap();
         footprint.push(node.position);
-        if index > 0 {
-            bounding_box.include(node.position);
-            sum_north += node.position.north;
-            sum_east += node.position.east;
-            let (distance, angle) = node.position.distance_angle_to_other(last_position);
-            if longest_distance < distance {
-                longest_distance = distance;
-                roof_angle = angle;
-            }
-            clockwise_sum += (node.position.north - last_position.north)
-                * (node.position.east + last_position.east);
-        } // 0
+        bounding_box.include(node.position);
+        sum_north += node.position.north;
+        sum_east += node.position.east;
+        let (distance, angle) = node.position.distance_angle_to_other(last_position);
+        if longest_distance < distance {
+            longest_distance = distance;
+            roof_angle = angle;
+        }
+        clockwise_sum +=
+            (node.position.north - last_position.north) * (node.position.east + last_position.east);
         last_position = node.position;
     } // nodes
 
@@ -311,7 +311,7 @@ fn building(
         footprint.reverse();
     }
 
-    let count = nodes.len() as f32 - 1.;
+    let count = nodes.len() as f32;
     let center = GroundPosition {
         north: sum_north / count,
         east: sum_east / count,
@@ -341,7 +341,8 @@ fn building(
         _part: true, // ??? not only parts!
         footprint,
         center,
-        bounding_box,
+        _bounding_box: bounding_box,
+        bounding_box_rotated,
         wall_height,
         min_height,
         color,

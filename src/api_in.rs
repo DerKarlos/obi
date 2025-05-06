@@ -103,7 +103,8 @@ pub struct BuildingPart {
     pub _part: bool,
     pub footprint: Vec<GroundPosition>,
     pub center: GroundPosition,
-    pub bounding_box: BoundingBox,
+    pub _bounding_box: BoundingBox,
+    pub bounding_box_rotated: BoundingBox,
     // upper heit of the wall, independend of / including the min_height
     pub wall_height: f32,
     pub min_height: f32,
