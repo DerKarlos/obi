@@ -17,7 +17,7 @@ pub fn scan_osm(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     for building_part in building_parts {
         osm_mesh.prepare_roof(&building_part);
 
-        osm_mesh.push_building_or_part(&building_part);
+        osm_mesh.push_building_part(&building_part);
 
         if MULTI_MESH {
             //println!("MULTI_MESH");
@@ -45,10 +45,12 @@ impl OsmMesh {
         }
     }
 
-    pub fn push_building_or_part(&mut self, building_part: &BuildingPart) {
-        let wall_height = building_part.wall_height;
+    pub fn push_building_part(&mut self, building_part: &BuildingPart) {
         let min_height = building_part.min_height;
+        let wall_height = building_part.wall_height;
         let roof_height = building_part.roof_height;
+        println!("ttt m: {} w:{} r:{}", min_height, wall_height, roof_height);
+
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
         let color = building_part.color;
@@ -126,6 +128,7 @@ impl OsmMesh {
             .rotate_around_center(-building_part.roof_angle, building_part.center)
             .east;
         let inclination = building_part.roof_height
+            // This is wront!  we neet the rotated east-west !!!  todo
             / (building_part.bounding_box.east - building_part.bounding_box.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         // ttt
@@ -140,9 +143,26 @@ impl OsmMesh {
         //);
 
         // if (y >= -0.001) { // It's the roof, not the lower floor of the building(block)
-        building_part.wall_height + building_part.roof_height
-            - f32::abs(east - building_part.bounding_box.west) * inclination
+        let height =
+            building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
+        //  - f32::abs(east - building_part.bounding_box.west) * inclination;
         // !!: If the roof is "left" of the hightest side, it also must go down
+
+        if height > 0. {
+            println!(
+                "ttt id:{} height: {} w {} r {} + {} e {} i {}",
+                // ttt height:-32.01284 w73+r11=h84 e-2.1468682 w-66.412926 (+62) * i1.805196 =ca -100
+                building_part._id,
+                height,
+                building_part.wall_height,
+                building_part.roof_height,
+                building_part.wall_height + building_part.roof_height,
+                east,
+                inclination,
+            )
+        }
+
+        height
     }
 
     fn calc_roof_position_height(
@@ -152,10 +172,6 @@ impl OsmMesh {
     ) -> f32 {
         match building_part.roof_shape {
             RoofShape::Skillion => self.calc_skillion_position_height(position, building_part),
-
-            RoofShape::Onion => building_part.wall_height, // todo
-
-            RoofShape::Phyramidal => building_part.wall_height,
 
             _ => building_part.wall_height,
         }

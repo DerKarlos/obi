@@ -316,6 +316,12 @@ fn building(
         north: sum_north / count,
         east: sum_east / count,
     };
+    println!(
+        "center n: {} e: {} c: {}",
+        sum_north / count,
+        sum_east / count,
+        count
+    );
 
     let mut bounding_box_rotated = BoundingBox::new();
     for position in &footprint {
@@ -331,6 +337,7 @@ fn building(
 
     println!("id: {} roof_shape: {:?}", element.id, roof_shape);
     let building_part = BuildingPart {
+        _id: element.id,
         _part: true, // ??? not only parts!
         footprint,
         center,

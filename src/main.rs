@@ -8,6 +8,7 @@ mod render_3d;
 mod api_out;
 // Variouns outputs are possible (UI, create a GLB file)
 mod bevy_ui;
+//mod f4control;
 
 // other crates
 use bevy_ui::bevy_init;
@@ -25,7 +26,7 @@ use crate::render_3d::scan_osm;
  */
 
 /**** TODO ***************************************************************************************
- * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452
+ * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452  Kommented on Changeset: https://www.openstreetmap.org/changeset/132598262?xhr=1
  */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -45,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let id = _westminster_id;
     let scale = 25.;
     let range = 10.0 * scale;
-    let show_only: u64 = 0; //136144290;
+    let show_only: u64 = 1127232167; //136144290;   Undergrund?: 1141764452
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("id {} at: {:?}\n", id, &ground_null_coordinates);
