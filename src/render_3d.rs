@@ -10,7 +10,7 @@ use crate::internal_api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 static MULTI_MESH: bool = false;
 static _GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
-pub fn scan_osm(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
+pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
@@ -61,7 +61,7 @@ impl OsmMesh {
         let min_height = building_part.min_height;
         let wall_height = building_part.wall_height;
         let roof_height = building_part.roof_height;
-        println!("ttt m: {} w:{} r:{}", min_height, wall_height, roof_height);
+        // println!("ttt m: {} w:{} r:{}", min_height, wall_height, roof_height);
 
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 

@@ -7,6 +7,7 @@ mod input_json;
 mod internal_api_in;
 // 3D and 2D rendere are possible
 mod render_3d;
+mod tagticks;
 // Interface from an rederer to an output
 mod internal_api_out;
 // Variouns outputs are possible (UI, create a GLB file)
@@ -18,8 +19,9 @@ use bevy_ui::bevy_init;
 use input_json::coordinates_of_way_center;
 use std::error::Error;
 // this crate
-use crate::input_json::{get_json_range, scan_json};
-use crate::render_3d::scan_osm;
+use crate::input_json::{get_range_json, scan_json};
+use crate::internal_api_in::BoundingBox;
+use crate::render_3d::scan_objects;
 // Todo? use error_chain::error_chain;
 
 /**** Project patterns ****************************************************************************
@@ -54,13 +56,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("id {} at: {:?}\n", id, &ground_null_coordinates);
 
-    let json_data = get_json_range(range, &ground_null_coordinates);
-    let building_parts = scan_json(json_data, &ground_null_coordinates, show_only);
-    let osm_meshes = scan_osm(building_parts);
-
-    println!("");
-
-    bevy_init(osm_meshes, scale);
+    let bounding_box = BoundingBox::from_geo_range(&ground_null_coordinates, range);
+    let range_json = get_range_json(bounding_box);
+    let building_parts = scan_json(range_json, &ground_null_coordinates, show_only);
+    let meshes = scan_objects(building_parts);
+    bevy_init(meshes, scale);
 
     Ok(())
 }

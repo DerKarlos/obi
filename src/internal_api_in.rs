@@ -1,11 +1,34 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
+pub static PI: f32 = std::f32::consts::PI;
 
 #[derive(Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
     pub latitude: f64,
     pub longitude: f64,
+}
+
+impl GeographicCoordinates {
+    pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
+        // What s that vor ???
+        if self.latitude == 0. {
+            return GroundPosition {
+                north: latitude as f32,
+                east: longitude as f32,
+            };
+        }
+
+        // the closer to the pole, the smaller the tiles size in meters get
+        let lon_fakt = LAT_FAKT * ((latitude / 180. * PI as f64).abs()).cos();
+        // Longitude(Längengrad) West/East factor
+        // actual coor - other coor = relative grad/meter ground position
+
+        GroundPosition {
+            north: ((latitude - self.latitude) * LAT_FAKT) as f32,
+            east: ((longitude - self.longitude) * lon_fakt) as f32,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -15,6 +38,24 @@ pub struct GroundPosition {
 }
 
 impl GroundPosition {
+    pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (f32, f32) {
+        let a = self.north - other.north;
+        let b = self.east - other.east;
+        let distance = f32::sqrt(a * a + b * b);
+
+        // Its atan2(y,x)   NOT:x,y!
+        // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
+        let angle: f32 = f32::atan2(self.north - other.north, self.east - other.east);
+        /*
+        if (angle >= Math.PI ) {
+          angle -= Math.PI;
+        } else if (angle < -Math.PI) {  // 1. Error in Code of Building-Viewer?!
+          angle += 2 * Math.PI; // 2. Error in Code of Building-Viewer?!
+        }
+        */
+        (distance, angle)
+    }
+
     pub fn rotate_around_center(self, angle: f32, center: GroundPosition) -> GroundPosition {
         let north = (self.north - center.north) * f32::cos(angle)
             - (self.east - center.east) * f32::sin(angle);
@@ -104,7 +145,7 @@ impl BoundingBox {
     // println!("range: left_top={} url={}", left_top, url);
     // GET   /api/0.6/map?bbox=left,bottom,right,top
 
-    pub fn include(&mut self, position: GroundPosition) {
+    pub fn include(&mut self, position: &GroundPosition) {
         self.north = self.north.max(position.north);
         self.south = self.south.min(position.north);
         self.east = self.east.max(position.east);
