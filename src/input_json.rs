@@ -2,9 +2,9 @@ use csscolorparser::parse;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::api_in::{
+use crate::internal_api_in::{
     BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RenderColor,
-    RoofShape,
+    RoofShape, LAT_FAKT,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +16,6 @@ static NO: &str = "no";
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
 /* Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
-static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 static PI: f32 = std::f32::consts::PI;
 static RAD90: f32 = std::f32::consts::PI / 2.0;
 static RAD360: f32 = std::f32::consts::PI * 2.0;
@@ -39,9 +38,11 @@ struct JosnElement {
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
-    tags: Option<JosnTags>, // todo?: use a map
+    //tags: Option<JosnTags>, // todo?: use a map
+    tags: Option<HashMap<String, String>>,
 }
 
+/*
 #[derive(Deserialize, Debug, Clone, Default)]
 struct JosnTags {
     // name: Option<String>,
@@ -59,21 +60,23 @@ struct JosnTags {
     height: Option<String>,
     min_height: Option<String>,
 }
+*/
 
 #[derive(Deserialize, Debug)]
 pub struct JsonData {
     elements: Vec<JosnElement>,
 }
 
-fn parse_height(height: Option<String>, default: f32) -> f32 {
+fn parse_height(height: Option<&String>, default: f32) -> f32 {
     if height.is_none() {
         return default;
     }
 
-    let mut hu = height.unwrap();
+    let mut hu = height.unwrap().clone();
 
     if hu.ends_with("m") {
         hu = hu.strip_suffix("m").unwrap().to_string();
+        //hu = &hu.as_str().strip_suffix("m").unwrap().to_string();
     }
 
     match hu.as_str().trim().parse() {
@@ -86,7 +89,7 @@ fn parse_height(height: Option<String>, default: f32) -> f32 {
     }
 }
 
-fn parse_color(color: String) -> RenderColor {
+fn parse_color(color: &String) -> RenderColor {
     // Bevy pbr color needs f32, The parse has no .to_f32_array???}
     // https://docs.rs/csscolorparser/latest/csscolorparser/
     match parse(color.as_str()) {
@@ -219,9 +222,9 @@ fn way(
         return;
     }
 
-    let tags = element.tags.as_ref().unwrap();
     let string_no = &NO.to_string();
-    let part = tags.building_part.as_ref().unwrap_or(string_no);
+    let tags = element.tags.as_ref().unwrap();
+    let part = tags.get("building:part").unwrap_or(string_no);
 
     // ??? not only parts!
     if part == YES {
@@ -238,12 +241,17 @@ fn building(
     let tags = element.tags.unwrap();
 
     // Colors and Materials
-    let color = parse_color(tags.color.unwrap_or(DEFAULT_WALL_COLOR.to_string()));
-    let roof_color = parse_color(tags.roof_color.unwrap_or(DEFAULT_ROOF_COLOR.to_string()));
+    let color = parse_color(
+        tags.get("colour")
+            .unwrap_or(&DEFAULT_WALL_COLOR.to_string()),
+    );
+    let roof_color = parse_color(
+        tags.get("roof:colour")
+            .unwrap_or(&DEFAULT_ROOF_COLOR.to_string()),
+    );
 
     // Shape of the roof. All buildings have a roof, even if it is not tagged
-    let roof_shape: RoofShape = match tags.roof_shape {
-        None => RoofShape::None,
+    let roof_shape: RoofShape = match tags.get("roof:shape") {
         Some(roof_shape) => match roof_shape.as_str() {
             "flat" => RoofShape::Flat,
             "skillion" => RoofShape::Skillion,
@@ -254,6 +262,7 @@ fn building(
                 RoofShape::Flat // todo: gabled and geographic dependend
             }
         },
+        None => RoofShape::None,
     };
 
     let default_roof_heigt = match roof_shape {
@@ -262,9 +271,9 @@ fn building(
     };
 
     // Heights
-    let min_height = parse_height(tags.min_height, 0.0);
-    let roof_height = parse_height(tags.roof_height, default_roof_heigt);
-    let wall_height = parse_height(tags.height, DEFAULT_WALL_HEIGHT) - roof_height;
+    let min_height = parse_height(tags.get("min_height"), 0.0);
+    let roof_height = parse_height(tags.get("roof:height"), default_roof_heigt);
+    let wall_height = parse_height(tags.get("height"), DEFAULT_WALL_HEIGHT) - roof_height;
 
     // Get building footprint from nodes
     let mut nodes = element.nodes.unwrap();
@@ -362,21 +371,11 @@ pub fn get_json_way(way_id: i64) -> JsonData {
 }
 
 pub fn get_json_range(range: f64, ground_null_coordinates: &GeographicCoordinates) -> JsonData {
+    let bounding_box = BoundingBox::from_geo_range(ground_null_coordinates, range);
+    // println!("range: {} url={}", range, url);
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-    let range = range / LAT_FAKT; // First test with 15 meter
-    let left = ground_null_coordinates.longitude - range;
-    let right = ground_null_coordinates.longitude + range;
-    let top = ground_null_coordinates.latitude + range;
-    let bottom = ground_null_coordinates.latitude - range;
-    // let left_top = to_position(&CoordinatesAtGroundPositionNull, left, top);
-    // println!("range: left_top={} url={}", left_top, url);
     // GET   /api/0.6/map?bbox=left,bottom,right,top
-    let url = format!(
-        "{}map.json?bbox={},{},{},{}",
-        API_URL, left, bottom, right, top
-    );
-
-    // let json_map: JsonData = reqwest::blocking::get(url).unwrap().json().unwrap();
+    let url = format!("{}map.json?bbox={}", API_URL, bounding_box.to_string());
     reqwest::blocking::get(url).unwrap().json().unwrap()
 }
 

@@ -1,11 +1,14 @@
 // Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
+
 mod input_json;
+//mod oma_reader;
+
 // Interface from an input modules to a renderer
-mod api_in;
+mod internal_api_in;
 // 3D and 2D rendere are possible
 mod render_3d;
 // Interface from an rederer to an output
-mod api_out;
+mod internal_api_out;
 // Variouns outputs are possible (UI, create a GLB file)
 mod bevy_ui;
 //mod f4control;

@@ -1,5 +1,7 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
+
 #[derive(Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
     pub latitude: f64,
@@ -83,6 +85,24 @@ impl BoundingBox {
             west: f32::MAX,
         }
     }
+
+    pub fn from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
+        let range = range / LAT_FAKT; // First test with 15 meter
+        BoundingBox {
+            north: (geographic_coordinates.latitude + range) as f32,
+            south: (geographic_coordinates.latitude - range) as f32,
+            west: (geographic_coordinates.longitude - range) as f32,
+            east: (geographic_coordinates.longitude + range) as f32,
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        format!("{},{},{},{}", self.west, self.south, self.east, self.north)
+    }
+
+    // let left_top = to_position(&CoordinatesAtGroundPositionNull, left, top);
+    // println!("range: left_top={} url={}", left_top, url);
+    // GET   /api/0.6/map?bbox=left,bottom,right,top
 
     pub fn include(&mut self, position: GroundPosition) {
         self.north = self.north.max(position.north);

@@ -1,7 +1,7 @@
 use triangulation::{Delaunay, Point};
 //e triangulate::{self, formats, Polygon};
-use crate::api_in::{BuildingPart, GroundPosition, RoofShape};
-use crate::api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
+use crate::internal_api_in::{BuildingPart, GroundPosition, RoofShape};
+use crate::internal_api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
