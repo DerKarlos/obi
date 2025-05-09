@@ -1,7 +1,11 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+use crate::kernel_out::GpuPosition;
+
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
+
+use crate::shape::Shape;
 
 #[derive(Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
@@ -38,6 +42,16 @@ pub struct GroundPosition {
 }
 
 impl GroundPosition {
+    pub const NUL: Self = Self {
+        north: 0.,
+        east: 0.,
+    };
+
+    pub fn to_gpu_position(&self, height: f32) -> GpuPosition {
+        // Minus north because +north is -z in the GPU space.
+        [self.east, height, -self.north]
+    }
+
     pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (f32, f32) {
         let a = self.north - other.north;
         let b = self.east - other.east;
@@ -45,7 +59,7 @@ impl GroundPosition {
 
         // Its atan2(y,x)   NOT:x,y!
         // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
-        let angle: f32 = f32::atan2(self.north - other.north, self.east - other.east);
+        let angle: f32 = f32::atan2(self.east - other.east, self.north - other.north);
         /*
         if (angle >= Math.PI ) {
           angle -= Math.PI;
@@ -152,8 +166,8 @@ impl BoundingBox {
         self.west = self.west.min(position.east);
     }
 
-    pub fn east_larger_than_nord(&self) -> bool {
-        self.east - self.west > self.north - self.south
+    pub fn nord_larger_than_east(&self) -> bool {
+        self.north - self.south > self.east - self.west
     }
 }
 
@@ -162,9 +176,9 @@ impl BoundingBox {
 pub struct BuildingPart {
     pub _id: u64,
     pub _part: bool,
-    pub footprint: Vec<GroundPosition>,
-    pub center: GroundPosition,
-    pub _bounding_box: BoundingBox,
+    pub footprint: Shape,
+    //pub center: GroundPosition,
+    //pub _bounding_box: BoundingBox,
     pub bounding_box_rotated: BoundingBox,
     // upper heit of the wall, independend of / including the min_height
     pub wall_height: f32,

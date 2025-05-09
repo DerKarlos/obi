@@ -4,7 +4,7 @@
 
 use csscolorparser::parse;
 
-use crate::internal_api_in::{BoundingBox, GroundPosition, RenderColor};
+use crate::kernel_in::RenderColor;
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: &str = "grey"; // RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
@@ -20,64 +20,6 @@ pub fn circle_limit(angle: f32) -> f32 {
     } else {
         angle
     }
-}
-
-pub fn parse_building_roof_rotation(
-    footprint: &Vec<GroundPosition>,
-) -> (f32, GroundPosition, BoundingBox, BoundingBox, bool) {
-    let mut roof_angle = 0.;
-    let mut longest_distance = 0.;
-    let mut sum_north = 0.;
-    let mut sum_east = 0.;
-    let mut clockwise_sum = 0.;
-    let mut bounding_box = BoundingBox::new();
-
-    let mut last_position = footprint.last().unwrap();
-    for position in footprint {
-        bounding_box.include(position);
-        // center
-        sum_north += position.north;
-        sum_east += position.east;
-        // angle
-        let (distance, angle) = position.distance_angle_to_other(last_position);
-        if longest_distance < distance {
-            longest_distance = distance;
-            roof_angle = angle;
-        }
-
-        // direction
-        clockwise_sum +=
-            (position.north - last_position.north) * (position.east + last_position.east);
-
-        last_position = position;
-    }
-
-    let count = footprint.len() as f32;
-    let center = GroundPosition {
-        north: sum_north / count,
-        east: sum_east / count,
-    };
-
-    let mut bounding_box_rotated = BoundingBox::new();
-    for position in footprint {
-        let rotated_position = position.rotate_around_center(roof_angle, center);
-        bounding_box_rotated.include(&rotated_position);
-    }
-
-    // If the shape is taller than it is wide after rotation, we are off by 90 degrees.
-    if bounding_box_rotated.east_larger_than_nord() {
-        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-    }
-
-    let is_clockwise = clockwise_sum > 0.0;
-
-    (
-        roof_angle,
-        center,
-        bounding_box,
-        bounding_box_rotated,
-        is_clockwise,
-    )
 }
 
 pub fn parse_color(color: &String) -> RenderColor {

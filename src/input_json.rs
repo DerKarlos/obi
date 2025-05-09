@@ -1,13 +1,13 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::internal_api_in::{
-    BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RoofShape,
-};
+use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, OsmNode, RoofShape};
+use crate::shape::Shape;
 use crate::tagticks::{
-    parse_building_roof_rotation, parse_color, parse_height, DEFAULT_ROOF_COLOR,
-    DEFAULT_ROOF_HEIGHT, DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT,
+    circle_limit, parse_color, parse_height, DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT,
+    DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT,
 };
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // JOSN ///////////////////////////////////////////////////////////////////////////////////////////
 
@@ -188,7 +188,7 @@ fn building(
     };
 
     let default_roof_heigt = match roof_shape {
-        RoofShape::Skillion => 9.0,
+        RoofShape::Skillion => 9.0, // 2.?  accroding to width! ttt
         _ => DEFAULT_ROOF_HEIGHT,
     };
 
@@ -200,19 +200,23 @@ fn building(
     // Get building footprint from nodes
     // else { todo("drop last and modulo index") }
 
-    let mut footprint: Vec<GroundPosition> = Vec::new();
-
+    //let mut footprint: Vec<GroundPosition> = Vec::new();
+    let mut footprint = Shape::new();
     for node_id in nodes.iter() {
-        //r (index, position) in building_part.footprint.iter().rev().enumerate() {
         let node = nodes_map.get(node_id).unwrap();
         footprint.push(node.position);
     } // nodes
+    footprint.close();
+    let mut roof_angle = footprint.longest_angle;
 
-    let (roof_angle, center, bounding_box, bounding_box_rotated, is_clockwise) =
-        parse_building_roof_rotation(&footprint);
+    //println!("roof_angle: {}", roof_angle.to_degrees());
 
-    if !is_clockwise {
-        footprint.reverse();
+    // todo: more angle code!
+    let bounding_box_rotated = footprint.rotate(roof_angle);
+    //println!("bbox_rotated {:?}", bounding_box_rotated);
+    if bounding_box_rotated.nord_larger_than_east() {
+        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+        //println!("nord_larger_than_east: {}", roof_angle.to_degrees());
     }
 
     println!("id: {} roof_shape: {:?}", element.id, roof_shape);
@@ -220,8 +224,8 @@ fn building(
         _id: element.id,
         _part: true, // ??? not only parts!
         footprint,
-        center,
-        _bounding_box: bounding_box,
+        //center,
+        // _bounding_box: bounding_box,
         bounding_box_rotated,
         wall_height,
         min_height,

@@ -4,12 +4,13 @@ mod input_json;
 //mod oma_reader;
 
 // Interface from an input modules to a renderer
-mod internal_api_in;
+mod kernel_in;
+mod shape;
 // 3D and 2D rendere are possible
 mod render_3d;
 mod tagticks;
 // Interface from an rederer to an output
-mod internal_api_out;
+mod kernel_out;
 // Variouns outputs are possible (UI, create a GLB file)
 mod bevy_ui;
 //mod f4control;
@@ -20,7 +21,7 @@ use input_json::coordinates_of_way_center;
 use std::error::Error;
 // this crate
 use crate::input_json::{get_range_json, scan_json};
-use crate::internal_api_in::BoundingBox;
+use crate::kernel_in::BoundingBox;
 use crate::render_3d::scan_objects;
 // Todo? use error_chain::error_chain;
 
@@ -51,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let id = _passau_dom_id;
     let scale = 15.;
     let range = 10.0 * scale;
-    let show_only: u64 = 0; //136144290;   Undergrund?: 1141764452
+    let show_only: u64 = 0;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("id {} at: {:?}\n", id, &ground_null_coordinates);

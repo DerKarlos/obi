@@ -1,7 +1,8 @@
 use triangulation::{Delaunay, Point};
 //e triangulate::{self, formats, Polygon};
-use crate::internal_api_in::{BuildingPart, GroundPosition, RoofShape};
-use crate::internal_api_out::{GpuPosition, OsmMeshAttributes, RenderColor};
+use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
+use crate::kernel_out::{GpuPosition, OsmMeshAttributes, RenderColor};
+use crate::tagticks::circle_limit;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,11 +50,11 @@ impl OsmMesh {
         &mut self,
         position: &GroundPosition,
         building_part: &BuildingPart,
-    ) -> ([f32; 3], [f32; 3]) {
+    ) -> (GpuPosition, GpuPosition) {
         let height = self.calc_roof_position_height(&position, &building_part);
         (
-            [position.east, building_part.min_height, position.north],
-            [position.east, height, position.north],
+            position.to_gpu_position(building_part.min_height),
+            position.to_gpu_position(height),
         )
     }
 
@@ -74,18 +75,20 @@ impl OsmMesh {
         //// Push all Walls ////
         // The polygon node list is "closed": Last is connected to first
 
-        let position = building_part.footprint.first().unwrap();
+        let position = building_part.footprint.positions.last().unwrap();
         //let mut (last_pos_down,last_pos_up) = self.calc_pos_up_down(position,building_part)
         // todo: fn for next 3 lines
         let height = self.calc_roof_position_height(position, &building_part);
-        let mut last_pos_down = [position.east, min_height, position.north];
-        let mut last_pos_up = [position.east, height, position.north];
+
+        let mut last_pos_down = position.to_gpu_position(min_height);
+        let mut last_pos_up = position.to_gpu_position(height);
 
         // Whay rev() ?  Better chane push_square order ???
-        for position in building_part.footprint.iter().rev() {
+        for position in building_part.footprint.positions.iter() {
+            // ttt .rev()
             let height = self.calc_roof_position_height(position, &building_part);
-            let this_pos_down = [position.east, min_height, position.north];
-            let this_pos_up = [position.east, height, position.north];
+            let this_pos_down = position.to_gpu_position(min_height);
+            let this_pos_up = position.to_gpu_position(height);
             // Walls
             self.push_square(
                 last_pos_down,
@@ -106,9 +109,9 @@ impl OsmMesh {
             //
             RoofShape::Phyramidal => self.push_phyramid(
                 [
-                    building_part.center.east,
+                    building_part.footprint.center.east,
                     wall_height + roof_height,
-                    building_part.center.north,
+                    building_part.footprint.center.north,
                 ],
                 roof_positions,
                 roof_color,
@@ -116,7 +119,7 @@ impl OsmMesh {
 
             RoofShape::Onion => self.push_onion(
                 roof_polygon,
-                building_part.center,
+                building_part.footprint.center,
                 wall_height,
                 roof_height,
                 roof_color,
@@ -139,42 +142,41 @@ impl OsmMesh {
         position: &GroundPosition,
         building_part: &BuildingPart,
     ) -> f32 {
+        let roof_slope = circle_limit(building_part.roof_angle + f32::to_radians(90.));
         let east = position
-            .rotate_around_center(-building_part.roof_angle, building_part.center)
+            .rotate_around_center(-roof_slope, building_part.footprint.center)
             .east;
         let inclination = building_part.roof_height
-            // This is wront!  we neet the rotated east-west !!!  todo
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         // ttt
-        //println!(
-        //    "{:?} {:?} {:?} {:?} {:?} {:?} ",
-        //    -building_part.roof_angle,
-        //    east,
-        //    inclination,
-        //    building_part.roof_height,
-        //    building_part.bounding_box.east - building_part.bounding_box.west,
-        //    f32::abs(east - building_part.bounding_box.west) * inclination,
-        //);
+        println!(
+            "ra {:?} e {:?} i {:?} rh {:?} x {:?} ",
+            -building_part.roof_angle.to_degrees(),
+            east,
+            inclination,
+            building_part.roof_height,
+            f32::abs(east - building_part.bounding_box_rotated.west) * inclination,
+        );
 
         // if (y >= -0.001) { // It's the roof, not the lower floor of the building(block)
-        let height =
-            building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
+        let height = building_part.wall_height + building_part.roof_height
+            - f32::abs(east - building_part.footprint.center.east) * inclination;
         //  - f32::abs(east - building_part.bounding_box.west) * inclination;
         // !!: If the roof is "left" of the hightest side, it also must go down
 
         if height > 0. {
-            println!(
-                "ttt id:{} height: {} w {} r {} + {} e {} i {}",
-                // ttt height:-32.01284 w73+r11=h84 e-2.1468682 w-66.412926 (+62) * i1.805196 =ca -100
-                building_part._id,
-                height,
-                building_part.wall_height,
-                building_part.roof_height,
-                building_part.wall_height + building_part.roof_height,
-                east,
-                inclination,
-            )
+            //println!(
+            //    "ttt id:{} height: {} wall {} + roof {} = {} east: {} incl {}",
+            //    // ttt height:-32.01284 w73+r11=h84 e-2.1468682 w-66.412926 (+62) * i1.805196 =ca -100
+            //    building_part._id,
+            //    height,
+            //    building_part.wall_height,
+            //    building_part.roof_height,
+            //    building_part.wall_height + building_part.roof_height,
+            //    east,
+            //    inclination,
+            //)
         }
 
         height
@@ -200,9 +202,10 @@ impl OsmMesh {
     ) {
         let roof_index_offset = self.attributes.vertices_positions.len();
         let triangulation = Delaunay::new(&roof_polygon).unwrap();
-        //println!("triangles: {:?}",&triangulation.dcel.vertices);
         let indices = triangulation.dcel.vertices;
-        for index in indices {
+        //println!("triangles: {:?}",&indices);
+        // ? why .rev() ???
+        for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices
                 .push((roof_index_offset + index) as u32);
