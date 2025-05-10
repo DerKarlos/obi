@@ -59,22 +59,25 @@ impl GroundPosition {
 
         // Its atan2(y,x)   NOT:x,y!
         // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
-        let angle: f32 = f32::atan2(self.east - other.east, self.north - other.north);
-        /*
-        if (angle >= Math.PI ) {
-          angle -= Math.PI;
-        } else if (angle < -Math.PI) {  // 1. Error in Code of Building-Viewer?!
-          angle += 2 * Math.PI; // 2. Error in Code of Building-Viewer?!
-        }
-        */
+        let angle: f32 = f32::atan2(other.east - self.east, other.north - self.north);
+        // why - negativ??? (see other lines)
+        //let angle: f32 = f32::atan2(self.east - other.east, self.north - other.north);
+
         (distance, angle)
     }
 
     pub fn rotate_around_center(self, angle: f32, center: GroundPosition) -> GroundPosition {
+        //println!(
+        //    "pre-rotate: angle {} position {:?}",
+        //    angle.to_degrees(),
+        //    //center,
+        //    self
+        //);
         let north = (self.north - center.north) * f32::cos(angle)
             - (self.east - center.east) * f32::sin(angle);
         let east = (self.east - center.east) * f32::cos(angle)
             - (self.north - center.north) * f32::sin(angle);
+        // println!("rotated: north {} east {}", north, east);
         GroundPosition { north, east }
     }
 }
@@ -166,8 +169,8 @@ impl BoundingBox {
         self.west = self.west.min(position.east);
     }
 
-    pub fn nord_larger_than_east(&self) -> bool {
-        self.north - self.south > self.east - self.west
+    pub fn east_larger_than_nord(&self) -> bool {
+        self.east - self.west > self.north - self.south
     }
 }
 

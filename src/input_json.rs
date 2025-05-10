@@ -209,17 +209,28 @@ fn building(
     footprint.close();
     let mut roof_angle = footprint.longest_angle;
 
-    //println!("roof_angle: {}", roof_angle.to_degrees());
+    //println!("ttt roof_angle: {}", roof_angle.to_degrees());
 
     // todo: more angle code!
-    let bounding_box_rotated = footprint.rotate(roof_angle);
+    let bounding_box_rotated = footprint.rotate(-roof_angle);
+    //println!("bbox________ {:?}", footprint.bounding_box);
     //println!("bbox_rotated {:?}", bounding_box_rotated);
-    if bounding_box_rotated.nord_larger_than_east() {
+    if bounding_box_rotated.east_larger_than_nord() {
         roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-        //println!("nord_larger_than_east: {}", roof_angle.to_degrees());
+        // This way is a good example: 363815745 beause it has many nodes on the longer side
+        println!(
+            "##### {}: east_larger_than_nord: {}",
+            element.id,
+            roof_angle.to_degrees()
+        );
     }
 
-    println!("id: {} roof_shape: {:?}", element.id, roof_shape);
+    //println!(
+    //    "id: {} roof_shape: {:?} angle: {}",
+    //    element.id,
+    //    roof_shape,
+    //    roof_angle.to_degrees()
+    //);
     let building_part = BuildingPart {
         _id: element.id,
         _part: true, // ??? not only parts!

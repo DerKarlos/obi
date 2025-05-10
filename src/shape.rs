@@ -3,7 +3,7 @@ use crate::kernel_in::{BoundingBox, GroundPosition};
 #[derive(Clone, Debug)]
 pub struct Shape {
     pub positions: Vec<GroundPosition>,
-    bounding_box: BoundingBox,
+    pub bounding_box: BoundingBox,
     pub center: GroundPosition,
     longest_distance: f32,
     pub longest_angle: f32,
@@ -60,7 +60,8 @@ impl Shape {
     pub fn rotate(&self, roof_angle: f32) -> BoundingBox {
         let mut bounding_box_rotated = BoundingBox::new();
         for position in &self.positions {
-            let rotated_position = position.rotate_around_center(roof_angle, self.center);
+            // why - negativ??? (see other lines)
+            let rotated_position = position.rotate_around_center(-roof_angle, self.center);
             bounding_box_rotated.include(&rotated_position);
         }
         bounding_box_rotated
