@@ -187,6 +187,8 @@ fn building(
         None => RoofShape::None,
     };
 
+    println!("Part id: {} roof: {:?}", element.id, roof_shape);
+
     let default_roof_heigt = match roof_shape {
         RoofShape::Skillion => 9.0, // 2.?  accroding to width! ttt
         _ => DEFAULT_ROOF_HEIGHT,
@@ -218,11 +220,7 @@ fn building(
     if bounding_box_rotated.east_larger_than_nord() {
         roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
         // This way is a good example: 363815745 beause it has many nodes on the longer side
-        println!(
-            "##### {}: east_larger_than_nord: {}",
-            element.id,
-            roof_angle.to_degrees()
-        );
+        // println!( "### {}: east_larger_than_nord: {}", element.id, roof_angle.to_degrees() );
     }
 
     //println!(

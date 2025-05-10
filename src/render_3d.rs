@@ -172,10 +172,11 @@ impl OsmMesh {
         color: RenderColor,
     ) {
         let roof_index_offset = self.attributes.vertices_positions.len();
+        //let indices = self.footprint.get_triangulate_indices();
         let triangulation = Delaunay::new(&roof_polygon).unwrap();
         let indices = triangulation.dcel.vertices;
-        //println!("triangles: {:?}",&indices);
-        // ? why .rev() ???
+        // println!("triangles: {:?}", &indices);
+        // ? why .rev() ?  see negativ???
         for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices

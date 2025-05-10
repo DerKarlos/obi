@@ -1,3 +1,6 @@
+use triangulation::{Delaunay, Point};
+//e triangulate::{self, formats, Polygon};
+
 use crate::kernel_in::{BoundingBox, GroundPosition};
 
 #[derive(Clone, Debug)]
@@ -65,5 +68,18 @@ impl Shape {
             bounding_box_rotated.include(&rotated_position);
         }
         bounding_box_rotated
+    }
+
+    pub fn _get_triangulate_indices(&self) -> Vec<usize> {
+        let mut roof_polygon: Vec<Point> = Vec::new();
+        for position in &self.positions {
+            let roof_point = Point::new(position.east, position.north);
+            roof_polygon.push(roof_point);
+        }
+
+        let triangulation = Delaunay::new(&roof_polygon).unwrap();
+        let indices = triangulation.dcel.vertices;
+        //println!("triangles: {:?}",&indices);
+        indices
     }
 }
