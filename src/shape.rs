@@ -70,7 +70,7 @@ impl Shape {
         bounding_box_rotated
     }
 
-    pub fn _get_triangulate_indices(&self) -> Vec<usize> {
+    pub fn get_triangulate_indices(&self) -> Vec<usize> {
         let mut roof_polygon: Vec<Point> = Vec::new();
         for position in &self.positions {
             let roof_point = Point::new(position.east, position.north);

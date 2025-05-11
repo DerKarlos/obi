@@ -1,14 +1,33 @@
-use triangulation::{Delaunay, Point};
-//e triangulate::{self, formats, Polygon};
 use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
 use crate::kernel_out::{GpuPosition, OsmMeshAttributes, RenderColor};
+use crate::shape::Shape;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // OSM ////////////////////////////////////////////////////////////////////////////////////////////
 
 // Constants / Parameters
 static MULTI_MESH: bool = false;
-static _GPU_POS_NULL: GpuPosition = [0.0, 0.0, 0.0];
+static _GPU_POSITION_NULL: GpuPosition = [0.0, 0.0, 0.0];
+
+// Local methodes of GroundPosition, only to be used in the renderer!
+//
+impl GroundPosition {
+    fn to_gpu_position(&self, height: f32) -> GpuPosition {
+        // Minus north because +north is -z in the GPU space.
+        [self.east, height, -self.north]
+    }
+}
+
+impl Shape {
+    fn get_gpu_positions(&self, height: f32) -> Vec<GpuPosition> {
+        let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
+        for position in &self.positions {
+            let this_gpu_position_up = position.to_gpu_position(height);
+            roof_gpu_positions.push(this_gpu_position_up);
+        }
+        roof_gpu_positions
+    }
+}
 
 pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
@@ -56,59 +75,50 @@ impl OsmMesh {
         let color = building_part.color;
         let roof_color = building_part.roof_color;
 
-        let mut roof_polygon: Vec<Point> = Vec::new();
-        let mut roof_positions: Vec<GpuPosition> = Vec::new();
-
         //// Push all Walls ////
         let position = building_part.footprint.positions.last().unwrap();
         // todo: fn for next 3 lines
         let height = self.calc_roof_position_height(position, &building_part);
-        let mut last_pos_down = position.to_gpu_position(min_height);
-        let mut last_pos_up = position.to_gpu_position(height);
+        let mut last_gpu_position_down = position.to_gpu_position(min_height);
+        let mut last_gpu_position_up = position.to_gpu_position(height);
 
         // Whay rev() ?  Better chane push_square order ???
         for position in building_part.footprint.positions.iter() {
             let height = self.calc_roof_position_height(position, &building_part);
-            let this_pos_down = position.to_gpu_position(min_height);
-            let this_pos_up = position.to_gpu_position(height);
+            let this_gpu_position_down = position.to_gpu_position(min_height);
+            let this_gpu_position_up = position.to_gpu_position(height);
 
             // Walls
             self.push_square(
-                last_pos_down,
-                this_pos_down,
-                last_pos_up,
-                this_pos_up,
+                last_gpu_position_down,
+                this_gpu_position_down,
+                last_gpu_position_up,
+                this_gpu_position_up,
                 color,
             );
 
             // Roof Points for triangulation and Onion, Positions for a Phyramide
-            let roof_point = Point::new(position.east, position.north);
-            roof_polygon.push(roof_point);
-            roof_positions.push(this_pos_up);
-            last_pos_down = this_pos_down;
-            last_pos_up = this_pos_up;
+            last_gpu_position_down = this_gpu_position_down;
+            last_gpu_position_up = this_gpu_position_up;
         }
 
         match building_part.roof_shape {
             //
             RoofShape::Phyramidal => self.push_phyramid(
-                building_part
-                    .footprint
-                    .center
-                    .to_gpu_position(wall_height + roof_height),
-                roof_positions,
-                roof_color,
-            ),
-
-            RoofShape::Onion => self.push_onion(
-                roof_polygon,
-                building_part.footprint.center,
+                &building_part.footprint,
                 wall_height,
                 roof_height,
                 roof_color,
             ),
 
-            _ => self.push_flat(roof_positions, roof_polygon, roof_color),
+            RoofShape::Onion => self.push_onion(
+                &building_part.footprint,
+                wall_height,
+                roof_height,
+                roof_color,
+            ),
+
+            _ => self.push_flat(&building_part.footprint, wall_height, roof_color),
         }
     }
 
@@ -165,17 +175,12 @@ impl OsmMesh {
         }
     }
 
-    pub fn push_flat(
-        &mut self,
-        roof_positions: Vec<GpuPosition>,
-        roof_polygon: Vec<Point>,
-        color: RenderColor,
-    ) {
+    pub fn push_flat(&mut self, footprint: &Shape, height: f32, color: RenderColor) {
+        let mut roof_gpu_positions = footprint.get_gpu_positions(height);
         let roof_index_offset = self.attributes.vertices_positions.len();
-        //let indices = self.footprint.get_triangulate_indices();
-        let triangulation = Delaunay::new(&roof_polygon).unwrap();
-        let indices = triangulation.dcel.vertices;
+        let indices = footprint.get_triangulate_indices();
         // println!("triangles: {:?}", &indices);
+
         // ? why .rev() ?  see negativ???
         for index in indices.iter().rev() {
             self.attributes
@@ -183,29 +188,36 @@ impl OsmMesh {
                 .push((roof_index_offset + index) as u32);
         }
 
-        for position in roof_positions {
-            self.attributes.vertices_positions.push(position);
+        for _p in &roof_gpu_positions {
             self.attributes.vertices_colors.push(color);
         }
+
+        self.attributes
+            .vertices_positions
+            .append(&mut roof_gpu_positions);
     }
 
     // todo: phyramide, dome and onion the same except a different curves. Use same code,
     // todo: For all 3 shapetypes: less points: cornsers, much points: rounded
     pub fn push_phyramid(
         &mut self,
-        pike: GpuPosition,
-        roof_positions: Vec<GpuPosition>,
+        footprint: &Shape,
+        wall_height: f32,
+        roof_height: f32,
         color: RenderColor,
     ) {
+        let pike = footprint.center.to_gpu_position(wall_height + roof_height);
+
+        let roof_gpu_positions = footprint.get_gpu_positions(wall_height);
         let roof_index_offset = self.attributes.vertices_positions.len();
-        let pike_index_offset = roof_positions.len();
-        for (index, position) in roof_positions.iter().enumerate() {
+        let pike_index_offset = roof_gpu_positions.len();
+        for (index, position) in roof_gpu_positions.iter().enumerate() {
             self.attributes.vertices_positions.push(*position);
             self.attributes.vertices_colors.push(color);
 
             let index1 = index;
             let mut index2 = index + 1;
-            if index2 >= roof_positions.len() {
+            if index2 >= roof_gpu_positions.len() {
                 index2 = 0
             };
             self.push_indices([
@@ -221,8 +233,7 @@ impl OsmMesh {
 
     pub fn push_onion(
         &mut self,
-        roof_polygon: Vec<Point>,
-        pike: GroundPosition,
+        footprint: &Shape,
         wall_height: f32,
         roof_height: f32,
         color: RenderColor,
@@ -243,7 +254,7 @@ impl OsmMesh {
             [0.00, 1.00],
         ];
 
-        let columns = roof_polygon.len();
+        let columns = footprint.positions.len();
         let one_column = columns * 2;
 
         // process all rings
@@ -252,20 +263,21 @@ impl OsmMesh {
             let scale_up = scale[1] as f32;
             //println!("scale {} {} {} {}",curve_up,curve_radius, one_column, roof_height);
 
-            let edge_position = roof_polygon.last().unwrap();
-            let gpu_x = (edge_position.x - pike.east) * scale_radius + pike.east;
-            let gpu_z = (edge_position.y - pike.north) * scale_radius + pike.north; // * roof_rel
-                                                                                    // todo 2*: use .to_GpuPosition
+            let edge_position = footprint.positions.last().unwrap();
+            let pike = footprint.center;
+            let gpu_x = (edge_position.east - pike.east) * scale_radius + pike.east;
+            let gpu_z = (edge_position.north - pike.north) * scale_radius + pike.north; // * roof_rel
+                                                                                        // todo 2*: use .to_GpuPosition
             let mut last_pos = [gpu_x, wall_height + roof_height * scale_up, -gpu_z];
 
             // process one ring
-            for edge_position in roof_polygon.iter() {
+            for edge_position in footprint.positions.iter() {
                 // push colors
                 self.attributes.vertices_colors.push(color);
                 self.attributes.vertices_colors.push(color);
                 // push vertices
-                let gpu_x = (edge_position.x - pike.east) * scale_radius + pike.east;
-                let gpu_z = (edge_position.y - pike.north) * scale_radius + pike.north; // * roof_rel
+                let gpu_x = (edge_position.east - pike.east) * scale_radius + pike.east;
+                let gpu_z = (edge_position.north - pike.north) * scale_radius + pike.north; // * roof_rel
                 let this_pos = [gpu_x, wall_height + roof_height * scale_up, -gpu_z];
 
                 // push indices

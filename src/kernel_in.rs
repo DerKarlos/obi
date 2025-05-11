@@ -1,7 +1,5 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
-use crate::kernel_out::GpuPosition;
-
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
 
@@ -46,11 +44,6 @@ impl GroundPosition {
         north: 0.,
         east: 0.,
     };
-
-    pub fn to_gpu_position(&self, height: f32) -> GpuPosition {
-        // Minus north because +north is -z in the GPU space.
-        [self.east, height, -self.north]
-    }
 
     pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (f32, f32) {
         let a = self.north - other.north;

@@ -49,8 +49,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _taj_mahal_id = 375257537;
     let _marienplatz_id = 223907278; // 15
 
-    let id = _marienplatz_id;
-    let scale = 25.;
+    let id = _reifenberg_id;
+    let scale = 5.;
     let range = 10.0 * scale;
     let show_only: u64 = 0;
 
