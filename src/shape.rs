@@ -1,11 +1,17 @@
-use triangulation::{Delaunay, Point};
-//e triangulate::{self, formats, Polygon};
+use std::ops::Add;
+// use triangulation::{Delaunay, Point};
+//
+// use triangulate::formats;
+// use triangulate::Polygon;
+// use triangulate::{ListFormat, PolygonList};
+extern crate earcutr;
 
 use crate::kernel_in::{BoundingBox, GroundPosition};
 
 #[derive(Clone, Debug)]
 pub struct Shape {
     pub positions: Vec<GroundPosition>,
+    rotated_positions: Vec<GroundPosition>,
     pub bounding_box: BoundingBox,
     pub center: GroundPosition,
     longest_distance: f32,
@@ -17,11 +23,12 @@ impl Shape {
     pub fn new() -> Self {
         Self {
             positions: Vec::new(),
+            rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
-            center: GroundPosition::NUL,
+            center: GroundPosition::ZERO,
             longest_distance: 0.,
             longest_angle: 0.,
-            //            is_clockwise: false,
+            //is_clockwise: false,
         }
     }
 
@@ -60,26 +67,82 @@ impl Shape {
         }
     }
 
-    pub fn rotate(&self, roof_angle: f32) -> BoundingBox {
+    pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
         let mut bounding_box_rotated = BoundingBox::new();
         for position in &self.positions {
             // why - negativ??? (see other lines)
             let rotated_position = position.rotate_around_center(-roof_angle, self.center);
+            self.rotated_positions.push(rotated_position);
             bounding_box_rotated.include(&rotated_position);
         }
         bounding_box_rotated
     }
 
     pub fn get_triangulate_indices(&self) -> Vec<usize> {
-        let mut roof_polygon: Vec<Point> = Vec::new();
+        //
+        let mut vertices = Vec::<f32>::new();
         for position in &self.positions {
-            let roof_point = Point::new(position.east, position.north);
-            roof_polygon.push(roof_point);
+            // why y before x ???
+            vertices.push(position.north);
+            vertices.push(position.east);
+        }
+        //println!("roof_po: {:?}", &vertices);
+
+        //  indices = earcutr::earcut(&[10,0, 0,50, 60,60, 70,10],&[],2).unwrap();
+        let indices = earcutr::earcut(&vertices, &[], 2).unwrap();
+        //println!("{:?}", indices);
+
+        indices
+    }
+
+    /// Splits the shape at x=0, returning two new shapes:
+    /// - The first shape contains all parts with x ≤ 0
+    /// - The second shape contains all parts with x ≥ 0
+    /// - The last shape contains all parts of the outer
+    pub fn _split_at_x_zero(&mut self, angle: f32) -> (Vec<GroundPosition>, Vec<GroundPosition>) {
+        let mut left_vertices = Vec::new();
+        let mut right_vertices = Vec::new();
+        let mut outer_vertices = Vec::new();
+
+        let n = self.rotated_positions.len();
+        for i in 0..n {
+            let current = self.rotated_positions[i];
+            let next = self.rotated_positions[(i + 1) % n];
+            outer_vertices.push(self.positions[i]); // ttt
+
+            // If the current point is on the splitting line, add it to both shapes
+            if current.east == 0.0 {
+                left_vertices.push(self.positions[i]);
+                right_vertices.push(self.positions[i]);
+                continue;
+            }
+
+            // Add current point to appropriate side
+            if current.east < 0.0 {
+                left_vertices.push(self.positions[i]);
+            } else {
+                right_vertices.push(self.positions[i]);
+            }
+
+            // Check if the edge crosses the x=0 line
+            if (current.east < 0.0 && next.east > 0.0) || (current.east > 0.0 && next.east < 0.0) {
+                // Calculate the intersection point
+                let diagonally = -current.east / (next.east - current.east);
+                let intersection_north = current.north + diagonally * (next.north - current.north);
+                let intersection = GroundPosition {
+                    north: intersection_north - 0.,
+                    east: 0.0,
+                };
+
+                println!("// Add the intersection point to both shapes");
+                // Add the intersection point to both shapes
+                left_vertices.push(self.positions[i]);
+                right_vertices.push(self.positions[i]);
+                outer_vertices.push(intersection.rotate(angle).add(self.center));
+            }
         }
 
-        let triangulation = Delaunay::new(&roof_polygon).unwrap();
-        let indices = triangulation.dcel.vertices;
-        //println!("triangles: {:?}",&indices);
-        indices
+        self.positions = outer_vertices;
+        (left_vertices, right_vertices)
     }
 }

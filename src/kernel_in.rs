@@ -4,6 +4,7 @@ pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.85
 pub static PI: f32 = std::f32::consts::PI;
 
 use crate::shape::Shape;
+use std::ops::{Add, Sub};
 
 #[derive(Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
@@ -33,16 +34,40 @@ impl GeographicCoordinates {
     }
 }
 
+// See for standard 2D features like Add: https://docs.rs/vector2/latest/vector2/struct.Vector2.html
 #[derive(Clone, Copy, Debug)]
 pub struct GroundPosition {
     pub north: f32,
     pub east: f32,
 }
 
+impl Add for GroundPosition {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            north: self.north + other.north,
+            east: self.east + other.east,
+        }
+    }
+}
+
+impl Sub for GroundPosition {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self {
+            north: self.north - other.north,
+            east: self.east - other.east,
+        }
+    }
+}
+
 impl GroundPosition {
-    pub const NUL: Self = Self {
-        north: 0.,
-        east: 0.,
+    /// Shorthand for writing `Vector2::new(0.0, 0.0)`.
+    pub const ZERO: Self = Self {
+        north: 0.0,
+        east: 0.0,
     };
 
     pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (f32, f32) {
@@ -59,6 +84,12 @@ impl GroundPosition {
         (distance, angle)
     }
 
+    pub fn rotate(self, angle: f32) -> GroundPosition {
+        let north = self.north * f32::cos(angle) - self.east * f32::sin(angle);
+        let east = self.east * f32::cos(angle) - self.north * f32::sin(angle);
+        GroundPosition { north, east }
+    }
+
     pub fn rotate_around_center(self, angle: f32, center: GroundPosition) -> GroundPosition {
         //println!(
         //    "pre-rotate: angle {} position {:?}",
@@ -70,6 +101,16 @@ impl GroundPosition {
             - (self.east - center.east) * f32::sin(angle);
         let east = (self.east - center.east) * f32::cos(angle)
             - (self.north - center.north) * f32::sin(angle);
+        // println!("rotated: north {} east {}", north, east);
+        GroundPosition { north, east }
+    }
+
+    pub fn _unrotate(self, angle: f32, center: GroundPosition) -> GroundPosition {
+        let north = self.north * f32::cos(angle) - self.east * f32::sin(angle) + center.north;
+        let east = self.east * f32::cos(angle) + self.north * f32::sin(angle) + center.east;
+        //let north = self.north * f32::cos(angle) - self.east  * f32::sin(angle) - center.north;
+        //let east  = self.east  * f32::cos(angle) + self.north * f32::sin(angle) + center.east;
+
         // println!("rotated: north {} east {}", north, east);
         GroundPosition { north, east }
     }
@@ -114,7 +155,7 @@ pub enum RoofShape {
     _Unknown,
     Flat,
     Skillion,
-    _Gabled,
+    Gabled,
     Onion,
     Phyramidal,
 }
@@ -173,7 +214,6 @@ pub struct BuildingPart {
     pub _id: u64,
     pub _part: bool,
     pub footprint: Shape,
-    //pub center: GroundPosition,
     //pub _bounding_box: BoundingBox,
     pub bounding_box_rotated: BoundingBox,
     // upper heit of the wall, independend of / including the min_height

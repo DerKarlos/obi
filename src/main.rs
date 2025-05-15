@@ -44,13 +44,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let _reifenberg_id = 121486088; // scale 5
-    let _passau_dom_id = 24771505; // scale 15   unten: 136144290  oben: 136144289
+    let _passau_dom_id = 24771505; // scale 15   gabled: 464090146   unten: 136144290  oben: 136144289
     let _westminster_id = 367642719; // 25
     let _taj_mahal_id = 375257537;
     let _marienplatz_id = 223907278; // 15
 
-    let id = _reifenberg_id;
-    let scale = 5.;
+    let id = _passau_dom_id;
+    let scale = 15.;
     let range = 10.0 * scale;
     let show_only: u64 = 0;
 

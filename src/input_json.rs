@@ -179,6 +179,7 @@ fn building(
             "skillion" => RoofShape::Skillion,
             "onion" => RoofShape::Onion,
             "pyramidal" => RoofShape::Phyramidal,
+            "gabled" => RoofShape::Gabled,
             _ => {
                 //ttt println!("Warning: roof_shape Unknown: {}", roof_shape);
                 RoofShape::Flat // todo: gabled and geographic dependend
