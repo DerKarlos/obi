@@ -11,7 +11,6 @@ static MULTI_MESH: bool = false;
 static _GPU_POSITION_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
 // Local methodes of GroundPosition, only to be used in the renderer!
-//
 impl GroundPosition {
     fn to_gpu_position(&self, height: f32) -> GpuPosition {
         // Minus north because +north is -z in the GPU space.
@@ -54,6 +53,7 @@ pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes>
 }
 
 // Methode-Extenton of the "CLASS" OSM-Mesh, only needed internaly here ////////////////////////
+#[derive(Clone, Debug)]
 struct OsmMesh {
     attributes: OsmMeshAttributes,
 }
@@ -76,35 +76,16 @@ impl OsmMesh {
         let color = building_part.color;
         let roof_color = building_part.roof_color;
 
-        //// Push all Walls ////
-        let position = building_part.footprint.positions.last().unwrap();
-        // todo: fn for next 3 lines
-        let height = self.calc_roof_position_height(position, &building_part);
-        let mut last_gpu_position_down = position.to_gpu_position(min_height);
-        let mut last_gpu_position_up = position.to_gpu_position(height);
-
-        // Whay rev() ?  Better chane push_square order ???
-        for position in building_part.footprint.positions.iter() {
-            let height = self.calc_roof_position_height(position, &building_part);
-            let this_gpu_position_down = position.to_gpu_position(min_height);
-            let this_gpu_position_up = position.to_gpu_position(height);
-
-            // Walls
-            self.push_square(
-                last_gpu_position_down,
-                this_gpu_position_down,
-                last_gpu_position_up,
-                this_gpu_position_up,
-                color,
-            );
-
-            // Roof Points for triangulation and Onion, Positions for a Phyramide
-            last_gpu_position_down = this_gpu_position_down;
-            last_gpu_position_up = this_gpu_position_up;
-        }
-
         match building_part.roof_shape {
             //
+            RoofShape::Skillion => {
+                self.push_skillion(&building_part, roof_color);
+            }
+
+            RoofShape::Gabled => {
+                self.push_gabled(building_part, roof_color);
+            }
+
             RoofShape::Phyramidal => self.push_phyramid(
                 &building_part.footprint,
                 wall_height,
@@ -112,6 +93,8 @@ impl OsmMesh {
                 roof_color,
             ),
 
+            // todo: cupola
+            //
             RoofShape::Onion => self.push_onion(
                 &building_part.footprint,
                 wall_height,
@@ -119,20 +102,10 @@ impl OsmMesh {
                 roof_color,
             ),
 
-            RoofShape::Skillion => {
-                self.push_skillion(&building_part, roof_color);
-            }
-
-            /*
-            RoofShape::Gabled => {
-                building_part
-                    .footprint
-                    .split_at_x_zero(building_part.roof_angle);
-                self.push_gabled(&building_part.footprint, wall_height, roof_color);
-            }
-            */
             _ => self.push_flat(&building_part.footprint, wall_height, roof_color),
         }
+
+        self.push_walls(building_part, min_height, color);
     }
 
     fn prepare_roof(&mut self, _building_part: &BuildingPart) {
@@ -170,16 +143,20 @@ impl OsmMesh {
         building_part: &BuildingPart,
     ) -> f32 {
         let east = position
-            // why NOT - negativ??? (see other lines)
             .sub(building_part.footprint.center)
             .rotate(building_part.roof_angle)
             .east;
         let width =
             building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west;
-        let inclination = building_part.roof_height * 2. / (width); // Höhen/Tiefe der Nodes/Ecken berechenen
+        let inclination = building_part.roof_height * 2. / width; // Höhen/Tiefe der Nodes/Ecken berechenen
+                                                                  //ttt   -6      0      6+   <12> /2= 6
+        let height =
+            building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
 
-        let height = building_part.wall_height + building_part.roof_height
-            - f32::abs(east - width / 2.) * inclination;
+        let rh = building_part.roof_height;
+        println!(
+            "tttt East: {east} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
+        );
 
         height
     }
@@ -248,17 +225,27 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    pub fn _push_gabled(&mut self, building_part: &BuildingPart, color: RenderColor) {
-        let footprint = &building_part.footprint;
-        let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
-        for position in footprint.positions.iter() {
-            let height = self.calc_roof_position_height(position, &building_part);
-            roof_gpu_positions.push(position.to_gpu_position(height))
-        }
+    pub fn push_gabled(&mut self, building_part: &mut BuildingPart, color: RenderColor) {
+        let (face1, face2) = building_part
+            .footprint
+            .split_at_x_zero(building_part.roof_angle);
+
+        self.push_roof_face(face1, color, building_part);
+        self.push_roof_face(face2, color, building_part);
+    }
+
+    fn push_roof_face(
+        &mut self,
+        side: Vec<GroundPosition>,
+        color: RenderColor,
+        building_part: &BuildingPart,
+    ) {
+        let mut footprint = Shape::new(); // &building_part.footprint;
+        footprint.positions = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
-        // println!("triangles: {:?}", &indices);
+        println!("offset: {roof_index_offset}  indices: {:?}", &indices);
 
         // ? why .rev() ?  see negativ???
         for index in indices.iter().rev() {
@@ -267,11 +254,22 @@ impl OsmMesh {
                 .push((roof_index_offset + index) as u32);
         }
 
+        for position in footprint.positions.iter() {
+            let height = self.calc_roof_position_height(position, &building_part);
+            self.attributes
+                .vertices_positions
+                .push(position.to_gpu_position(height))
+        }
+
         for _position in &footprint.positions {
-            //let gpu_position = footprint.get_gpu_positions(height);
-            //self.attributes.vertices_positions.push(gpu_position);
             self.attributes.vertices_colors.push(color);
         }
+
+        //println!("attr: {:?}", &self.attributes);
+        // attr: OsmMeshAttributes {
+        //   indices_to_vertices: [1, 2, 3, 3, 0, 1],
+        //   vertices_colors: [[0.54509807, 0.0, 0.0, 1.0], [0.54509807, 0.0, 0.0, 1.0], [0.54509807, 0.0, 0.0, 1.0], [0.54509807, 0.0, 0.0, 1.0]],
+        //   vertices_positions: [] }
     }
 
     // todo: phyramide, dome and onion the same except a different curves. Use same code,
@@ -372,7 +370,41 @@ impl OsmMesh {
                 }
             } // ring
         } // all rings
-    } // OsmMesh
+    }
+
+    fn push_walls(
+        &mut self,
+        building_part: &mut BuildingPart,
+        min_height: f32,
+        color: RenderColor,
+    ) {
+        let position = building_part.footprint.positions.last().unwrap();
+        // todo: fn for next 3 lines
+        let height = self.calc_roof_position_height(position, &building_part);
+        let mut last_gpu_position_down = position.to_gpu_position(min_height);
+        let mut last_gpu_position_up = position.to_gpu_position(height);
+
+        for position in building_part.footprint.positions.iter() {
+            let height = self.calc_roof_position_height(position, &building_part);
+            let this_gpu_position_down = position.to_gpu_position(min_height);
+            let this_gpu_position_up = position.to_gpu_position(height);
+
+            // Walls
+            self.push_square(
+                last_gpu_position_down,
+                this_gpu_position_down,
+                last_gpu_position_up,
+                this_gpu_position_up,
+                color,
+            );
+
+            // Roof Points for triangulation and Onion, Positions for a Phyramide
+            last_gpu_position_down = this_gpu_position_down;
+            last_gpu_position_up = this_gpu_position_up;
+        }
+    }
+
+    //// basic pushes: ////
 
     pub fn push_square(
         &mut self,

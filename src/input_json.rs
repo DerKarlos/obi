@@ -36,7 +36,7 @@ pub struct JsonData {
 
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
-pub fn get_way_json(way_id: i64) -> JsonData {
+pub fn get_way_json(way_id: u64) -> JsonData {
     //// Get OSM data from API and convert Json to Rust types. See https://serde.rs
     let url = format!("{}way/{}/full.json", API_URL, way_id);
     reqwest::blocking::get(url).unwrap().json().unwrap()
@@ -46,11 +46,12 @@ pub fn get_range_json(bounding_box: BoundingBox) -> JsonData {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     // GET   /api/0.6/map?bbox=left,bottom,right,top
     let url = format!("{}map.json?bbox={}", API_URL, bounding_box.to_string());
+    // println!("url: {url}");
     reqwest::blocking::get(url).unwrap().json().unwrap()
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub fn coordinates_of_way_center(way_id: i64) -> GeographicCoordinates {
+pub fn coordinates_of_way_center(way_id: u64) -> GeographicCoordinates {
     // DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
@@ -123,7 +124,6 @@ fn way(
     show_only_this_id: u64,
 ) {
     // println!("element = {:?}", element);
-
     if show_only_this_id > 0 && element.id != show_only_this_id {
         return;
     } // tttt
@@ -138,9 +138,9 @@ fn way(
     let part = tags.get("building:part").unwrap_or(string_no);
 
     // ??? not only parts!
-    if part == YES {
+    if part == YES || show_only_this_id > 0 {
         building(element, building_parts, nodes_map);
-    };
+    }
 }
 
 fn building(
@@ -191,13 +191,15 @@ fn building(
     println!("Part id: {} roof: {:?}", element.id, roof_shape);
 
     let default_roof_heigt = match roof_shape {
-        RoofShape::Skillion => 9.0, // 2.?  accroding to width! ttt
+        RoofShape::Skillion => 2.0, // accroding to width???
+        RoofShape::Gabled => 2.0,   // 2.?  ttt
         _ => DEFAULT_ROOF_HEIGHT,
     };
 
     // Heights
     let min_height = parse_height(tags.get("min_height"), 0.0);
     let roof_height = parse_height(tags.get("roof:height"), default_roof_heigt);
+    //println!(        "roof_height: {roof_height}  {default_roof_heigt} {:?}",        roof_shape);
     let wall_height = parse_height(tags.get("height"), DEFAULT_WALL_HEIGHT) - roof_height;
 
     // Get building footprint from nodes

@@ -16,7 +16,7 @@ pub struct Shape {
     pub center: GroundPosition,
     longest_distance: f32,
     pub longest_angle: f32,
-    //    is_clockwise: bool,
+    // is_clockwise: bool,
 }
 
 impl Shape {
@@ -88,7 +88,6 @@ impl Shape {
         }
         //println!("roof_po: {:?}", &vertices);
 
-        //  indices = earcutr::earcut(&[10,0, 0,50, 60,60, 70,10],&[],2).unwrap();
         let indices = earcutr::earcut(&vertices, &[], 2).unwrap();
         //println!("{:?}", indices);
 
@@ -99,21 +98,23 @@ impl Shape {
     /// - The first shape contains all parts with x ≤ 0
     /// - The second shape contains all parts with x ≥ 0
     /// - The last shape contains all parts of the outer
-    pub fn _split_at_x_zero(&mut self, angle: f32) -> (Vec<GroundPosition>, Vec<GroundPosition>) {
+    pub fn split_at_x_zero(&mut self, angle: f32) -> (Vec<GroundPosition>, Vec<GroundPosition>) {
         let mut left_vertices = Vec::new();
         let mut right_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
+        //self.rotated_positions.remove(0); //ttt
         let n = self.rotated_positions.len();
         for i in 0..n {
             let current = self.rotated_positions[i];
             let next = self.rotated_positions[(i + 1) % n];
-            outer_vertices.push(self.positions[i]); // ttt
+            outer_vertices.push(self.positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
             if current.east == 0.0 {
                 left_vertices.push(self.positions[i]);
                 right_vertices.push(self.positions[i]);
+                println!("split i:{i}");
                 continue;
             }
 
@@ -124,21 +125,24 @@ impl Shape {
                 right_vertices.push(self.positions[i]);
             }
 
+            println!("ttt1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line
-            if (current.east < 0.0 && next.east > 0.0) || (current.east > 0.0 && next.east < 0.0) {
+            if current.east.signum() != next.east.signum() {
                 // Calculate the intersection point
                 let diagonally = -current.east / (next.east - current.east);
                 let intersection_north = current.north + diagonally * (next.north - current.north);
                 let intersection = GroundPosition {
-                    north: intersection_north - 0.,
+                    north: intersection_north,
                     east: 0.0,
                 };
 
-                println!("// Add the intersection point to both shapes");
+                println!("ttt2 i: {i} is_n: {intersection_north}");
                 // Add the intersection point to both shapes
-                left_vertices.push(self.positions[i]);
-                right_vertices.push(self.positions[i]);
-                outer_vertices.push(intersection.rotate(angle).add(self.center));
+                let intersection_rotated_back = intersection.rotate(angle).add(self.center);
+                println!("ttt3 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}");
+                left_vertices.push(intersection_rotated_back);
+                right_vertices.push(intersection_rotated_back);
+                outer_vertices.push(intersection_rotated_back);
             }
         }
 

@@ -48,18 +48,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _westminster_id = 367642719; // 25
     let _taj_mahal_id = 375257537;
     let _marienplatz_id = 223907278; // 15
+    let _fo_gabled = 47942624;
 
-    let id = _passau_dom_id;
-    let scale = 15.;
+    let id = _fo_gabled as u64;
+    let scale = 5.;
     let range = 10.0 * scale;
-    let show_only: u64 = 0;
+    let show_only: u64 = id;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
 
     let bounding_box = BoundingBox::from_geo_range(&ground_null_coordinates, range);
     let range_json = get_range_json(bounding_box);
+    //println!("range_json: {:?}", range_json);
     let building_parts = scan_json(range_json, &ground_null_coordinates, show_only);
+    //println!("building_parts: {:?}", building_parts);
     let meshes = scan_objects(building_parts);
     bevy_init(meshes, scale);
 

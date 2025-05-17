@@ -7,6 +7,7 @@ pub type GpuPosition = [f32; 3];
 pub type RenderColor = [f32; 4];
 
 // Mesh render attributes (may be mor later)
+#[derive(Clone, Debug)]
 pub struct OsmMeshAttributes {
     pub indices_to_vertices: Vec<u32>,
     pub vertices_colors: Vec<RenderColor>, // format: Float32x4
