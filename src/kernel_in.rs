@@ -85,33 +85,13 @@ impl GroundPosition {
     }
 
     pub fn rotate(self, angle: f32) -> GroundPosition {
-        let north = self.north * f32::cos(angle) - self.east * f32::sin(angle);
-        let east = self.east * f32::cos(angle) - self.north * f32::sin(angle);
-        GroundPosition { north, east }
-    }
+        let cos = f32::cos(angle);
+        let sin = f32::sin(angle);
+        // Don't change this lines! They are correct and tested. If something is odd, look on your code, calling rotate()
+        let north = -sin * self.east + cos * self.north;
+        let east = cos * self.east + sin * self.north;
+        //println!("angle: {angle} sin: {sin} cos: {cos} sn: {} se: {} n: {} e: {}",self.north, self.east, north, east);
 
-    pub fn rotate_around_center(self, angle: f32, center: GroundPosition) -> GroundPosition {
-        //println!(
-        //    "pre-rotate: angle {} position {:?}",
-        //    angle.to_degrees(),
-        //    //center,
-        //    self
-        //);
-        let north = (self.north - center.north) * f32::cos(angle)
-            - (self.east - center.east) * f32::sin(angle);
-        let east = (self.east - center.east) * f32::cos(angle)
-            - (self.north - center.north) * f32::sin(angle);
-        // println!("rotated: north {} east {}", north, east);
-        GroundPosition { north, east }
-    }
-
-    pub fn _unrotate(self, angle: f32, center: GroundPosition) -> GroundPosition {
-        let north = self.north * f32::cos(angle) - self.east * f32::sin(angle) + center.north;
-        let east = self.east * f32::cos(angle) + self.north * f32::sin(angle) + center.east;
-        //let north = self.north * f32::cos(angle) - self.east  * f32::sin(angle) - center.north;
-        //let east  = self.east  * f32::cos(angle) + self.north * f32::sin(angle) + center.east;
-
-        // println!("rotated: north {} east {}", north, east);
         GroundPosition { north, east }
     }
 }
@@ -203,8 +183,15 @@ impl BoundingBox {
         self.west = self.west.min(position.east);
     }
 
-    pub fn east_larger_than_nord(&self) -> bool {
+    pub fn _east_larger_than_nord(&self) -> bool {
         self.east - self.west > self.north - self.south
+    }
+
+    pub fn _shift(&mut self, shift: f32) {
+        self.north += shift;
+        self.south += shift;
+        self.east += shift;
+        self.west += shift;
     }
 }
 

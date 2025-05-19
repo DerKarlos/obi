@@ -213,25 +213,30 @@ fn building(
     } // nodes
     footprint.close();
     let mut roof_angle = footprint.longest_angle;
+    let roof_orientation = /*parse_orientation???*/ tags.get("roof:orientation");
+
+    if let Some(orientation) = roof_orientation {
+        match orientation.as_str() {
+            "across" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
+            _ => (),
+        }
+    }
 
     //println!("ttt roof_angle: {}", roof_angle.to_degrees());
 
-    // todo: more angle code!
-    let bounding_box_rotated = footprint.rotate(-roof_angle);
-    //println!("bbox________ {:?}", footprint.bounding_box);
-    //println!("bbox_rotated {:?}", bounding_box_rotated);
-    if bounding_box_rotated.east_larger_than_nord() {
-        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-        // This way is a good example: 363815745 beause it has many nodes on the longer side
-        // println!( "### {}: east_larger_than_nord: {}", element.id, roof_angle.to_degrees() );
-    }
+    // todo: more angle/height code!
 
-    //println!(
-    //    "id: {} roof_shape: {:?} angle: {}",
-    //    element.id,
-    //    roof_shape,
-    //    roof_angle.to_degrees()
-    //);
+    // Not here, in the fn rotate against the actual angle to got 0 degrees
+    let bounding_box_rotated = footprint.rotate(roof_angle);
+
+    // This seems NOT to be valid. F4maps is NOT doing it ??? Test with Reifenberg
+    // if bounding_box_rotated.east_larger_than_nord() {
+    //     roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+    // This way is a good example: 363815745 beause it has many nodes on the longer side
+    // println!( "### {}: east_larger_than_nord: {}", element.id, roof_angle.to_degrees() );
+    //}
+    // println!( "id: {} roof_shape: {:?} angle: {}", element.id, roof_shape, roof_angle.to_degrees() );
+
     let building_part = BuildingPart {
         _id: element.id,
         _part: true, // ??? not only parts!

@@ -48,12 +48,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _westminster_id = 367642719; // 25
     let _taj_mahal_id = 375257537;
     let _marienplatz_id = 223907278; // 15
-    let _fo_gabled = 47942624;
+    let _fo_gabled = 45696973; // rectangle: 47942624 +schräg: 45697283  haustür: 47942638  eingeeckt: 45697162  winklel: 45402141
+                               // no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
+                               // Not valide tagged???: 45696973
 
-    let id = _fo_gabled as u64;
-    let scale = 5.;
+    let id = _westminster_id as u64;
+    let scale = 25.;
     let range = 10.0 * scale;
-    let show_only: u64 = id;
+    let show_only: u64 = 0;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);

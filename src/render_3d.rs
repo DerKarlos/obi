@@ -59,13 +59,13 @@ struct OsmMesh {
 }
 
 impl OsmMesh {
-    pub fn new() -> Self {
+    fn new() -> Self {
         OsmMesh {
             attributes: OsmMeshAttributes::new(),
         }
     }
 
-    pub fn push_building_part(&mut self, building_part: &mut BuildingPart) {
+    fn push_building_part(&mut self, building_part: &mut BuildingPart) {
         let min_height = building_part.min_height;
         let wall_height = building_part.wall_height;
         let roof_height = building_part.roof_height;
@@ -124,9 +124,8 @@ impl OsmMesh {
         //println!("ph: position: {:?}", position);
         //        let roof_slope = circle_limit(building_part.roof_angle + f32::to_radians(90.));
         let east = position
-            // why NOT - negativ??? (see other lines)
             .sub(building_part.footprint.center)
-            .rotate(building_part.roof_angle)
+            .rotate(-building_part.roof_angle) // skillion
             .east;
         let inclination = building_part.roof_height
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
@@ -144,18 +143,20 @@ impl OsmMesh {
     ) -> f32 {
         let east = position
             .sub(building_part.footprint.center)
-            .rotate(building_part.roof_angle)
-            .east;
+            .rotate(-building_part.roof_angle) // Rotate against the actual angle to got 0 degrees
+            .east
+            + building_part.footprint.shift;
+
         let width =
             building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west;
-        let inclination = building_part.roof_height * 2. / width; // Höhen/Tiefe der Nodes/Ecken berechenen
-                                                                  //ttt   -6      0      6+   <12> /2= 6
+        let inclination = building_part.roof_height * 2. / width;
+
         let height =
             building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
 
         let rh = building_part.roof_height;
         println!(
-            "tttt East: {east} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
+            "tttt East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
         );
 
         height
@@ -174,13 +175,13 @@ impl OsmMesh {
         }
     }
 
-    pub fn push_flat(&mut self, footprint: &Shape, height: f32, color: RenderColor) {
+    fn push_flat(&mut self, footprint: &Shape, height: f32, color: RenderColor) {
         let mut roof_gpu_positions = footprint.get_gpu_positions(height);
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
         // println!("triangles: {:?}", &indices);
 
-        // ? why .rev() ?  see negativ???
+        // ? why .rev() ???
         for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices
@@ -196,7 +197,7 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    pub fn push_skillion(&mut self, building_part: &BuildingPart, color: RenderColor) {
+    fn push_skillion(&mut self, building_part: &BuildingPart, color: RenderColor) {
         let footprint = &building_part.footprint;
         let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
         for position in footprint.positions.iter() {
@@ -225,7 +226,7 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    pub fn push_gabled(&mut self, building_part: &mut BuildingPart, color: RenderColor) {
+    fn push_gabled(&mut self, building_part: &mut BuildingPart, color: RenderColor) {
         let (face1, face2) = building_part
             .footprint
             .split_at_x_zero(building_part.roof_angle);
@@ -274,7 +275,7 @@ impl OsmMesh {
 
     // todo: phyramide, dome and onion the same except a different curves. Use same code,
     // todo: For all 3 shapetypes: less points: cornsers, much points: rounded
-    pub fn push_phyramid(
+    fn push_phyramid(
         &mut self,
         footprint: &Shape,
         wall_height: f32,
@@ -306,7 +307,7 @@ impl OsmMesh {
         //println!("rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
     }
 
-    pub fn push_onion(
+    fn push_onion(
         &mut self,
         footprint: &Shape,
         wall_height: f32,
@@ -406,7 +407,7 @@ impl OsmMesh {
 
     //// basic pushes: ////
 
-    pub fn push_square(
+    fn push_square(
         &mut self,
         down_left: GpuPosition,
         down_right: GpuPosition,
@@ -434,7 +435,7 @@ impl OsmMesh {
         self.push_indices([index /*.*/+ 1, index + 3, index + 2]);
     }
 
-    pub fn push_indices(&mut self, indexi: [usize; 3]) {
+    fn push_indices(&mut self, indexi: [usize; 3]) {
         self.attributes.indices_to_vertices.push(indexi[0] as u32);
         self.attributes.indices_to_vertices.push(indexi[1] as u32);
         self.attributes.indices_to_vertices.push(indexi[2] as u32);

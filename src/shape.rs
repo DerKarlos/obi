@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add, Sub};
 // use triangulation::{Delaunay, Point};
 //
 // use triangulate::formats;
@@ -13,6 +13,7 @@ pub struct Shape {
     pub positions: Vec<GroundPosition>,
     rotated_positions: Vec<GroundPosition>,
     pub bounding_box: BoundingBox,
+    pub shift: f32,
     pub center: GroundPosition,
     longest_distance: f32,
     pub longest_angle: f32,
@@ -25,6 +26,7 @@ impl Shape {
             positions: Vec::new(),
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
+            shift: 0.0,
             center: GroundPosition::ZERO,
             longest_distance: 0.,
             longest_angle: 0.,
@@ -67,14 +69,36 @@ impl Shape {
         }
     }
 
+    // Shape.rotate
     pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
         let mut bounding_box_rotated = BoundingBox::new();
         for position in &self.positions {
-            // why - negativ??? (see other lines)
-            let rotated_position = position.rotate_around_center(-roof_angle, self.center);
+            // Rotate against the actual angle to got 0 degrees
+            let rotated_position = position.sub(self.center).rotate(-roof_angle);
             self.rotated_positions.push(rotated_position);
             bounding_box_rotated.include(&rotated_position);
         }
+
+        println!(
+            "e: {:?} w{:?}",
+            bounding_box_rotated.east, bounding_box_rotated.west
+        );
+        let new_rotated_center_east = (bounding_box_rotated.east - bounding_box_rotated.west) / 2.0;
+        //                                      8   -                       -4 = 12 / 2 = 6
+        let corretion_shift = new_rotated_center_east - bounding_box_rotated.east;
+        //                         6     -            8   = -2
+        bounding_box_rotated._shift(corretion_shift);
+        self.shift = corretion_shift;
+        for position in &mut self.rotated_positions {
+            println!(
+                "rot east: {:?}+{:?}={:?}",
+                position.east.clone(),
+                corretion_shift,
+                position.east + corretion_shift
+            );
+            position.east += corretion_shift; // used in split_at_x_zero
+        }
+
         bounding_box_rotated
     }
 
@@ -103,18 +127,18 @@ impl Shape {
         let mut right_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
-        //self.rotated_positions.remove(0); //ttt
         let n = self.rotated_positions.len();
         for i in 0..n {
             let current = self.rotated_positions[i];
             let next = self.rotated_positions[(i + 1) % n];
+            //outer_vertices.push(current); //ttt
             outer_vertices.push(self.positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
             if current.east == 0.0 {
                 left_vertices.push(self.positions[i]);
                 right_vertices.push(self.positions[i]);
-                println!("split i:{i}");
+                println!("split split split split split split split split split split split split split split i:{i}");
                 continue;
             }
 
@@ -127,19 +151,18 @@ impl Shape {
 
             println!("ttt1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line
-            if current.east.signum() != next.east.signum() {
+            if current.east.signum() != next.east.signum() && true {
                 // Calculate the intersection point
                 let diagonally = -current.east / (next.east - current.east);
                 let intersection_north = current.north + diagonally * (next.north - current.north);
                 let intersection = GroundPosition {
                     north: intersection_north,
-                    east: 0.0,
+                    east: -self.shift, // Das stimmt doch nicht so ganz, oder ???
                 };
 
-                println!("ttt2 i: {i} is_n: {intersection_north}");
                 // Add the intersection point to both shapes
                 let intersection_rotated_back = intersection.rotate(angle).add(self.center);
-                println!("ttt3 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}");
+                println!("ttt2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}");
                 left_vertices.push(intersection_rotated_back);
                 right_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);
