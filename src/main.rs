@@ -52,10 +52,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                                // no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
                                // Not valide tagged???: 45696973
 
-    let id = _westminster_id as u64;
-    let scale = 25.;
+    let id = _passau_dom_id as u64;
+    let scale = 15.;
     let range = 10.0 * scale;
-    let show_only: u64 = 0;
+    let show_only: u64 = 136144290;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);

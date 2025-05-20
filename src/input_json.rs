@@ -217,8 +217,32 @@ fn building(
 
     if let Some(orientation) = roof_orientation {
         match orientation.as_str() {
+            "along" => (), // Just do nothing, along is default
             "across" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
-            _ => (),
+            _ => {
+                let value = orientation.parse();
+                if let Ok(value) = value {
+                    roof_angle = circle_limit(roof_angle + f32::to_radians(value));
+                } else {
+                    println!("Uncoded roof orientation value: {}", orientation);
+                }
+            }
+        }
+    }
+
+    let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
+    if let Some(direction) = roof_direction {
+        match direction.as_str() {
+            "N" => roof_angle = f32::to_radians(0.),
+            "E" => roof_angle = f32::to_radians(90.),
+            "S-" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
+            "W" => roof_angle = f32::to_radians(270.),
+
+            "NE" => roof_angle = f32::to_radians(45.),
+            "NW" => roof_angle = f32::to_radians(315.),
+            "SE" => roof_angle = f32::to_radians(135.),
+            "SW" => roof_angle = f32::to_radians(225.),
+            _ => println!("Uncoded roof direction value: {}", direction),
         }
     }
 

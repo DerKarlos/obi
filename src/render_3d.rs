@@ -127,6 +127,7 @@ impl OsmMesh {
             .sub(building_part.footprint.center)
             .rotate(-building_part.roof_angle) // skillion
             .east;
+        println!("roof_angle: {}", building_part.roof_angle);
         let inclination = building_part.roof_height
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
