@@ -205,29 +205,30 @@ fn building(
     // Get building footprint from nodes
     // else { todo("drop last and modulo index") }
 
-    //let mut footprint: Vec<GroundPosition> = Vec::new();
+    // Roof direction and Orientation
     let mut footprint = Shape::new();
     for node_id in nodes.iter() {
         let node = nodes_map.get(node_id).unwrap();
         footprint.push(node.position);
     } // nodes
     footprint.close();
-    let mut roof_angle = footprint.longest_angle;
-    let roof_orientation = /*parse_orientation???*/ tags.get("roof:orientation");
 
+    // todo: parse_direction
+    let mut roof_angle = footprint.longest_angle;
+    let roof_orientation = tags.get("roof:orientation");
+
+    // Wwired: OSM defines the roof-angle value as across the lonest way side! So, ...
     if let Some(orientation) = roof_orientation {
         match orientation.as_str() {
-            "along" => (), // Just do nothing, along is default
-            "across" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
-            _ => {
-                let value = orientation.parse();
-                if let Ok(value) = value {
-                    roof_angle = circle_limit(roof_angle + f32::to_radians(value));
-                } else {
-                    println!("Uncoded roof orientation value: {}", orientation);
-                }
-            }
+            // ... the default along needs a rotation ...
+            "along" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
+            // ... while across is already given.
+            "across" => (),
+            _ => println!("Uncoded roof orientation value: {}", orientation),
         }
+    } else {
+        // ... the default along needs a rotation.
+        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
     }
 
     let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
@@ -235,20 +236,28 @@ fn building(
         match direction.as_str() {
             "N" => roof_angle = f32::to_radians(0.),
             "E" => roof_angle = f32::to_radians(90.),
-            "S-" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
+            "S" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
             "W" => roof_angle = f32::to_radians(270.),
 
             "NE" => roof_angle = f32::to_radians(45.),
             "NW" => roof_angle = f32::to_radians(315.),
             "SE" => roof_angle = f32::to_radians(135.),
             "SW" => roof_angle = f32::to_radians(225.),
-            _ => println!("Uncoded roof direction value: {}", direction),
+            _ => {
+                let value = direction.parse();
+                if let Ok(value) = value {
+                    roof_angle = circle_limit(roof_angle + f32::to_radians(value));
+                } else {
+                    println!("Uncoded roof direction value: {}", direction);
+                }
+            }
         }
     }
 
     //println!("ttt roof_angle: {}", roof_angle.to_degrees());
 
-    // todo: more angle/height code!
+    // This crate interprets, opposite to OSM the angle along the roof ceiling
+    roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
 
     // Not here, in the fn rotate against the actual angle to got 0 degrees
     let bounding_box_rotated = footprint.rotate(roof_angle);

@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let id = _passau_dom_id as u64;
     let scale = 15.;
     let range = 10.0 * scale;
-    let show_only: u64 = 136144290;
+    let show_only: u64 = 0;
 
     let ground_null_coordinates = coordinates_of_way_center(id);
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
