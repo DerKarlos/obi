@@ -1,10 +1,5 @@
 use std::ops::{Add, Sub};
-// use triangulation::{Delaunay, Point};
-//
-// use triangulate::formats;
-// use triangulate::Polygon;
-// use triangulate::{ListFormat, PolygonList};
-extern crate earcutr;
+extern crate earcutr; // not supported vor WASM?
 
 use crate::kernel_in::{BoundingBox, GroundPosition};
 

@@ -216,6 +216,7 @@ fn building(
     // todo: parse_direction
     let mut roof_angle = footprint.longest_angle;
     let roof_orientation = tags.get("roof:orientation");
+    // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
 
     // Wwired: OSM defines the roof-angle value as across the lonest way side! So, ...
     if let Some(orientation) = roof_orientation {
@@ -256,7 +257,7 @@ fn building(
 
     //println!("ttt roof_angle: {}", roof_angle.to_degrees());
 
-    // This crate interprets, opposite to OSM the angle along the roof ceiling
+    // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
     roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
 
     // Not here, in the fn rotate against the actual angle to got 0 degrees

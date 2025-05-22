@@ -1,8 +1,10 @@
+use crate::kernel_in::PI;
 use crate::kernel_out::OsmMeshAttributes;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // BEVY ///////////////////////////////////////////////////////////////////////////////////////////
 
+use bevy::pbr::CascadeShadowConfigBuilder;
 use bevy::prelude::*;
 use bevy::render::{
     mesh::Indices, //VertexAttributeValues},
@@ -117,39 +119,59 @@ fn setup(
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let s = osm_meshes.scale as f32;
+    let scale = osm_meshes.scale as f32;
     // circular base
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(15.0 * s))),
+        Mesh3d(meshes.add(Circle::new(15.0 * scale))),
         MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
     // light
-    commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            intensity: (100000000. * s),
-            range: 100. * s,
-            ..default()
-        },
-        Transform::from_xyz(10.0 * s, 20.0 * s, 10.0 * s),
-    ));
+
+    if false {
+        commands.spawn((
+            PointLight {
+                shadows_enabled: true,
+                intensity: (100000000. * scale),
+                range: 100. * scale,
+                ..default()
+            },
+            Transform::from_xyz(10.0 * scale, 20.0 * scale, 10.0 * scale),
+        ));
+    } else {
+        commands.spawn((
+            DirectionalLight {
+                illuminance: 50. * scale,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
+            CascadeShadowConfigBuilder {
+                first_cascade_far_bound: 7.0, // What's that ???
+                maximum_distance: 100. * scale,
+                ..default()
+            }
+            .build(),
+        ));
+    }
+
     // camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.5 * s, 4.5 * s, 9.0 * s)
-            .looking_at(Vec3::new(0., 2. * s, 0.), Vec3::Y),
+        Transform::from_xyz(-2.5 * scale, 4.5 * scale, 9.0 * scale)
+            .looking_at(Vec3::new(0., 2. * scale, 0.), Vec3::Y),
     ));
 }
 
+// main inits bevy
 pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
     // BEVY-App
     println!("");
 
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.5)))
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
         .insert_resource(OsmMeshes {
             vec: osm_meshes,
             scale: scale,
