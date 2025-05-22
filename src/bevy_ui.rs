@@ -164,11 +164,11 @@ fn setup(
     ));
 }
 
-// main inits bevy
+// main.rs inits bevy
 pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
-    // BEVY-App
-    println!("");
+    println!(""); // distance between test outputs and Bevy outputs
 
+    // BEVY-App
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))

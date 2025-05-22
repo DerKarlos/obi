@@ -158,7 +158,7 @@ impl BoundingBox {
         }
     }
 
-    pub fn from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
+    pub fn _from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
         let range = range / LAT_FAKT; // First test with 15 meter
         BoundingBox {
             north: (geographic_coordinates.latitude + range) as f32,

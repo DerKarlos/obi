@@ -18,10 +18,11 @@ mod bevy_ui;
 // other crates
 use bevy_ui::bevy_init;
 use input_json::coordinates_of_way_center;
+use std::env;
 use std::error::Error;
 // this crate
 use crate::input_json::{get_range_json, scan_json};
-use crate::kernel_in::BoundingBox;
+use crate::kernel_in::LAT_FAKT;
 use crate::render_3d::scan_objects;
 // Todo? use error_chain::error_chain;
 
@@ -41,6 +42,9 @@ use crate::render_3d::scan_objects;
 fn main() -> Result<(), Box<dyn Error>> {
     println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
 
+    let args: Vec<String> = env::args().collect();
+    dbg!(&args);
+
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
     let _reifenberg_id = 121486088; // scale 5
@@ -52,15 +56,20 @@ fn main() -> Result<(), Box<dyn Error>> {
                                // no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
                                // Not valide tagged???: 45696973
 
-    let id = _passau_dom_id as u64;
-    let scale = 15.;
-    let range = 10.0 * scale;
+    let mut id = _westminster_id as u64;
     let show_only: u64 = 0;
 
-    let ground_null_coordinates = coordinates_of_way_center(id);
+    if args.len() > 1 {
+        id = args[1].parse().unwrap();
+    }
+
+    let (ground_null_coordinates, bounding_box) = coordinates_of_way_center(id);
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
 
-    let bounding_box = BoundingBox::from_geo_range(&ground_null_coordinates, range);
+    let max = (bounding_box.east - bounding_box.west).min(bounding_box.north - bounding_box.south);
+    let scale = max as f64 / 4. * LAT_FAKT;
+
+    //let bounding_box = BoundingBox::from_geo_range(&ground_null_coordinates, range);
     let range_json = get_range_json(bounding_box);
     //println!("range_json: {:?}", range_json);
     let building_parts = scan_json(range_json, &ground_null_coordinates, show_only);
