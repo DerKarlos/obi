@@ -36,10 +36,20 @@ use crate::render_3d::scan_objects;
  * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452  Kommented on Changeset: https://www.openstreetmap.org/changeset/132598262?xhr=1
  */
 
+use reqwest;
+use serde_json::Value;
+
+async fn fetch_json_data(url: &str) -> Result<Value, reqwest::Error> {
+    let response = reqwest::get(url).await?;
+    let json: Value = response.json().await?;
+    Ok(json)
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 
-fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
 
     let args: Vec<String> = env::args().collect();
@@ -63,7 +73,23 @@ fn main() -> Result<(), Box<dyn Error>> {
         id = args[1].parse().unwrap();
     }
 
-    let (ground_null_coordinates, bounding_box) = coordinates_of_way_center(id);
+    let way_id = _reifenberg_id;
+    static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
+    let url = format!("{}way/{}/full.json", API_URL, way_id);
+    match fetch_json_data(&url).await {
+        Ok(json) => println!("Received JSON: {}", json),
+        Err(e) => eprintln!("Error fetching JSON: {}", e),
+    }
+
+    match coordinates_of_way_center(id).await {
+        Err(e) => eprintln!("Error fetching JSON: {}", e),
+        Ok((ground_null_coordinates, bounding_box)) => {
+            println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
+        }
+    }
+
+    /*****
+    let (ground_null_coordinates, bounding_box) = coordinates_of_way_center(id).await;
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
 
     let max = (bounding_box.east - bounding_box.west).min(bounding_box.north - bounding_box.south);
@@ -76,6 +102,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     //println!("building_parts: {:?}", building_parts);
     let meshes = scan_objects(building_parts);
     bevy_init(meshes, scale);
+    *****/
 
     Ok(())
 }
