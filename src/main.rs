@@ -36,15 +36,6 @@ use crate::render_3d::scan_objects;
  * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452  Kommented on Changeset: https://www.openstreetmap.org/changeset/132598262?xhr=1
  */
 
-use reqwest;
-use serde_json::Value;
-
-async fn fetch_json_data(url: &str) -> Result<Value, reqwest::Error> {
-    let response = reqwest::get(url).await?;
-    let json: Value = response.json().await?;
-    Ok(json)
-}
-
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 
@@ -52,8 +43,9 @@ async fn fetch_json_data(url: &str) -> Result<Value, reqwest::Error> {
 async fn main() -> Result<(), Box<dyn Error>> {
     println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
 
+    std::env::set_var("RUST_LIB_BACKTRACE", "1");
+
     let args: Vec<String> = env::args().collect();
-    dbg!(&args);
 
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
@@ -70,39 +62,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let show_only: u64 = 0;
 
     if args.len() > 1 {
+        dbg!(&args[1]);
         id = args[1].parse().unwrap();
     }
 
-    let way_id = _reifenberg_id;
-    static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
-    let url = format!("{}way/{}/full.json", API_URL, way_id);
-    match fetch_json_data(&url).await {
-        Ok(json) => println!("Received JSON: {}", json),
-        Err(e) => eprintln!("Error fetching JSON: {}", e),
-    }
-
-    match coordinates_of_way_center(id).await {
-        Err(e) => eprintln!("Error fetching JSON: {}", e),
-        Ok((ground_null_coordinates, bounding_box)) => {
-            println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
-        }
-    }
-
-    /*****
     let (ground_null_coordinates, bounding_box) = coordinates_of_way_center(id).await;
+
     println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
 
-    let max = (bounding_box.east - bounding_box.west).min(bounding_box.north - bounding_box.south);
-    let scale = max as f64 / 4. * LAT_FAKT;
+    let scale = bounding_box.max_radius() / 4. * LAT_FAKT;
 
-    //let bounding_box = BoundingBox::from_geo_range(&ground_null_coordinates, range);
     let range_json = get_range_json(bounding_box);
     //println!("range_json: {:?}", range_json);
     let building_parts = scan_json(range_json, &ground_null_coordinates, show_only);
     //println!("building_parts: {:?}", building_parts);
     let meshes = scan_objects(building_parts);
     bevy_init(meshes, scale);
-    *****/
 
     Ok(())
 }

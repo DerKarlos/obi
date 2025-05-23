@@ -2,7 +2,6 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use reqwest;
-use serde_json::Value;
 
 use crate::kernel_in::{
     BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RoofShape,
@@ -60,44 +59,35 @@ pub fn get_range_json(bounding_box: BoundingBox) -> JsonData {
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub async fn coordinates_of_way_center(
-    way_id: u64,
-) -> Result<(GeographicCoordinates, BoundingBox), reqwest::Error> {
+pub async fn coordinates_of_way_center(way_id: u64) -> (GeographicCoordinates, BoundingBox) {
     // DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 
     //let json_way: JsonData = get_way_json(way_id).await;
 
-    match get_way_json(way_id).await {
-        Err(e) => Err(e),
-        Ok(json_way) => {
-            // println!("Received JSON: {}", json_way),
-            // dbg!(&json_way);
-            let mut bounding_box = BoundingBox::new();
-            // add the coordinates of all nodes
-            for element in json_way.elements {
-                if element.element_type == "node" {
-                    bounding_box.include(&GroundPosition {
-                        north: element.lat.unwrap() as f32,
-                        east: element.lon.unwrap() as f32,
-                    });
-                }
-            }
-            // calculate and return everedge
-            let latitude =
-                (bounding_box.south + (bounding_box.north - bounding_box.south) / 2.) as f64;
-            let longitude =
-                (bounding_box.west + (bounding_box.east - bounding_box.west) / 2.) as f64;
-            Ok((
-                GeographicCoordinates {
-                    latitude,
-                    longitude,
-                },
-                bounding_box,
-            ))
+    let json_way = get_way_json(way_id).await.unwrap();
+    // println!("Received JSON: {}", json_way),
+    let mut bounding_box = BoundingBox::new();
+    // add the coordinates of all nodes
+    for element in json_way.elements {
+        if element.element_type == "node" {
+            bounding_box.include(&GroundPosition {
+                north: element.lat.unwrap() as f32,
+                east: element.lon.unwrap() as f32,
+            });
         }
     }
+    // calculate and return everedge
+    let latitude = (bounding_box.south + (bounding_box.north - bounding_box.south) / 2.) as f64;
+    let longitude = (bounding_box.west + (bounding_box.east - bounding_box.west) / 2.) as f64;
+    (
+        GeographicCoordinates {
+            latitude,
+            longitude,
+        },
+        bounding_box,
+    )
 }
 
 pub fn scan_json(

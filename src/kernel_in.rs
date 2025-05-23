@@ -158,6 +158,10 @@ impl BoundingBox {
         }
     }
 
+    pub fn max_radius(&self) -> f64 {
+        (self.east as f64 - self.west as f64).max(self.north as f64 - self.south as f64)
+    }
+
     pub fn _from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
         let range = range / LAT_FAKT; // First test with 15 meter
         BoundingBox {
