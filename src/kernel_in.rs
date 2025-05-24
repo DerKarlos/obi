@@ -162,6 +162,16 @@ impl BoundingBox {
         (self.east as f64 - self.west as f64).max(self.north as f64 - self.south as f64)
     }
 
+    pub fn center_as_geo(&self) -> GeographicCoordinates {
+        let latitude = (self.south + (self.north - self.south) / 2.) as f64;
+        let longitude = (self.west + (self.east - self.west) / 2.) as f64;
+
+        GeographicCoordinates {
+            latitude,
+            longitude,
+        }
+    }
+
     pub fn _from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
         let range = range / LAT_FAKT; // First test with 15 meter
         BoundingBox {

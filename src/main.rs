@@ -1,6 +1,6 @@
 // Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
 
-mod input_json;
+mod input_osm_json;
 //mod oma_reader;
 
 // Interface from an input modules to a renderer
@@ -17,11 +17,11 @@ mod bevy_ui;
 
 // other crates
 use bevy_ui::bevy_init;
-use input_json::coordinates_of_way_center;
+use input_osm_json::geo_bbox_of_way;
 use std::env;
 use std::error::Error;
 // this crate
-use crate::input_json::{get_range_json, scan_json};
+use crate::input_osm_json::{get_bbox_json, scan_osm_json};
 use crate::kernel_in::LAT_FAKT;
 use crate::render_3d::scan_objects;
 // Todo? use error_chain::error_chain;
@@ -43,9 +43,10 @@ use crate::render_3d::scan_objects;
 async fn main() -> Result<(), Box<dyn Error>> {
     println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
 
-    std::env::set_var("RUST_LIB_BACKTRACE", "1");
-
-    let args: Vec<String> = env::args().collect();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::env::set_var("RUST_LIB_BACKTRACE", "1");
+    }
 
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
@@ -61,22 +62,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut id = _westminster_id as u64;
     let show_only: u64 = 0;
 
-    if args.len() > 1 {
-        dbg!(&args[1]);
-        id = args[1].parse().unwrap();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let args: Vec<String> = env::args().collect();
+        if args.len() > 1 {
+            dbg!(&args[1]);
+            id = args[1].parse().unwrap();
+        }
     }
 
-    let (ground_null_coordinates, bounding_box) = coordinates_of_way_center(id).await;
+    let bounding_box = geo_bbox_of_way(id).await;
+    let gpu_ground_null_coordinates = bounding_box.center_as_geo();
 
-    println!("Center is id {} at: {:?}\n", id, &ground_null_coordinates);
+    println!(
+        "Center is id {} at: {:?}\n",
+        id, &gpu_ground_null_coordinates
+    );
+
+    let json_data = get_bbox_json(&bounding_box).await.unwrap();
+    //println!("range_json: {:?}", bbox_json);
+
+    let building_parts = scan_osm_json(json_data, &gpu_ground_null_coordinates, show_only);
+    //println!("building_parts: {:?}", building_parts);
+
+    let meshes = scan_objects(building_parts);
 
     let scale = bounding_box.max_radius() / 4. * LAT_FAKT;
-
-    let range_json = get_range_json(bounding_box);
-    //println!("range_json: {:?}", range_json);
-    let building_parts = scan_json(range_json, &ground_null_coordinates, show_only);
-    //println!("building_parts: {:?}", building_parts);
-    let meshes = scan_objects(building_parts);
     bevy_init(meshes, scale);
 
     Ok(())

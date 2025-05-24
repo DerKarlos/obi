@@ -6,23 +6,11 @@ edition = "2021"
 [dependencies]
 fmt = "0.1.0"
 error-chain = "0.12"
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+##serde_json = "1.0"
 
 csscolorparser = "0.6"
-##triangulation = "0.1"
-##triangulate = "*"
 earcutr = "0.4.3"
 bevy = "0"
-
-## flate2 = "1.0"
-## clap = "2.33"
-
-## [lib]
-## name = "oma"
-## path = "oma/mod.rs"
-## [[bin]]
-## name = "obi"
-## path = "src/main.rs"

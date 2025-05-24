@@ -23,9 +23,9 @@ static NO: &str = "no";
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
 #[derive(Deserialize, Debug)]
 struct JosnElement {
+    id: u64,
     #[serde(rename = "type")]
     element_type: String,
-    id: u64,
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
@@ -50,16 +50,19 @@ pub async fn get_way_json(way_id: u64) -> Result<JsonData, reqwest::Error> {
     Ok(json)
 }
 
-pub fn get_range_json(bounding_box: BoundingBox) -> JsonData {
+pub async fn get_bbox_json(bounding_box: &BoundingBox) -> Result<JsonData, reqwest::Error> {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     // GET   /api/0.6/map?bbox=left,bottom,right,top
     let url = format!("{}map.json?bbox={}", API_URL, bounding_box.to_string());
     // println!("url: {url}");
-    reqwest::blocking::get(url).unwrap().json().unwrap()
+    // reqwest::blocking::get(url).unwrap().json().unwrap()
+    let response = reqwest::get(url).await?;
+    let json: JsonData = response.json().await?;
+    Ok(json)
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub async fn coordinates_of_way_center(way_id: u64) -> (GeographicCoordinates, BoundingBox) {
+pub async fn geo_bbox_of_way(way_id: u64) -> BoundingBox {
     // DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
     // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
@@ -78,21 +81,12 @@ pub async fn coordinates_of_way_center(way_id: u64) -> (GeographicCoordinates, B
             });
         }
     }
-    // calculate and return everedge
-    let latitude = (bounding_box.south + (bounding_box.north - bounding_box.south) / 2.) as f64;
-    let longitude = (bounding_box.west + (bounding_box.east - bounding_box.west) / 2.) as f64;
-    (
-        GeographicCoordinates {
-            latitude,
-            longitude,
-        },
-        bounding_box,
-    )
+    bounding_box
 }
 
-pub fn scan_json(
+pub fn scan_osm_json(
     json_data: JsonData,
-    ground_null_coordinates: &GeographicCoordinates,
+    gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
 ) -> Vec<BuildingPart> {
     let mut building_parts: Vec<BuildingPart> = Vec::new();
@@ -101,7 +95,7 @@ pub fn scan_json(
     for element in json_data.elements {
         // println!("element.element_type: {}", element.element_type);
         match element.element_type.as_str() {
-            "node" => node(element, ground_null_coordinates, &mut nodes_map),
+            "node" => node(element, gpu_ground_null_coordinates, &mut nodes_map),
             "way" => way(element, &mut building_parts, &mut nodes_map, show_only),
             _ => (), //println!(  todo
                      //    "Error: Unknown element type: {}  id: {}",
@@ -115,11 +109,11 @@ pub fn scan_json(
 
 fn node(
     element: JosnElement,
-    ground_null_coordinates: &GeographicCoordinates,
+    gpu_ground_null_coordinates: &GeographicCoordinates,
     nodes_map: &mut HashMap<u64, OsmNode>,
 ) {
     let osm_node = OsmNode {
-        position: ground_null_coordinates
+        position: gpu_ground_null_coordinates
             .coordinates_to_position(element.lat.unwrap(), element.lon.unwrap()),
     };
     nodes_map.insert(element.id, osm_node);

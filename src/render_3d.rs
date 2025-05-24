@@ -127,7 +127,7 @@ impl OsmMesh {
             .sub(building_part.footprint.center)
             .rotate(-building_part.roof_angle) // skillion
             .east;
-        println!("roof_angle: {}", building_part.roof_angle);
+        println!("roof_angle: {}", building_part.roof_angle.to_degrees());
         let inclination = building_part.roof_height
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
@@ -247,7 +247,7 @@ impl OsmMesh {
 
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
-        println!("offset: {roof_index_offset}  indices: {:?}", &indices);
+        //println!("offset: {roof_index_offset}  indices: {:?}", &indices);
 
         // ? why .rev() ?  see negativ???
         for index in indices.iter().rev() {
