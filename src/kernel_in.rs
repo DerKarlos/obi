@@ -102,26 +102,7 @@ impl std::fmt::Display for GroundPosition {
     }
 }
 
-/*
-#[derive(Clone, Copy, Debug)]
-pub struct HeightPosition {
-    pub north: f32,
-    pub east: f32,
-    pub height: f32,
-}
-
-impl GroundPosition {
-    fn _add_height(&self, height: f32) -> HeightPosition {
-        HeightPosition {
-            north: self.north,
-            east: self.east,
-            height,
-        }
-    }
-}
-*/
-
-#[derive(Clone, Copy, Debug)]
+// todo?: move to input_osm
 pub struct OsmNode {
     pub position: GroundPosition,
 }
@@ -162,7 +143,7 @@ impl BoundingBox {
         (self.east as f64 - self.west as f64).max(self.north as f64 - self.south as f64)
     }
 
-    pub fn center_as_geo(&self) -> GeographicCoordinates {
+    pub fn center_as_geographic_coordinates(&self) -> GeographicCoordinates {
         let latitude = (self.south + (self.north - self.south) / 2.) as f64;
         let longitude = (self.west + (self.east - self.west) / 2.) as f64;
 

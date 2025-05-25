@@ -1,8 +1,6 @@
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use reqwest;
-
 use crate::kernel_in::{
     BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RoofShape,
 };
@@ -18,6 +16,32 @@ use crate::tagticks::{
 static YES: &str = "yes";
 static NO: &str = "no";
 
+// DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
+// https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
+// The test-server does not have needed objects (like Reifenberg), but they could be PUT into
+static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
+
+#[derive(Clone, Copy, Debug)]
+pub struct OsmApi {
+    _dummy: f32,
+}
+
+impl OsmApi {
+    pub fn new() -> Self {
+        Self { _dummy: 0. }
+    }
+
+    pub fn way_url(&self, way_id: u64) -> String {
+        format!("{}way/{}/full.json", API_URL, way_id)
+    }
+
+    pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
+        // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
+        // GET   /api/0.6/map?bbox=left,bottom,right,top
+        format!("{}map.json?bbox={}", API_URL, bounding_box.to_string())
+    }
+}
+
 /* Factor to calculate meters from gps coordiantes.decimals (latitude, Nort/South position) */
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
@@ -29,7 +53,6 @@ struct JosnElement {
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
-    //tags: Option<JosnTags>, // todo?: use a map
     tags: Option<HashMap<String, String>>,
 }
 
@@ -38,42 +61,15 @@ pub struct JsonData {
     elements: Vec<JosnElement>,
 }
 
-static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
-
-pub async fn get_way_json(way_id: u64) -> Result<JsonData, reqwest::Error> {
-    //  JsonData
-    //// Get OSM data from API and convert Json to Rust types. See https://serde.rs
-    let url = format!("{}way/{}/full.json", API_URL, way_id);
-    // reqwest::blocking::get(url).unwrap().json().unwrap()
-    let response = reqwest::get(url).await?;
-    let json: JsonData = response.json().await?;
-    Ok(json)
-}
-
-pub async fn get_bbox_json(bounding_box: &BoundingBox) -> Result<JsonData, reqwest::Error> {
-    // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-    // GET   /api/0.6/map?bbox=left,bottom,right,top
-    let url = format!("{}map.json?bbox={}", API_URL, bounding_box.to_string());
-    // println!("url: {url}");
-    // reqwest::blocking::get(url).unwrap().json().unwrap()
-    let response = reqwest::get(url).await?;
-    let json: JsonData = response.json().await?;
-    Ok(json)
-}
-
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub async fn geo_bbox_of_way(way_id: u64) -> BoundingBox {
-    // DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-    // https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
-    // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
-
+pub fn geo_bbox_of_way(json_way_data: JsonData) -> BoundingBox {
     //let json_way: JsonData = get_way_json(way_id).await;
 
-    let json_way = get_way_json(way_id).await.unwrap();
+    //let json_way = get_way_json(way_id).await.unwrap();
     // println!("Received JSON: {}", json_way),
     let mut bounding_box = BoundingBox::new();
     // add the coordinates of all nodes
-    for element in json_way.elements {
+    for element in json_way_data.elements {
         if element.element_type == "node" {
             bounding_box.include(&GroundPosition {
                 north: element.lat.unwrap() as f32,
@@ -85,14 +81,14 @@ pub async fn geo_bbox_of_way(way_id: u64) -> BoundingBox {
 }
 
 pub fn scan_osm_json(
-    json_data: JsonData,
+    json_bbox_data: JsonData,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
 ) -> Vec<BuildingPart> {
     let mut building_parts: Vec<BuildingPart> = Vec::new();
     let mut nodes_map = HashMap::new();
 
-    for element in json_data.elements {
+    for element in json_bbox_data.elements {
         // println!("element.element_type: {}", element.element_type);
         match element.element_type.as_str() {
             "node" => node(element, gpu_ground_null_coordinates, &mut nodes_map),

@@ -1,16 +1,35 @@
 [package]
 name = "OBI"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 fmt = "0.1.0"
 error-chain = "0.12"
 reqwest = { version = "0.12", features = ["json"] }
-tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 ##serde_json = "1.0"
 
 csscolorparser = "0.6"
 earcutr = "0.4.3"
 bevy = "0"
+
+## cargo:rustc-check-cfg=cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))
+
+#[target.'cfg(target_arch = "loongarch64")'.dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+
+# Only features sync,macros,io-util,rt,time are supported on wasm.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+tokio = { version = "1.0", features = [
+    "sync",
+    "macros",
+    "io-util",
+    "rt",
+    "time",
+] } ## "all" NOT net!
+
+#[target.'cfg(target_arch = "wasm32")'.features]
+#wasm-bindgen = "0.2"
+#wasm-bindgen-futures = "0"
+#web-sys = { version = "0.3", features = ["Window", "Response", "fetch"] }

@@ -1,52 +1,40 @@
-// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
-
+//// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
 mod input_osm_json;
-//mod oma_reader;
 
-// Interface from an input modules to a renderer
+// Interfaces from input modules to renderer
 mod kernel_in;
 mod shape;
+
 // 3D and 2D rendere are possible
 mod render_3d;
 mod tagticks;
+
 // Interface from an rederer to an output
 mod kernel_out;
+
 // Variouns outputs are possible (UI, create a GLB file)
 mod bevy_ui;
 //mod f4control;
 
-// other crates
-use bevy_ui::bevy_init;
-use input_osm_json::geo_bbox_of_way;
+//// other crates
+use reqwest;
 use std::env;
 use std::error::Error;
 // this crate
-use crate::input_osm_json::{get_bbox_json, scan_osm_json};
+use crate::bevy_ui::bevy_init;
+use crate::input_osm_json::{geo_bbox_of_way, OsmApi};
+use crate::input_osm_json::{scan_osm_json, JsonData};
 use crate::kernel_in::LAT_FAKT;
 use crate::render_3d::scan_objects;
-// Todo? use error_chain::error_chain;
-
-/**** Project patterns ****************************************************************************
- * Don't use apreviations, as Rust does
- * Always north before east, like in GroundPosition
- * Now and then check for all clone() and copy() to be realy needed
- */
-
-/**** TODO ***************************************************************************************
- * Wesminster has some odd parts underground: OBI error: https://www.openstreetmap.org/way/1141764452  Kommented on Changeset: https://www.openstreetmap.org/changeset/132598262?xhr=1
- */
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // MAIN / Example: "OBI" //////////////////////////////////////////////////////////////////////////
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    println!("\n*********  Hi, I'm  O B I, the OSM Buiding Inspector  *********\n");
-
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        std::env::set_var("RUST_LIB_BACKTRACE", "1");
-    }
+    println!("\n*********  Hi, I'm  O B I, or OSM-BI, the OSM Buiding Inspector  *********\n");
+    // edition = "2024": error[E0133]: call to unsafe function `set_var` is unsafe and requires unsafe block
+    // std::env::set_var("RUST_LIB_BACKTRACE", "1");
 
     // Testing with a moderate complex building OR a lage complex one
     // https://www.openstreetmap.org/way/121486088#map=19/49.75594/11.13575&layers=D
@@ -62,29 +50,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut id = _westminster_id as u64;
     let show_only: u64 = 0;
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let args: Vec<String> = env::args().collect();
-        if args.len() > 1 {
-            dbg!(&args[1]);
-            id = args[1].parse().unwrap();
-        }
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        dbg!(&args[1]);
+        id = args[1].parse().unwrap();
     }
 
-    let bounding_box = geo_bbox_of_way(id).await;
-    let gpu_ground_null_coordinates = bounding_box.center_as_geo();
+    // The input API
+    let api = OsmApi::new();
 
+    // Get the center of the GPU scene
+    let url = api.way_url(id);
+    let response = reqwest::get(url).await?;
+    let json_way_data: JsonData = response.json().await?;
+    let bounding_box = geo_bbox_of_way(json_way_data);
+    let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
     println!(
         "Center is id {} at: {:?}\n",
         id, &gpu_ground_null_coordinates
     );
 
-    let json_data = get_bbox_json(&bounding_box).await.unwrap();
-    //println!("range_json: {:?}", bbox_json);
-
-    let building_parts = scan_osm_json(json_data, &gpu_ground_null_coordinates, show_only);
+    //// Get OSM data and convert Json to Rust types. See https://serde.rs
+    let url = api.bbox_url(&bounding_box);
+    // println!("url: {url}");
+    let response = reqwest::get(url).await?;
+    let json_bbox_data: JsonData = response.json().await?;
+    // println!("json_bbox_data: {:?}", json_bbox_data);
+    let building_parts = scan_osm_json(json_bbox_data, &gpu_ground_null_coordinates, show_only);
     //println!("building_parts: {:?}", building_parts);
-
     let meshes = scan_objects(building_parts);
 
     let scale = bounding_box.max_radius() / 4. * LAT_FAKT;
