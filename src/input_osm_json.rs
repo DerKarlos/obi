@@ -6,8 +6,8 @@ use crate::kernel_in::{
 };
 use crate::shape::Shape;
 use crate::tagticks::{
-    circle_limit, parse_color, parse_height, DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT,
-    DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT,
+    DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT, DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT, circle_limit,
+    parse_color, parse_height,
 };
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

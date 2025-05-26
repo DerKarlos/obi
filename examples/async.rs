@@ -1,4 +1,5 @@
-//// THIS IS THE SAME AS src/main.rs !!! ////
+//// This is the same code as it was in src/main.rs
+//// The affect of having a lib.rs AND a main.rs is that both a binary and library are compiled.
 
 //// my crate
 use osm_tb::*;

@@ -1,4 +1,6 @@
 //// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
+//// This crate may get splitted in the included modules
+
 mod input_osm_json;
 
 // Interfaces from input modules to renderer

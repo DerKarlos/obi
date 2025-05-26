@@ -8,7 +8,6 @@ members = [
 
 ]
 
-# The affect of having a lib.rs AND a main.rs is that both a binary and library are compiled.
 [lib]
 name = "osm_tb"
 path = "src/lib.rs"
@@ -32,20 +31,21 @@ bevy = "0"
 
 ## cargo:rustc-check-cfg=cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))
 
-#[target.'cfg(target_arch = "loongarch64")'.dev-dependencies]
+[target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 # Only features sync,macros,io-util,rt,time are supported on wasm.
-#[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
-#tokio = { version = "1.0", features = [
-#    "sync",
-#    "macros",
-#    "io-util",
-#    "rt",
-#    "time",
-#] } ## "all" NOT net!
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+tokio = { version = "1.0", features = [
+    ## No net for wasm. Only this:
+    "sync",
+    "macros",
+    "io-util",
+    "rt",
+    "time",
+] }
 
 #[target.'cfg(target_arch = "wasm32")'.features]
+web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
 #wasm-bindgen = "0.2"
 #wasm-bindgen-futures = "0"
-#web-sys = { version = "0.3", features = ["Window", "Response", "fetch"] }
