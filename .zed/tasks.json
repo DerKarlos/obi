@@ -25,5 +25,12 @@
     "use_new_terminal": false,
     "command": "cargo clippy",
     "tags": ["cargo"]
+  },
+
+  {
+    "label": "async",
+    "use_new_terminal": false,
+    "command": "cargo run --example async",
+    "tags": ["example"]
   }
 ]

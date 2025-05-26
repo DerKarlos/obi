@@ -3,7 +3,7 @@
 // The usuall format, a GPU want's its vertex positon. At last Bevy does. Let's hope, all Rust/wgpu renderer do.
 pub type GpuPosition = [f32; 3];
 
-// Internal type of this "OSM-Toolbox"/"OTB"/"OSM-TB"/"OBI"-3d-renderer. It's just luck, it is the same as needed for the gpu-renderer Bevy ;-)
+// Internal type of this "OSM-Toolbox"/"OSM-TB"/"OSM-TB"/"OBI"-3d-renderer. It's just luck, it is the same as needed for the gpu-renderer Bevy ;-)
 pub type RenderColor = [f32; 4];
 
 // Mesh render attributes (may be mor later)

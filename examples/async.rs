@@ -1,3 +1,5 @@
+//// THIS IS THE SAME AS src/main.rs !!! ////
+
 //// my crate
 use osm_tb::*;
 
