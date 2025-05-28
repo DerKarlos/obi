@@ -16,6 +16,11 @@ path = "src/lib.rs"
 name = "async"
 path = "examples/async.rs"
 
+
+[dev-dependencies]
+thiserror = "2.0"
+ron = "0.8.0"
+
 [dependencies]
 fmt = "0.1.0"
 error-chain = "0.12"
@@ -26,6 +31,7 @@ serde = { version = "1.0", features = ["derive"] }
 csscolorparser = "0.6"
 earcutr = "0.4.3"
 bevy = "0"
+bevy_web_asset = "0"
 
 #osm_tb = "*"
 
