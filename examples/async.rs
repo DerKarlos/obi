@@ -6,6 +6,8 @@ use osm_tb::*;
 
 //// other crates
 use reqwest;
+//use serde::*;
+//use serde_json::*;
 use std::env;
 use std::error::Error;
 
@@ -29,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
     // Not valide tagged???: 45696973
 
-    let mut id = _westminster_id as u64;
+    let mut id = 121486088 as u64;
     let show_only: u64 = 0;
 
     let args: Vec<String> = env::args().collect();
@@ -43,9 +45,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Get the center of the GPU scene
     let url = api.way_url(id);
-    let response = reqwest::get(url).await?;
-    let json_way_data: JsonData = response.json().await?;
-    let bounding_box = geo_bbox_of_way(json_way_data);
+    //let response = reqwest::get(url).await?;
+    let bytes = reqwest::get(url).await?.bytes().await?;
+    //ok: let json_way_data: JsonData = response.json().await?;
+    // let bytes = response.bytes().await?;
+    // let json_way_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    // let bounding_box = geo_bbox_of_way_json(json_way_data);
+    let bounding_box = geo_bbox_of_way_bytes(&bytes);
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
     println!(
         "Center is id {} at: {:?}\n",
@@ -55,15 +61,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //// Get OSM data and convert Json to Rust types. See https://serde.rs
     let url = api.bbox_url(&bounding_box);
     // println!("url: {url}");
-    let response = reqwest::get(url).await?;
-    let json_bbox_data: JsonData = response.json().await?;
+    let bytes = reqwest::get(url).await?.bytes().await?;
     // println!("json_bbox_data: {:?}", json_bbox_data);
-    let building_parts = scan_osm_json(json_bbox_data, &gpu_ground_null_coordinates, show_only);
+    let building_parts = scan_osm_bytes(bytes, &gpu_ground_null_coordinates, show_only);
     //println!("building_parts: {:?}", building_parts);
     let meshes = scan_objects(building_parts);
 
     let scale = bounding_box.max_radius() / 4. * LAT_FAKT;
     bevy_init(meshes, scale);
+    /****/
 
     Ok(())
 }

@@ -1,3 +1,4 @@
+use bytes::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -46,7 +47,7 @@ impl OsmApi {
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
 #[derive(Deserialize, Debug)]
-struct JosnElement {
+pub struct JosnElement {
     id: u64,
     #[serde(rename = "type")]
     element_type: String,
@@ -58,11 +59,16 @@ struct JosnElement {
 
 #[derive(Deserialize, Debug)]
 pub struct JsonData {
-    elements: Vec<JosnElement>,
+    pub elements: Vec<JosnElement>,
+}
+
+pub fn geo_bbox_of_way_bytes(bytes: &Bytes) -> BoundingBox {
+    let json_way_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    geo_bbox_of_way_json(json_way_data)
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub fn geo_bbox_of_way(json_way_data: JsonData) -> BoundingBox {
+pub fn geo_bbox_of_way_json(json_way_data: JsonData) -> BoundingBox {
     //let json_way: JsonData = get_way_json(way_id).await;
 
     //let json_way = get_way_json(way_id).await.unwrap();
@@ -78,6 +84,15 @@ pub fn geo_bbox_of_way(json_way_data: JsonData) -> BoundingBox {
         }
     }
     bounding_box
+}
+
+pub fn scan_osm_bytes(
+    bytes: Bytes,
+    gpu_ground_null_coordinates: &GeographicCoordinates,
+    show_only: u64,
+) -> Vec<BuildingPart> {
+    let json_bbox_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    scan_osm_json(json_bbox_data, &gpu_ground_null_coordinates, show_only)
 }
 
 pub fn scan_osm_json(
