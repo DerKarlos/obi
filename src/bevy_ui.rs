@@ -13,15 +13,15 @@ use bevy::render::{
 };
 
 #[derive(Resource)]
-struct OsmMeshes {
-    vec: Vec<OsmMeshAttributes>,
-    scale: f64,
+pub struct OsmMeshes {
+    pub vec: Vec<OsmMeshAttributes>,
+    pub scale: f64,
 }
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
 // filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
 #[derive(Component)]
-struct Controled;
+pub struct Controled;
 
 pub fn spawn_osm_mesh(
     osm_mesh: &OsmMeshAttributes,
@@ -63,7 +63,7 @@ pub fn spawn_osm_mesh(
 
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
-fn input_handler(
+pub fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Controled>>,
     time: Res<Time>,
@@ -109,7 +109,7 @@ fn input_handler(
     }
 }
 
-fn setup(
+pub fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -164,7 +164,7 @@ fn setup(
     ));
 }
 
-// main.rs inits bevy
+// native-main.rs inits bevy
 pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
     println!(""); // distance between test outputs and Bevy outputs
 
@@ -179,4 +179,64 @@ pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
         .run();
+}
+
+// bevy-main.rs adds psm
+pub fn bevy_osm(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    osm_meshes: Vec<OsmMeshAttributes>,
+    scale: f32,
+) {
+    for mesh in &osm_meshes {
+        spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
+    }
+
+    // circular base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(15.0 * scale as f32))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+
+    println!(""); // distance between test outputs and Bevy outputs
+
+    commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
+
+    // light
+
+    if false {
+        commands.spawn((
+            PointLight {
+                shadows_enabled: true,
+                intensity: (100000000. * scale),
+                range: 100. * scale,
+                ..default()
+            },
+            Transform::from_xyz(10.0 * scale, 20.0 * scale, 10.0 * scale),
+        ));
+    } else {
+        commands.spawn((
+            DirectionalLight {
+                illuminance: 50. * scale,
+                shadows_enabled: true,
+                ..default()
+            },
+            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
+            CascadeShadowConfigBuilder {
+                first_cascade_far_bound: 7.0, // What's that ???
+                maximum_distance: 100. * scale,
+                ..default()
+            }
+            .build(),
+        ));
+    }
+
+    // camera
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5 * scale, 4.5 * scale, 9.0 * scale)
+            .looking_at(Vec3::new(0., 2. * scale, 0.), Vec3::Y),
+    ));
 }

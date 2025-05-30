@@ -21,6 +21,7 @@ mod bevy_ui;
 pub use bevy_ui::*;
 pub use input_osm_json::JsonData;
 pub use input_osm_json::*;
+pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
 pub use kernel_out::*;
 pub use render_3d::*;

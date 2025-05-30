@@ -6,7 +6,7 @@ pub static PI: f32 = std::f32::consts::PI;
 use crate::shape::Shape;
 use std::ops::{Add, Sub};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
     pub latitude: f64,
     pub longitude: f64,
