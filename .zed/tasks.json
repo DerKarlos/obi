@@ -32,5 +32,12 @@
     "use_new_terminal": false,
     "command": "cargo run --example async",
     "tags": ["example"]
+  },
+
+  {
+    "label": "bevy_wasm",
+    "use_new_terminal": false,
+    "command": "cargo run --example bevy_wasm",
+    "tags": ["example"]
   }
 ]

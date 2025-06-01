@@ -22,27 +22,6 @@ static NO: &str = "no";
 // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
-#[derive(Default, Clone, Copy, Debug)]
-pub struct OsmApi {
-    _dummy: f32,
-}
-
-impl OsmApi {
-    pub fn new() -> Self {
-        Self { _dummy: 0. }
-    }
-
-    pub fn way_url(&self, way_id: u64) -> String {
-        format!("{}way/{}/full.json", API_URL, way_id)
-    }
-
-    pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
-        // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-        // GET   /api/0.6/map?bbox=left,bottom,right,top
-        format!("{}map.json?bbox={}", API_URL, bounding_box.to_string())
-    }
-}
-
 pub fn way_url(way_id: u64) -> String {
     format!("{}way/{}/full.json", API_URL, way_id)
 }
@@ -72,6 +51,11 @@ pub struct JsonData {
 
 pub fn geo_bbox_of_way_vec(bytes: &Vec<u8>) -> BoundingBox {
     let json_way_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    geo_bbox_of_way_json(json_way_data)
+}
+
+pub fn geo_bbox_of_way_string(bytes: &String) -> BoundingBox {
+    let json_way_data: JsonData = serde_json::from_str(&bytes).unwrap();
     geo_bbox_of_way_json(json_way_data)
 }
 

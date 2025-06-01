@@ -31,12 +31,13 @@ bytes = "1"
 #bevy_common_assets = "0"
 #serde_json = { version = "1", optional = true }
 
+openstreetmap-api = "0.3"  ## openstreetmap-api-rs/example/
+
 csscolorparser = "0.6"
 earcutr = "0.4.3"
 bevy = "0"
-bevy_web_asset = "0"
-
-#osm_tb = "*"
+bevy_web_asset = "0.11.0" # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
+#no#bevy_http_client = "0" # A simple HTTP client Bevy Plugin for both native and WASM, but NOT! using Assets loading
 
 ## cargo:rustc-check-cfg=cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))
 
@@ -58,3 +59,16 @@ tokio = { version = "1.0", features = [
 web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
 #wasm-bindgen = "0.2"
 #wasm-bindgen-futures = "0"
+
+##   TODO:
+##   [dev-dependencies]
+##   bevy = { version = "0.16", default-features = false, features = [
+##     "bevy_asset",
+##     "bevy_core_pipeline",
+##     "bevy_log",
+##     "bevy_sprite",
+##     "bevy_window",        # https://github.com/bevyengine/bevy/issues/16568
+##     "png",
+##     "webgl2",
+##     "x11",                # GitHub Actions runners don't have libxkbcommon installed, so can't use Wayland
+##   ] }

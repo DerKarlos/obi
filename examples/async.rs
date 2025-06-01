@@ -40,11 +40,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         id = args[1].parse().unwrap();
     }
 
-    // The input API
-    let api = OsmApi::new();
-
     // Get the center of the GPU scene
-    let url = api.way_url(id);
+    let url = way_url(id);
     //let response = reqwest::get(url).await?;
     let bytes = reqwest::get(url).await?.bytes().await?;
     //ok: let json_way_data: JsonData = response.json().await?;
@@ -59,7 +56,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
 
     //// Get OSM data and convert Json to Rust types. See https://serde.rs
-    let url = api.bbox_url(&bounding_box);
+    let url = bbox_url(&bounding_box);
     // println!("url: {url}");
     let bytes = reqwest::get(url).await?.bytes().await?;
     // println!("json_bbox_data: {:?}", json_bbox_data);

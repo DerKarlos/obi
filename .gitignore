@@ -4,3 +4,4 @@ Cargo.lock
 .DS_Store
 /main.dSYM
 /out
+/src/bin
