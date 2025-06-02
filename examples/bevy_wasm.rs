@@ -3,10 +3,11 @@
 
 // Usefull info for (Custom) asset: https://taintedcoders.com/bevy/assets
 
-const LOCAL_TEST: bool = true;
+const LOCAL_TEST: bool = false;
 // Test with native build and local files runs well. Not with web files. See C) below
 // Test with wasm build and local files runs well.
 
+use bevy::asset::AssetMetaCheck;
 use bevy::{
     asset::{AssetLoader, LoadContext, io::Reader},
     prelude::*,
@@ -72,7 +73,11 @@ fn main() {
 
     App::new()
         .add_plugins(WebAssetPlugin::default()) // for http(s)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            meta_check: AssetMetaCheck::Never,
+            ..default()
+        }))
+        //  .insert_resource(AssetMetaCheck::Never)
         .init_resource::<State>()
         .init_asset::<BytesVec>()
         .init_asset_loader::<BytesAssetLoader>()
@@ -119,7 +124,6 @@ fn on_load(
     bytes_assets: Res<Assets<BytesVec>>,
     asset_server: Res<AssetServer>,
 ) {
-    info!("$$$$$$$$ state: {:?} {:?}", state.step1, state.step2);
     let bytes = bytes_assets.get(&state.bytes);
 
     if bytes.is_none() {
@@ -136,7 +140,6 @@ fn on_load(
         // info!("Bytes asset loaded: {:?}", bytes.unwrap());
 
         let bounding_box = geo_bbox_of_way_vec(&bytes.unwrap().bytes);
-        info!("bounding_box: {:?} ", bounding_box);
         state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
         let mut url = bbox_url(&bounding_box);
         info!("************* bbox_url: {url}");

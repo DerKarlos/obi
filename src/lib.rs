@@ -1,7 +1,7 @@
 //// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
 //// This crate may get splitted in the included modules
 
-//mod input_osm_json;
+mod input_osm_json;
 mod input_osm_lib;
 
 // Interfaces from input modules to renderer
@@ -20,8 +20,8 @@ mod bevy_ui;
 //mod f4control;
 
 pub use bevy_ui::*;
-//pub use input_osm_json::JsonData;
-//pub use input_osm_json::*;
+pub use input_osm_json::JsonData;
+pub use input_osm_json::*;
 pub use input_osm_lib::InputLib;
 pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn

@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [workspace]
-members = [
-
-]
+members = []
 
 [lib]
 name = "osm_tb"
@@ -21,6 +19,10 @@ path = "examples/async.rs"
 thiserror = "2.0"
 #ron = "0.8.0"
 
+# For local test of that lib:
+#[dependencies.bevy_web_asset]
+#path = "../bevy_web_asset"
+
 [dependencies]
 fmt = "0.1.0"
 error-chain = "0.12"
@@ -31,7 +33,7 @@ bytes = "1"
 #bevy_common_assets = "0"
 #serde_json = { version = "1", optional = true }
 
-openstreetmap-api = "0.3"  ## openstreetmap-api-rs/example/
+openstreetmap-api = "0.3" ## openstreetmap-api-rs/example/
 
 csscolorparser = "0.6"
 earcutr = "0.4.3"
