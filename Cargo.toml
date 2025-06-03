@@ -24,7 +24,51 @@ error-chain = "0.12"
 reqwest = { version = "0.12", features = ["json"] }
 bytes = "1"
 
-bevy = "0"
+#bevy = "0"
+#bevy = { version = "0", default-features = false, features = [] }
+
+##   TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3
+bevy = { version = "0", default-features = false, features = [
+    #"android-game-activity",
+    #"android_shared_stdcxx",
+    #"animation",
+    #"async_executor",
+    #"bevy_asset",
+    #"bevy_audio",
+    #"bevy_color",
+    #"bevy_core_pipeline",
+    #"bevy_gilrs",
+    #"bevy_gizmos",
+    #"bevy_gltf",
+    #"bevy_input_focus",
+    "bevy_log",
+    #"bevy_mesh_picking_backend",
+    "bevy_pbr",
+    #"bevy_picking",
+    #"bevy_render",
+    #"bevy_scene",
+    #"bevy_sprite",
+    #"bevy_sprite_picking_backend",
+    #"bevy_state",
+    #"bevy_text",
+    "bevy_ui",
+    "bevy_ui_picking_backend",
+    #"bevy_window",
+    "bevy_winit",
+    #"custom_cursor",
+    #"default_font",
+    #"hdr",
+    #"multi_threaded",
+    #"png",
+    #"smaa_luts",
+    #"std",
+    #"sysinfo_plugin",
+    "tonemapping_luts",
+    #"vorbis",
+    "webgl2",
+    #"x11",
+] }
+
 bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
 bevy_args = "1"
 clap = { version = "4.5", features = ["derive"] }
@@ -56,8 +100,6 @@ web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
 console_error_panic_hook = "0"
 wasm-bindgen = "0"
 
-
-##   TODO:
 
 ## [target.'cfg(target_arch = "wasm32")'.dependencies]
 ## bevy = {version = "0.5", default-features = false, features = []}

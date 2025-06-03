@@ -157,7 +157,7 @@ fn on_load(
     let bytes = bytes_assets.get(&state.bytes);
 
     if bytes.is_none() {
-        info!("Bytes Not Ready");
+        // info!("Bytes Not Ready");
         return;
     }
 
