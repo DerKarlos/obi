@@ -17,38 +17,30 @@ path = "examples/async.rs"
 
 [dev-dependencies]
 thiserror = "2.0"
-#ron = "0.8.0"
-
-# For local test of that lib:
-#[dependencies.bevy_web_asset]
-#path = "../bevy_web_asset"
 
 [dependencies]
 fmt = "0.1.0"
 error-chain = "0.12"
 reqwest = { version = "0.12", features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1"
 bytes = "1"
-#bevy_common_assets = "0"
-#serde_json = { version = "1", optional = true }
+
+bevy = "0"
+bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
+bevy_args = "1"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 openstreetmap-api = "0.3" ## openstreetmap-api-rs/example/
-
 csscolorparser = "0.6"
 earcutr = "0.4.3"
-bevy = "0"
-bevy_web_asset = "0.11.0" # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
-#no#bevy_http_client = "0" # A simple HTTP client Bevy Plugin for both native and WASM, but NOT! using Assets loading
 
-## cargo:rustc-check-cfg=cfg(target_arch,values("loongarch64","mips32r6","mips64r6","csky"))
 
 [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-
-# Only features sync,macros,io-util,rt,time are supported on wasm.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 tokio = { version = "1.0", features = [
+    # Only features sync,macros,io-util,rt,time are supported on wasm.
     ## No net for wasm. Only this:
     "sync",
     "macros",
@@ -59,10 +51,18 @@ tokio = { version = "1.0", features = [
 
 #[target.'cfg(target_arch = "wasm32")'.features]
 web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
-#wasm-bindgen = "0.2"
-#wasm-bindgen-futures = "0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+console_error_panic_hook = "0"
+wasm-bindgen = "0"
+
 
 ##   TODO:
+
+## [target.'cfg(target_arch = "wasm32")'.dependencies]
+## bevy = {version = "0.5", default-features = false, features = []}
+
+
 ##   [dev-dependencies]
 ##   bevy = { version = "0.16", default-features = false, features = [
 ##     "bevy_asset",
