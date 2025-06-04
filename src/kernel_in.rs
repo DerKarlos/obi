@@ -201,7 +201,7 @@ pub struct BuildingPart {
     // upper heit of the wall, independend of / including the min_height
     pub wall_height: f32,
     pub min_height: f32,
-    pub color: RenderColor,
+    pub building_color: RenderColor,
     pub roof_shape: RoofShape,
     pub roof_height: f32,
     pub roof_angle: f32,

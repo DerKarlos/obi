@@ -5,11 +5,11 @@ use std::collections::HashMap;
 use crate::kernel_in::{
     BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RoofShape,
 };
-use crate::shape::Shape;
-use crate::tagticks::{
-    DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT, DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT, circle_limit,
-    parse_color, parse_height,
+use crate::osm2layers::{
+    DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT, DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT, building,
+    circle_limit, parse_color, parse_height,
 };
+use crate::shape::Shape;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // JOSN ///////////////////////////////////////////////////////////////////////////////////////////
@@ -156,37 +156,49 @@ fn way(
     let string_no = &NO.to_string();
     let tags = element.tags.as_ref().unwrap();
     let part = tags.get("building:part").unwrap_or(string_no);
+    let id = element.id;
 
-    // ??? not only parts!
-    if part == YES || show_only_this_id > 0 {
-        building(element, building_parts, nodes_map);
-    }
-}
-
-fn building(
-    element: JosnElement,
-    building_parts: &mut Vec<BuildingPart>,
-    nodes_map: &mut HashMap<u64, OsmNode>,
-) {
     // Validate way-nodes
-    let mut nodes = element.nodes.unwrap();
+    let nodes = &mut element.nodes.unwrap();
     if nodes.len() < 3 {
         println!("Building with < 3 corners! id: {}", element.id);
         return;
     }
     if nodes.first().unwrap() != nodes.last().unwrap() {
         println!("Building with < 3 corners! id: {}", element.id);
+        return;
     } else {
         nodes.pop();
     }
 
-    let tags = element.tags.unwrap();
+    let mut footprint = Shape::new();
+    for node_id in nodes.iter() {
+        let node = nodes_map.get(node_id).unwrap();
+        footprint.push(node.position);
+    } // nodes
+    footprint.close();
 
+    // ??? not only parts!
+    if part == YES || show_only_this_id > 0 {
+        building(footprint, id, tags, building_parts);
+    }
+}
+
+fn _building_weg(
+    mut footprint: Shape,
+    id: u64,
+    tags: &HashMap<String, String>,
+    building_parts: &mut Vec<BuildingPart>,
+) {
     // Colors and Materials
-    let color = parse_color(
-        tags.get("colour")
-            .unwrap_or(&DEFAULT_WALL_COLOR.to_string()),
-    );
+    let color_string = tags
+        .get("colour")
+        .unwrap_or(&DEFAULT_WALL_COLOR.to_string())
+        .clone();
+
+    // todo: merge copied code in tagtics?
+    let building_color = parse_color(tags.get("building:colour").unwrap_or(&color_string));
+
     let roof_color = parse_color(
         tags.get("roof:colour")
             .unwrap_or(&DEFAULT_ROOF_COLOR.to_string()),
@@ -208,7 +220,7 @@ fn building(
         None => RoofShape::None,
     };
 
-    println!("Part id: {} roof: {:?}", element.id, roof_shape);
+    println!("Part id: {} roof: {:?}", id, roof_shape);
 
     let default_roof_heigt = match roof_shape {
         RoofShape::Skillion => 2.0, // accroding to width???
@@ -226,12 +238,6 @@ fn building(
     // else { todo("drop last and modulo index") }
 
     // Roof direction and Orientation
-    let mut footprint = Shape::new();
-    for node_id in nodes.iter() {
-        let node = nodes_map.get(node_id).unwrap();
-        footprint.push(node.position);
-    } // nodes
-    footprint.close();
 
     // todo: parse_direction
     let mut roof_angle = footprint.longest_angle;
@@ -292,7 +298,7 @@ fn building(
     // println!( "id: {} roof_shape: {:?} angle: {}", element.id, roof_shape, roof_angle.to_degrees() );
 
     let building_part = BuildingPart {
-        _id: element.id,
+        _id: id,
         _part: true, // ??? not only parts!
         footprint,
         //center,
@@ -300,7 +306,7 @@ fn building(
         bounding_box_rotated,
         wall_height,
         min_height,
-        color,
+        building_color,
         roof_shape,
         roof_height,
         roof_angle,

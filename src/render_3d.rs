@@ -73,7 +73,7 @@ impl OsmMesh {
 
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
-        let color = building_part.color;
+        let color = building_part.building_color;
         let roof_color = building_part.roof_color;
 
         match building_part.roof_shape {
@@ -344,7 +344,7 @@ impl OsmMesh {
             let pike = footprint.center;
             let gpu_x = (edge_position.east - pike.east) * scale_radius + pike.east;
             let gpu_z = (edge_position.north - pike.north) * scale_radius + pike.north; // * roof_rel
-                                                                                        // todo 2*: use .to_GpuPosition
+            // todo 2*: use .to_GpuPosition
             let mut last_pos = [gpu_x, wall_height + roof_height * scale_up, -gpu_z];
 
             // process one ring

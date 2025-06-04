@@ -1,41 +1,48 @@
 [
   {
-    "label": "run",
-    "use_new_terminal": false,
-    "command": "cargo run",
-    "tags": ["cargo"]
-  },
-
-  {
-    "label": "wasm",
-    "use_new_terminal": false,
-    "command": "cargo build --release --target wasm32-unknown-unknown",
-    "tags": ["cargo"]
-  },
-
-  {
-    "label": "build",
+    "label": "build otb",
     "use_new_terminal": false,
     "command": "cargo build",
     "tags": ["cargo"]
   },
 
   {
-    "label": "clippy",
+    "label": "build otb wasm",
+    "use_new_terminal": false,
+    "command": "cargo build --release --target wasm32-unknown-unknown",
+    "tags": ["cargo"]
+  },
+
+  {
+    "label": "clippy otb",
     "use_new_terminal": false,
     "command": "cargo clippy",
     "tags": ["cargo"]
   },
 
   {
-    "label": "async",
+    "label": "example async",
     "use_new_terminal": false,
     "command": "cargo run --example async",
     "tags": ["example"]
   },
 
   {
-    "label": "bevy_wasm",
+    "label": "example async_lib",
+    "use_new_terminal": false,
+    "command": "cargo run --example async_lib",
+    "tags": ["example"]
+  },
+
+  {
+    "label": "example bevy_wasm wasm",
+    "use_new_terminal": false,
+    "command": "sh bevy_wasm.sh",
+    "tags": ["example"]
+  },
+
+  {
+    "label": "example bevy_wasm native (error)",
     "use_new_terminal": false,
     "command": "cargo run --example bevy_wasm",
     "tags": ["example"]

@@ -9,8 +9,8 @@ mod kernel_in;
 mod shape;
 
 // 3D and 2D rendere are possible
+mod osm2layers;
 mod render_3d;
-mod tagticks;
 
 // Interface from an rederer to an output
 mod kernel_out;
@@ -26,6 +26,6 @@ pub use input_osm_lib::InputLib;
 pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
 pub use kernel_out::*;
+pub use osm2layers::*;
 pub use render_3d::*;
 pub use shape::*;
-pub use tagticks::*;
