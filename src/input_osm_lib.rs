@@ -5,17 +5,12 @@ use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::{Credentials, Node, Way};
 
-use crate::kernel_in::{
-    BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode, RoofShape,
-};
-use crate::osm2layers::{
-    DEFAULT_ROOF_COLOR, DEFAULT_ROOF_HEIGHT, DEFAULT_WALL_COLOR, DEFAULT_WALL_HEIGHT, building,
-    circle_limit, parse_color, parse_height,
-};
+use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode};
+use crate::osm2layers::building;
 use crate::shape::Shape;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// JOSN ///////////////////////////////////////////////////////////////////////////////////////////
+// openstreetmap_api //////////////////////////////////////////////////////////////////////////////
 
 static YES: &str = "yes";
 static NO: &str = "no";
@@ -25,8 +20,21 @@ static NO: &str = "no";
 // The test-server does not have needed objects (like Reifenberg), but they could be PUT into
 // static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
+//#[derive(Default)]
 pub struct InputLib {
     client: Openstreetmap,
+}
+
+impl Default for Shape {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Default for InputLib {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl InputLib {
@@ -103,7 +111,7 @@ fn way(
         return;
     } // tttt
 
-    if element.tags.len() == 0 {
+    if element.tags.is_empty() {
         // ttt println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
         return;
     }
@@ -141,136 +149,4 @@ fn way(
     if part == YES || show_only_this_id > 0 {
         building(footprint, id, &tags, building_parts);
     }
-}
-
-fn _building_weg(
-    mut footprint: Shape,
-    id: u64,
-    tags: &HashMap<String, String>,
-    building_parts: &mut Vec<BuildingPart>,
-) {
-    // Colors and Materials
-    let color_string = tags
-        .get("colour")
-        .unwrap_or(&DEFAULT_WALL_COLOR.to_string())
-        .clone();
-
-    // todo: better solution for alternative tags
-    let building_color = parse_color(tags.get("building:colour").unwrap_or(&color_string));
-
-    let roof_color = parse_color(
-        tags.get("roof:colour")
-            .unwrap_or(&DEFAULT_ROOF_COLOR.to_string()),
-    );
-
-    // Shape of the roof. All buildings have a roof, even if it is not tagged
-    let roof_shape: RoofShape = match tags.get("roof:shape") {
-        Some(roof_shape) => match roof_shape.as_str() {
-            "flat" => RoofShape::Flat,
-            "skillion" => RoofShape::Skillion,
-            "onion" => RoofShape::Onion,
-            "pyramidal" => RoofShape::Phyramidal,
-            "gabled" => RoofShape::Gabled,
-            _ => {
-                //ttt println!("Warning: roof_shape Unknown: {}", roof_shape);
-                RoofShape::Flat // todo: gabled and geographic dependend
-            }
-        },
-        None => RoofShape::None,
-    };
-
-    println!("Part id: {} roof: {:?}", id, roof_shape);
-
-    let default_roof_heigt = match roof_shape {
-        RoofShape::Skillion => 2.0, // accroding to width???
-        RoofShape::Gabled => 2.0,   // 2.?  ttt
-        _ => DEFAULT_ROOF_HEIGHT,
-    };
-
-    // Heights
-    let min_height = parse_height(tags.get("min_height"), 0.0);
-    let roof_height = parse_height(tags.get("roof:height"), default_roof_heigt);
-    //println!(        "roof_height: {roof_height}  {default_roof_heigt} {:?}",        roof_shape);
-    let wall_height = parse_height(tags.get("height"), DEFAULT_WALL_HEIGHT) - roof_height;
-
-    // Get building footprint from nodes
-    // else { todo("drop last and modulo index") }
-
-    // Roof direction and Orientation
-
-    // todo: parse_direction
-    let mut roof_angle = footprint.longest_angle;
-    let roof_orientation = tags.get("roof:orientation");
-    // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
-
-    // Wwired: OSM defines the roof-angle value as across the lonest way side! So, ...
-    if let Some(orientation) = roof_orientation {
-        match orientation.as_str() {
-            // ... the default along needs a rotation ...
-            "along" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
-            // ... while across is already given.
-            "across" => (),
-            _ => println!("Uncoded roof orientation value: {}", orientation),
-        }
-    } else {
-        // ... the default along needs a rotation.
-        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-    }
-
-    let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
-    if let Some(direction) = roof_direction {
-        match direction.as_str() {
-            "N" => roof_angle = f32::to_radians(0.),
-            "E" => roof_angle = f32::to_radians(90.),
-            "S" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
-            "W" => roof_angle = f32::to_radians(270.),
-
-            "NE" => roof_angle = f32::to_radians(45.),
-            "NW" => roof_angle = f32::to_radians(315.),
-            "SE" => roof_angle = f32::to_radians(135.),
-            "SW" => roof_angle = f32::to_radians(225.),
-            _ => {
-                let value = direction.parse();
-                if let Ok(value) = value {
-                    roof_angle = circle_limit(roof_angle + f32::to_radians(value));
-                } else {
-                    println!("Uncoded roof direction value: {}", direction);
-                }
-            }
-        }
-    }
-
-    //println!("ttt roof_angle: {}", roof_angle.to_degrees());
-
-    // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
-    roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
-
-    // Not here, in the fn rotate against the actual angle to got 0 degrees
-    let bounding_box_rotated = footprint.rotate(roof_angle);
-
-    // This seems NOT to be valid. F4maps is NOT doing it ??? Test with Reifenberg
-    // if bounding_box_rotated.east_larger_than_nord() {
-    //     roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-    // This way is a good example: 363815745 beause it has many nodes on the longer side
-    // println!( "### {}: east_larger_than_nord: {}", element.id, roof_angle.to_degrees() );
-    //}
-    // println!( "id: {} roof_shape: {:?} angle: {}", element.id, roof_shape, roof_angle.to_degrees() );
-
-    let building_part = BuildingPart {
-        _id: id,
-        _part: true, // ??? not only parts!
-        footprint,
-        //center,
-        // _bounding_box: bounding_box,
-        bounding_box_rotated,
-        wall_height,
-        min_height,
-        building_color,
-        roof_shape,
-        roof_height,
-        roof_angle,
-        roof_color,
-    };
-
-    building_parts.push(building_part);
 }

@@ -10,8 +10,8 @@ use crate::kernel_in::{BuildingPart, RoofShape};
 use crate::shape::Shape;
 
 // This constands may come from a (3D-)render shema
-pub static DEFAULT_WALL_COLOR: &str = "grey"; // RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey"
-pub static DEFAULT_ROOF_COLOR: &str = "red"; // RenderColor = [1.0, 0.0, 0.0, 1.0]; // "red"
+pub static DEFAULT_WALL_COLOR: &str = "grey"; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
+pub static DEFAULT_ROOF_COLOR: &str = "red"; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
 pub static DEFAULT_WALL_HEIGHT: f32 = 2.0 * 3.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f32 = 0.0;
 
@@ -26,8 +26,8 @@ pub fn circle_limit(angle: f32) -> f32 {
 }
 
 pub fn parse_color(color: &String) -> RenderColor {
-    // Bevy pbr color needs f32, The parse has no .to_f32_array???}
     // https://docs.rs/csscolorparser/latest/csscolorparser/
+    // Bevy pbr color needs f32, The parse has no .as_f32}
     match parse(color.as_str()) {
         Ok(color_scc) => {
             println!("parse_colour: {:?} => {:?}", color, color_scc);
@@ -107,8 +107,8 @@ pub fn building(
     println!("Part id: {} roof: {:?}", id, roof_shape);
 
     let default_roof_heigt = match roof_shape {
-        RoofShape::Skillion => 2.0, // accroding to width???
-        RoofShape::Gabled => 2.0,   // 2.?  ttt
+        RoofShape::Skillion => 2.0, // todo: accroding to width
+        RoofShape::Gabled => 2.0,
         _ => DEFAULT_ROOF_HEIGHT,
     };
 
@@ -199,3 +199,18 @@ pub fn building(
 
     building_parts.push(building_part);
 }
+
+/******** todo: traid?
+fn node<T>(
+    element: T,
+    gpu_ground_null_coordinates: &GeographicCoordinates,
+    nodes_map: &mut HashMap<u64, OsmNode>,
+) {
+    let osm_node = OsmNode {
+        position: gpu_ground_null_coordinates
+            .coordinates_to_position(element.lat.unwrap(), element.lon.unwrap()),
+    };
+    nodes_map.insert(element.id, osm_node);
+    // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
+}
+*******/

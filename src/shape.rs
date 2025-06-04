@@ -48,7 +48,7 @@ impl Shape {
             let next_position = self.positions[next];
 
             // angle
-            let (distance, angle) = next_position.distance_angle_to_other(&position);
+            let (distance, angle) = next_position.distance_angle_to_other(position);
             if self.longest_distance < distance {
                 self.longest_distance = distance;
                 self.longest_angle = angle;
@@ -107,10 +107,11 @@ impl Shape {
         }
         //println!("roof_po: {:?}", &vertices);
 
-        let indices = earcutr::earcut(&vertices, &[], 2).unwrap();
+        //let indices =
+        earcutr::earcut(&vertices, &[], 2).unwrap()
         //println!("{:?}", indices);
 
-        indices
+        //indices
     }
 
     /// Splits the shape at x=0, returning two new shapes:
@@ -133,7 +134,9 @@ impl Shape {
             if current.east == 0.0 {
                 left_vertices.push(self.positions[i]);
                 right_vertices.push(self.positions[i]);
-                println!("split split split split split split split split split split split split split split i:{i}");
+                println!(
+                    "split split split split split split split split split split split split split split i:{i}"
+                );
                 continue;
             }
 
@@ -145,8 +148,8 @@ impl Shape {
             }
 
             println!("ttt1 i: {i} {current} {next}");
-            // Check if the edge crosses the x=0 line
-            if current.east.signum() != next.east.signum() && true {
+            // Check if the edge crosses the x=0 line      && true
+            if current.east.signum() != next.east.signum() {
                 // Calculate the intersection point
                 let diagonally = -current.east / (next.east - current.east);
                 let intersection_north = current.north + diagonally * (next.north - current.north);
@@ -157,7 +160,9 @@ impl Shape {
 
                 // Add the intersection point to both shapes
                 let intersection_rotated_back = intersection.rotate(angle).add(self.center);
-                println!("ttt2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}");
+                println!(
+                    "ttt2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
+                );
                 left_vertices.push(intersection_rotated_back);
                 right_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);

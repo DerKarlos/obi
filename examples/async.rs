@@ -1,5 +1,5 @@
-//// This is the same code as it was in src/main.rs
-//// The affect of having a lib.rs AND a main.rs is that both a binary and library are compiled.
+// This is the same code as it was in src/main.rs
+// The affect of having a lib.rs AND a main.rs is that both a binary and library are compiled.
 
 //// my crate
 use osm_tb::*;
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let bytes = reqwest::get(url).await?.bytes().await?;
     //ok: let json_way_data: JsonData = response.json().await?;
     // let bytes = response.bytes().await?;
-    // let json_way_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    // let json_way_data: JsonData = serde_json::from_slice(bytes).unwrap();
     // let bounding_box = geo_bbox_of_way_json(json_way_data);
     let bounding_box = geo_bbox_of_way_bytes(&bytes);
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();

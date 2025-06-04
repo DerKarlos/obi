@@ -12,7 +12,7 @@ static _GPU_POSITION_NULL: GpuPosition = [0.0, 0.0, 0.0];
 
 // Local methodes of GroundPosition, only to be used in the renderer!
 impl GroundPosition {
-    fn to_gpu_position(&self, height: f32) -> GpuPosition {
+    fn to_gpu_position(self, height: f32) -> GpuPosition {
         // Minus north because +north is -z in the GPU space.
         [self.east, height, -self.north]
     }
@@ -79,7 +79,7 @@ impl OsmMesh {
         match building_part.roof_shape {
             //
             RoofShape::Skillion => {
-                self.push_skillion(&building_part, roof_color);
+                self.push_skillion(building_part, roof_color);
             }
 
             RoofShape::Gabled => {
@@ -131,10 +131,8 @@ impl OsmMesh {
         let inclination = building_part.roof_height
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
-        let height = building_part.wall_height + building_part.roof_height
-            - f32::abs(east - building_part.bounding_box_rotated.west) * inclination;
-
-        height
+        building_part.wall_height + building_part.roof_height
+            - f32::abs(east - building_part.bounding_box_rotated.west) * inclination
     }
 
     fn calc_gabled_position_height(
@@ -202,7 +200,7 @@ impl OsmMesh {
         let footprint = &building_part.footprint;
         let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
         for position in footprint.positions.iter() {
-            let height = self.calc_roof_position_height(position, &building_part);
+            let height = self.calc_roof_position_height(position, building_part);
             roof_gpu_positions.push(position.to_gpu_position(height))
         }
 
@@ -257,7 +255,7 @@ impl OsmMesh {
         }
 
         for position in footprint.positions.iter() {
-            let height = self.calc_roof_position_height(position, &building_part);
+            let height = self.calc_roof_position_height(position, building_part);
             self.attributes
                 .vertices_positions
                 .push(position.to_gpu_position(height))
@@ -382,12 +380,12 @@ impl OsmMesh {
     ) {
         let position = building_part.footprint.positions.last().unwrap();
         // todo: fn for next 3 lines
-        let height = self.calc_roof_position_height(position, &building_part);
+        let height = self.calc_roof_position_height(position, building_part);
         let mut last_gpu_position_down = position.to_gpu_position(min_height);
         let mut last_gpu_position_up = position.to_gpu_position(height);
 
         for position in building_part.footprint.positions.iter() {
-            let height = self.calc_roof_position_height(position, &building_part);
+            let height = self.calc_roof_position_height(position, building_part);
             let this_gpu_position_down = position.to_gpu_position(min_height);
             let this_gpu_position_up = position.to_gpu_position(height);
 

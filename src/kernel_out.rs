@@ -15,6 +15,12 @@ pub struct OsmMeshAttributes {
                                               // todo?: not pub but fn get
 }
 
+impl Default for OsmMeshAttributes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl OsmMeshAttributes {
     pub fn new() -> Self {
         Self {

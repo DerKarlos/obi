@@ -4,6 +4,8 @@ pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.85
 pub static PI: f32 = std::f32::consts::PI;
 
 use crate::shape::Shape;
+//use std::fmt::Display;
+use std::fmt;
 use std::ops::{Add, Sub};
 
 #[derive(Default, Clone, Copy, Debug)]
@@ -129,6 +131,23 @@ pub struct BoundingBox {
     pub west: f32,
 }
 
+impl fmt::Display for BoundingBox {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{},{},{},{}",
+            self.west, self.south, self.east, self.north
+        )
+        //write!(f, "I am A")
+    }
+}
+
+impl Default for BoundingBox {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BoundingBox {
     pub fn new() -> Self {
         BoundingBox {
@@ -163,9 +182,9 @@ impl BoundingBox {
         }
     }
 
-    pub fn to_string(&self) -> String {
-        format!("{},{},{},{}", self.west, self.south, self.east, self.north)
-    }
+    //    pub fn to_string(&self) -> String {
+    //        format!("{},{},{},{}", self.west, self.south, self.east, self.north)
+    //    }
 
     // let left_top = to_position(&CoordinatesAtGroundPositionNull, left, top);
     // println!("range: left_top={} url={}", left_top, url);

@@ -33,12 +33,10 @@ pub fn spawn_osm_mesh(
     // println!("p {:?} c {:?} i {:?}", osm_mesh.vertices_positions.len(), osm_mesh.vertices_colors.len(), osm_mesh.indices_to_vertices.len() );
 
     let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
-    let mut uvs: Vec<[f32; 2]> = Vec::new();
-    uvs.push([0.; 2]); // todo: allways 0. is ok?
+    let uvs: Vec<[f32; 2]> = vec![[0.; 2]];
     let uvs = uvs.repeat(count);
 
-    let mut normals: Vec<[f32; 3]> = Vec::new();
-    normals.push([1.; 3]); // todo: allways 1. is ok?
+    let normals: Vec<[f32; 3]> = vec![[1.; 3]];
     let normals = normals.repeat(count);
 
     let mesh = Mesh::new(
@@ -127,46 +125,12 @@ pub fn setup(
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
-    // light
-
-    if false {
-        commands.spawn((
-            PointLight {
-                shadows_enabled: true,
-                intensity: (100000000. * scale),
-                range: 100. * scale,
-                ..default()
-            },
-            Transform::from_xyz(10.0 * scale, 20.0 * scale, 10.0 * scale),
-        ));
-    } else {
-        commands.spawn((
-            DirectionalLight {
-                illuminance: 50. * scale,
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
-            CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 7.0, // What's that ???
-                maximum_distance: 100. * scale,
-                ..default()
-            }
-            .build(),
-        ));
-    }
-
-    // camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5 * scale, 4.5 * scale, 9.0 * scale)
-            .looking_at(Vec3::new(0., 2. * scale, 0.), Vec3::Y),
-    ));
+    light_and_camera(commands, scale);
 }
 
 // native-main.rs inits bevy
 pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
-    println!(""); // distance between test outputs and Bevy outputs
+    println!(" "); // distance between test outputs and Bevy outputs
 
     // BEVY-App
     App::new()
@@ -174,7 +138,7 @@ pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
         .insert_resource(OsmMeshes {
             vec: osm_meshes,
-            scale: scale,
+            scale,
         })
         .add_systems(Startup, setup)
         .add_systems(Update, input_handler)
@@ -195,15 +159,19 @@ pub fn bevy_osm(
 
     // circular base
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(15.0 * scale as f32))),
+        Mesh3d(meshes.add(Circle::new(scale * 15.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
 
-    println!(""); // distance between test outputs and Bevy outputs
+    println!(" "); // distance between test outputs and Bevy outputs
 
     commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
 
+    light_and_camera(commands, scale);
+}
+
+fn light_and_camera(mut commands: Commands, scale: f32) {
     // light
 
     if false {

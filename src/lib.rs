@@ -1,5 +1,5 @@
-//// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
-//// This crate may get splitted in the included modules
+// Varionus input modules are possible (OSM-Json, Vector-Tile-File, Overtures)
+// This crate may get splitted in the included modules
 
 mod input_osm_json;
 mod input_osm_lib;
