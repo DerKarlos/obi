@@ -21,9 +21,9 @@
   },
 
   {
-    "label": "example async",
+    "label": "example async_json",
     "use_new_terminal": false,
-    "command": "cargo run --example async",
+    "command": "cargo run --example async_json",
     "tags": ["example"]
   },
 

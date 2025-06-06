@@ -104,7 +104,7 @@ impl std::fmt::Display for GroundPosition {
     }
 }
 
-// todo?: move to input_osm
+// todo?: move to (ALL?) input_osm_*
 pub struct OsmNode {
     pub position: GroundPosition,
 }

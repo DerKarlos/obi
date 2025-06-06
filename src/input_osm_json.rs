@@ -9,7 +9,7 @@ use crate::shape::Shape;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // JOSN ///////////////////////////////////////////////////////////////////////////////////////////
 
-static YES: &str = "yes";
+static _YES: &str = "yes";
 static NO: &str = "no";
 
 // DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
@@ -141,10 +141,10 @@ fn way(
     // println!("element = {:?}", element);
     if show_only_this_id > 0 && element.id != show_only_this_id {
         return;
-    } // tttt
+    }
 
     if element.tags.is_none() {
-        // ttt println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
+        // println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
         return;
     }
 
@@ -174,7 +174,7 @@ fn way(
     footprint.close();
 
     // ??? not only parts!
-    if part == YES || show_only_this_id > 0 {
+    if part != NO || show_only_this_id > 0 {
         building(footprint, id, tags, building_parts);
     }
 }

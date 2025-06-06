@@ -69,7 +69,7 @@ impl OsmMesh {
         let min_height = building_part.min_height;
         let wall_height = building_part.wall_height;
         let roof_height = building_part.roof_height;
-        // println!("ttt m: {} w:{} r:{}", min_height, wall_height, roof_height);
+        // println!("- m: {} w:{} r:{}", min_height, wall_height, roof_height);
 
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
@@ -155,7 +155,7 @@ impl OsmMesh {
 
         let rh = building_part.roof_height;
         println!(
-            "tttt East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
+            "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
         );
 
         height
@@ -180,7 +180,7 @@ impl OsmMesh {
         let indices = footprint.get_triangulate_indices();
         // println!("triangles: {:?}", &indices);
 
-        // ? why .rev() ???
+        // ? why .rev()?  see negativ ???
         for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices
@@ -247,7 +247,7 @@ impl OsmMesh {
         let indices = footprint.get_triangulate_indices();
         //println!("offset: {roof_index_offset}  indices: {:?}", &indices);
 
-        // ? why .rev() ?  see negativ???
+        // ? why .rev() ?  see negativ ???
         for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices

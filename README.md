@@ -1,31 +1,58 @@
-# "OBI" - OSM Building Inspector (working title)
+# "OBI" or "OSM-BI" - OSM Building Inspector
 
-Decades ago, www.OSMgo.org was started and went from a "game" to a "full" 3D viewer of OSM.
-As one asked vor materials support, this redoing of OSMgo in Rust was born.
-But only for single buildings and building-parts for now.
-And it may get editor features someday. (renamed to OBE?)
+This tool shows a single OSM building, rendred in 3D, to inspeckt if the edited OSM tags show the expected view. It was inspired by [Beakerboy's OSMBuilding](https://github.com/Beakerboy/OSMBuilding)) and uses some know how of [www.OSMgo.org](https://www.osmgo.org). It may get editor features and more some day.
+
+Actually it only renders building-parts and some of the roof:types. It does not yet support buildings with holes, poligons or suptracktion of parts from the building footprint. It shows colors, but no material types.
+
+The control cursor keys to rotate and R for reset, more will come.
+
+The building must be given as a OSM way ID, eiter by URL or native:
+* http://www.OSMgo.org/bevy.html?way=24771505
+* cargo run --example bevy_wasm -- --way 139890029
+
+In this repository there is a lib to read OSM data, to sort the tagging to needed values, calculate all 3D triangles and render it by an engine (Bevy only yet). There are exampes to use the OSM Json API, a ([crate](https://github.com/topics/openstreetmap-api)) to use the OSM XML API  for native code only. And "bevy_wasm" to build a web-app.
 
 ### Why Rust?
-Why not? It is hard to learn! I would use Zig, if someone will take response for Zig useage and joins this project.
-Why yes? Because I just like it. Because it builds to any target: Desktop, mobile, Web. Because it has a unique and save memory management.
-There are some others coding Rust for OSM: https://en.osm.town/@amapanda and the one, doing MapLibre.RS (Todo)
-More: https://mary.codes/blog/programming/generating_a_vr_map_with_osm_and_aframe/
+Why not? Yes, it is hard to learn firstly. I considered to use Zig but can't go back to manual memory managemendt after TypeScript and Rust. If someone will take response for Zig useage, I would joins this project to. Rust because it builds to any target: Desktop, mobile, Web. And I like the habit of Rust to write creates/libs to be reused. There are quite some crates for OSM. And projects to:
+The [WaterMap]( https://en.osm.town/@amapanda),
+[MapLibre.RS](https://github.com/maplibre/maplibre-rs)
+
+### Zed and Codeberg
+I wanted to use the new Zed IDE instead of VS-Code, because it is not from MicroSoft, written in Rust, it offers AI funktions build in. Works great so far, but there is no Debugging yet.
+I wanted to use CodeBerg (or GitLab or xxx) as Repository website to get away from MicroSoft and to Europe may be. But I could not get it running yet, so it is still on GitHub.
 
 ### Why Bevy?
-Yes, there are less complicated 3D renderer. And all of them use WGPU anyway. May be just WGPU would do it? If you like, join this project and do it.
-The 3D-rendering-part of this project may become a separate crate and a switch may select different renderer.
-Just in case, this Building viewer/editor may become more, Bevy would allow gamification.
+Less complicated 3D render engines may be added later too. And all of them use WGPU anyway. Just WGPU would do it? If you like, join this project and try it. The 3D-rendering-part of this project may become a separate crate or build features may select different renderer.
+Just in case, this Building viewer/editor may become more, Bevy would allowe gamification.
 
-### Positions concept
-Using Bevy, a 2D game would use X and Y for a map. But as this project is more a 3D game, the game level floor is x and -z. Minus because a positife longitude is shown in the backround, which is -z in the Bevy GPU. East is +latidude is +x; Nord is +longitude is -z.
+### Geo- and GPU Positions concept
+Using Bevy, a 2D game would use X and Y for a map. But as this project is more a 3D game, the game level floor is x and -z. Minus because a positife longitude is shown in the backround, which is -z in the Bevy GPU. East is +latidude is +x; nord is +longitude, but is -z! THis definition is capsuled in a function and may be changed to other coordinate systems. Or they may get dynamic selectable.
 
-### Data source
+### Data sources
 For now it direct uses the OSM API for editors. Overbass-Turbo is possible, but may be slightly more slow in updating edited tags.
 Even Vector tiles may become an alternative, OSM or Overture, if they support building:parts one day. I don't expect that in the deault tiles but in an oprional tile-file which includes all(!) the details, not needed for "normal" 2D map rendering.
 
+### Project patterns
+* As used to be in Rust, don't use apreviations. Exceptions should be documented
+* Always latitude before longitude and north before east, in the code
+
+Other todos:
+* Now and then check for all clone() and copy() to be realy needed. And for Todo, ttt and ??? markers in the soruce codes
+
+### Lib-Structure
+* Existing input modules are: input_osm_json.rs and input_osm_lib.rs. They keep the received data structure internal.
+* The OSM Tagging modules: osm2layers.rs and shape.rs are called by the by the input modules.
+* The 3D shape of the building is generated by render_3d.rs. Later, there may als 2D renderers.
+* The visualisation by the GPU is done by bevy_ui.rs now. Other engines and a GLB-file output is intendet to.
+
 ### Used structure types
-* GeoPos: lat and lon, in f64 to get accurate meters while subtracting the GPU zero position from the actual node position.
-* XzPos: x and z in 32, as needed for the GPU. Z from  already inverted.
+* GeographicCoordinates: latitude and longitude, in f64 to get accurate meters while subtracting the GPU zero position from the actual node position.
+* GroundPosition: north and east in 32, as needed for the GPU.
+* BoundingBox: north south east and west values. May be used for GPU or geographic values.
+* BuildingPart: is the interface from the input modules to the 3D generation
+* OsmMeshAttributes: is the interface from the 3D generation to the render engine
+
+OsmNode
 
 * OsmNode: A XzPos and optional tagging.
 
@@ -34,5 +61,7 @@ Even Vector tiles may become an alternative, OSM or Overture, if they support bu
 * JosnTags: TODO: should be a Map:  https://serde.rs/deserialize-map.html
 
 ### Trouble maker?
-* There is already a OSM Building Viewer (but not an Editor): https://github.com/Beakerboy/OSMBuilding/
-* Never ending discussion about 100% part covveridge: https://github.com/StrandedKitty/streets-gl/issues/3
+* Never ending discussion about 100% part coveridge: https://github.com/StrandedKitty/streets-gl/issues/3
+
+
+<!-- https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax -->

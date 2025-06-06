@@ -39,10 +39,11 @@ use bevy_web_asset::WebAssetPlugin; // https://github.com/johanhelsing/bevy_web_
 // A) Bevy tries to load the rust data structure from an .meta file and causes load/log errors like: http://localhost:3000/assets/bbox.json.meta
 // B) Bevy quests the crate to add the .meta to the url. If the url includes parameter this results in an illegal url? Not accroding to the log. But it seems to cause a different error code as 404 and the download is broken.
 //    Luckily, there is a DefaultPlugins-option meta_check = AssetMetaCheck::Never to avoid this error B) and A).
+//    SEE: https://github.com/johanhelsing/bevy_web_asset/issues/20
 // C) Building native, loading draws: ERROR bevy_asset::server: Encountered an I/O error while loading asset: unexpected status code 500 while loading https://api.openstreetmap.org/api/0.6/way/121486088/full.json?: invalid HTTP version
+//    SEE: https://github.com/johanhelsing/bevy_web_asset/issues/44
 // Branching and investigatin the crate is not easy. How to log the http-trafic? May be this:
 // https://medium.com/@jpmtech/getting-started-with-instruments-a35485574601
-// I should write 2 issues to the crate about C) and B)
 
 use thiserror::Error;
 
@@ -93,7 +94,7 @@ pub struct UrlClArgs {
     #[arg(long, default_value = "0")]
     pub only: i32,
 }
-// cargo run --example bevy_wasm -- --way 24771505
+// RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029
 // http://localhost:8080/?way=24771505
 
 fn read_and_use_args(args: Res<UrlClArgs>, mut state: ResMut<State>) {

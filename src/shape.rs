@@ -147,7 +147,7 @@ impl Shape {
                 right_vertices.push(self.positions[i]);
             }
 
-            println!("ttt1 i: {i} {current} {next}");
+            println!("-1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line      && true
             if current.east.signum() != next.east.signum() {
                 // Calculate the intersection point
@@ -155,13 +155,13 @@ impl Shape {
                 let intersection_north = current.north + diagonally * (next.north - current.north);
                 let intersection = GroundPosition {
                     north: intersection_north,
-                    east: -self.shift, // Das stimmt doch nicht so ganz, oder ???
+                    east: -self.shift,
                 };
 
                 // Add the intersection point to both shapes
                 let intersection_rotated_back = intersection.rotate(angle).add(self.center);
                 println!(
-                    "ttt2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
+                    "-2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
                 );
                 left_vertices.push(intersection_rotated_back);
                 right_vertices.push(intersection_rotated_back);

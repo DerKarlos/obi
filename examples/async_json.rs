@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     //println!("building_parts: {:?}", building_parts);
     let meshes = scan_objects(building_parts);
 
-    let scale = bounding_box.max_radius() / 4. * LAT_FAKT;
+    let scale = bounding_box.max_radius() / 10. * LAT_FAKT;
     bevy_init(meshes, scale);
     /****/
 

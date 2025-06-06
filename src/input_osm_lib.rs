@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 //use std::fmt::Error;
 
+// https://docs.rs/openstreetmap-api/latest/openstreetmap_api/
+// https://github.com/topics/openstreetmap-api
 use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::{Credentials, Node, Way};
@@ -12,13 +14,8 @@ use crate::shape::Shape;
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // openstreetmap_api //////////////////////////////////////////////////////////////////////////////
 
-static YES: &str = "yes";
+static _YES: &str = "yes";
 static NO: &str = "no";
-
-// DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-// https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
-// The test-server does not have needed objects (like Reifenberg), but they could be PUT into
-// static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
 //#[derive(Default)]
 pub struct InputLib {
@@ -109,10 +106,10 @@ fn way(
     // println!("element = {:?}", element);
     if show_only_this_id > 0 && element.id != show_only_this_id {
         return;
-    } // tttt
+    }
 
     if element.tags.is_empty() {
-        // ttt println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
+        // println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
         return;
     }
 
@@ -146,7 +143,7 @@ fn way(
     footprint.close();
 
     // ??? not only parts!
-    if part == YES || show_only_this_id > 0 {
+    if part != NO || show_only_this_id > 0 {
         building(footprint, id, &tags, building_parts);
     }
 }
