@@ -30,7 +30,7 @@
   {
     "label": "example async_lib",
     "use_new_terminal": false,
-    "command": "cargo run --example async_lib",
+    "command": "RUST_BACKTRACE=1 cargo run --example async_lib",
     "tags": ["example"]
   },
 

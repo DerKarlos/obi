@@ -35,8 +35,6 @@ Even Vector tiles may become an alternative, OSM or Overture, if they support bu
 ### Project patterns
 * As used to be in Rust, don't use apreviations. Exceptions should be documented
 * Always latitude before longitude and north before east, in the code
-
-Other todos:
 * Now and then check for all clone() and copy() to be realy needed. And for Todo, ttt and ??? markers in the soruce codes
 
 ### Lib-Structure
@@ -51,11 +49,6 @@ Other todos:
 * BoundingBox: north south east and west values. May be used for GPU or geographic values.
 * BuildingPart: is the interface from the input modules to the 3D generation
 * OsmMeshAttributes: is the interface from the 3D generation to the render engine
-
-OsmNode
-
-* OsmNode: A XzPos and optional tagging.
-
 * JosnData: Main struct of the OSM API return, with all Elements
 * JsonElement: May be a Node, Way or a Relation. May have a geo-position, may have tagging
 * JosnTags: TODO: should be a Map:  https://serde.rs/deserialize-map.html

@@ -11,7 +11,8 @@ use osm_tb::*;
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut id = 121486088 as u64;
+    let mut id = 159243621; // 437150850 //  121486088
+    let show_only: u64 = 0; // 159243622; //1174629866; //1174306433;
     let args: Vec<String> = env::args().collect();
     if args.len() > 1 {
         dbg!(&args[1]);
@@ -24,9 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
     let building_parts = api
-        .scan_osm(&bounding_box, &gpu_ground_null_coordinates, 0)
+        .scan_osm(&bounding_box, &gpu_ground_null_coordinates, show_only)
         .await?;
-    println!("building_parts: {:?}", building_parts);
+    // println!("building_parts: {:?}", building_parts);
 
     let meshes = scan_objects(building_parts);
     let scale = bounding_box.max_radius() / 4. * LAT_FAKT;

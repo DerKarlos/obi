@@ -119,8 +119,9 @@ pub enum RoofShape {
     Flat,
     Skillion,
     Gabled,
-    Onion,
     Phyramidal,
+    Dome,
+    Onion,
 }
 
 #[derive(Clone, Debug)]

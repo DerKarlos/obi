@@ -1,6 +1,7 @@
 use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
 use crate::kernel_out::{GpuPosition, OsmMeshAttributes, RenderColor};
 use crate::shape::Shape;
+use std::cmp::min;
 use std::ops::Sub;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,8 +94,13 @@ impl OsmMesh {
                 roof_color,
             ),
 
-            // todo: cupola
-            //
+            RoofShape::Dome => self.push_dome(
+                &building_part.footprint,
+                wall_height,
+                roof_height,
+                roof_color,
+            ),
+
             RoofShape::Onion => self.push_onion(
                 &building_part.footprint,
                 wall_height,
@@ -230,11 +236,11 @@ impl OsmMesh {
             .footprint
             .split_at_x_zero(building_part.roof_angle);
 
-        self.push_roof_face(face1, color, building_part);
-        self.push_roof_face(face2, color, building_part);
+        self.push_roof_shape(face1, color, building_part);
+        self.push_roof_shape(face2, color, building_part);
     }
 
-    fn push_roof_face(
+    fn push_roof_shape(
         &mut self,
         side: Vec<GroundPosition>,
         color: RenderColor,
@@ -272,8 +278,6 @@ impl OsmMesh {
         //   vertices_positions: [] }
     }
 
-    // todo: phyramide, dome and onion the same except a different curves. Use same code,
-    // todo: For all 3 shapetypes: less points: cornsers, much points: rounded
     fn push_phyramid(
         &mut self,
         footprint: &Shape,
@@ -281,29 +285,167 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let pike = footprint.center.to_gpu_position(wall_height + roof_height);
+        let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
+        ring_edges.push(ExtrudeRing {
+            radius: 1.,
+            height: 0.,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.,
+            height: 1.,
+        });
+        let silhouette = Silhouette { ring_edges };
+        self.push_extrude(footprint, silhouette, wall_height, roof_height, color);
+    }
 
-        let roof_gpu_positions = footprint.get_gpu_positions(wall_height);
-        let roof_index_offset = self.attributes.vertices_positions.len();
-        let pike_index_offset = roof_gpu_positions.len();
-        for (index, position) in roof_gpu_positions.iter().enumerate() {
-            self.attributes.vertices_positions.push(*position);
-            self.attributes.vertices_colors.push(color);
-
-            let index1 = index;
-            let mut index2 = index + 1;
-            if index2 >= roof_gpu_positions.len() {
-                index2 = 0
-            };
-            self.push_indices([
-                (roof_index_offset + index1),
-                (roof_index_offset + index2),
-                (roof_index_offset + pike_index_offset),
-            ]);
+    fn push_dome(
+        &mut self,
+        footprint: &Shape,
+        wall_height: f32,
+        roof_height: f32,
+        color: RenderColor,
+    ) {
+        let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
+        const STEPS: usize = 10;
+        for step in 0..STEPS {
+            let angle = f32::to_radians((step * STEPS) as f32);
+            ring_edges.push(ExtrudeRing {
+                radius: angle.cos(),
+                height: angle.sin(),
+            });
+            // println!("{step} a: {angle} {} {}", angle.cos(), angle.sin());
         }
-        self.attributes.vertices_positions.push(pike);
+        let silhouette = Silhouette { ring_edges };
+        // println!("w: {wall_height} r: {roof_height}");
+        self.push_extrude(footprint, silhouette, wall_height, roof_height, color);
+    }
+
+    fn calc_extrude_position(
+        &mut self,
+        ring: &ExtrudeRing,
+        edge: &GroundPosition,
+        wall_height: f32,
+        roof_height: f32,
+        pike: GroundPosition,
+    ) -> GpuPosition {
+        let gpu_x = (edge.east - pike.east) * ring.radius + pike.east;
+        let gpu_z = (edge.north - pike.north) * ring.radius + pike.north;
+        let gpu_y = wall_height + roof_height * ring.height;
+        [gpu_x, gpu_y, -gpu_z] // Why -z?  Should be in an extra fn!
+    }
+
+    fn push_extrude(
+        &mut self,
+        footprint: &Shape,
+        silhouette: Silhouette,
+        wall_height: f32,
+        roof_height: f32,
+        color: RenderColor,
+    ) {
+        let soft_edges = footprint.positions.len() > 0; //ttt 8;
+        let mut gpu_positions: Vec<Vec<GpuPosition>> = Vec::new();
+        for (ring_index, ring) in silhouette.ring_edges.iter().enumerate() {
+            gpu_positions.push(Vec::new());
+            for edge in footprint.positions.iter() {
+                gpu_positions[ring_index].push(self.calc_extrude_position(
+                    ring,
+                    edge,
+                    wall_height,
+                    roof_height,
+                    footprint.center,
+                ));
+            }
+        }
+
+        const ONE_LESS_RING_FACES_BUT_RING_EDGES: usize = 1;
+        let edges = footprint.positions.len();
+        let rings = silhouette.ring_edges.len() - ONE_LESS_RING_FACES_BUT_RING_EDGES;
+
+        let start_index = self.attributes.vertices_positions.len();
+        let pike_index = self.attributes.vertices_positions.len() + rings * edges;
+
+        for ring_index in 0..rings {
+            for edge_index in 0..edges {
+                //println!("r: {ring_index} e: {edge_index}");
+
+                if soft_edges {
+                    self.push_soft_edges(
+                        &gpu_positions,
+                        ring_index,
+                        edge_index,
+                        edges,
+                        start_index,
+                        pike_index,
+                        color,
+                    );
+                } else {
+                    self.push_hard_edges(&gpu_positions, ring_index, edge_index, edges, color);
+                }
+            }
+        }
+
+        // push pike
+        if soft_edges {
+            //println!("gpu_positions: {:?}", gpu_positions);
+            //println!("attributes: {:?}", self.attributes);
+            let pike = gpu_positions[rings][0];
+            self.attributes.vertices_positions.push(pike);
+            self.attributes.vertices_colors.push(color);
+        }
+        // println!("self.attributes: {:?}", self.attributes);
+    }
+
+    fn push_soft_edges(
+        &mut self,
+        gpu_positions: &Vec<Vec<GpuPosition>>,
+        ring_index: usize,
+        edge_index: usize,
+        ec: usize, // edge count per ring
+        start_index: usize,
+        pike_index: usize,
+        color: RenderColor,
+    ) {
+        let down_left = gpu_positions[ring_index][edge_index];
+        self.attributes.vertices_positions.push(down_left);
         self.attributes.vertices_colors.push(color);
-        //println!("rio={} pio={} len={}",roof_index_offset, pike_index_offset,self.vertices_positions.len() );
+
+        // Calculate indexi of the square
+        let index00 = (edge_index + 0) % ec + (ring_index + 0) * ec;
+        let index10 = (edge_index + 1) % ec + (ring_index + 0) * ec;
+        let index01 = (edge_index + 0) % ec + (ring_index + 1) * ec;
+        let index11 = (edge_index + 1) % ec + (ring_index + 1) * ec;
+        //println!(
+        //    "10: {index10} {edge_index} {ec} {ring_index} {}",
+        //    (edge_index + 1) % ec,
+        //);
+        // Push indices of two treeangles
+        self.push_3_indices([
+            min(start_index + index00, pike_index),
+            min(start_index + index10, pike_index),
+            min(start_index + index01, pike_index),
+        ]);
+        self.push_3_indices([
+            min(start_index + index10, pike_index),
+            min(start_index + index11, pike_index),
+            min(start_index + index01, pike_index),
+        ]);
+    }
+
+    fn push_hard_edges(
+        &mut self,
+        gpu_positions: &Vec<Vec<GpuPosition>>,
+        ring_index: usize,
+        edge_index: usize,
+        edges_count: usize,
+        color: RenderColor,
+    ) {
+        let right = (edge_index + 1) % edges_count;
+        let down_left = gpu_positions[ring_index][edge_index];
+        let down_right = gpu_positions[ring_index][right];
+        let up_left = gpu_positions[ring_index + 1][edge_index];
+        let up_right = gpu_positions[ring_index + 1][right];
+
+        self.push_square(down_left, down_right, up_left, up_right, color);
     }
 
     fn push_onion(
@@ -313,63 +455,58 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let extrude_curve_scale = [
-            // -x- |y|    The curve is about "taken" from F4map.com
-            [1.00, 0.00],
-            [1.12, 0.09],
-            [1.27, 0.15],
-            [1.36, 0.27],
-            [1.28, 0.42],
-            [1.10, 0.51],
-            [0.95, 0.53],
-            [0.62, 0.58],
-            [0.49, 0.61],
-            [0.21, 0.69],
-            [0.10, 0.79],
-            [0.00, 1.00],
-        ];
+        let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
+        ring_edges.push(ExtrudeRing {
+            radius: 1.00,
+            height: 0.00,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 1.12,
+            height: 0.09,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 1.27,
+            height: 0.15,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 1.36,
+            height: 0.27,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 1.28,
+            height: 0.42,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 1.10,
+            height: 0.51,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.95,
+            height: 0.53,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.62,
+            height: 0.58,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.49,
+            height: 0.61,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.21,
+            height: 0.69,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.10,
+            height: 0.79,
+        });
+        ring_edges.push(ExtrudeRing {
+            radius: 0.00,
+            height: 1.00,
+        });
 
-        let columns = footprint.positions.len();
-        let one_column = columns * 2;
-
-        // process all rings
-        for scale in extrude_curve_scale {
-            let scale_radius = scale[0] as f32;
-            let scale_up = scale[1] as f32;
-            //println!("scale {} {} {} {}",curve_up,curve_radius, one_column, roof_height);
-
-            let edge_position = footprint.positions.last().unwrap();
-            let pike = footprint.center;
-            let gpu_x = (edge_position.east - pike.east) * scale_radius + pike.east;
-            let gpu_z = (edge_position.north - pike.north) * scale_radius + pike.north; // * roof_rel
-            // todo 2*: use .to_GpuPosition
-            let mut last_pos = [gpu_x, wall_height + roof_height * scale_up, -gpu_z];
-
-            // process one ring
-            for edge_position in footprint.positions.iter() {
-                // push colors
-                self.attributes.vertices_colors.push(color);
-                self.attributes.vertices_colors.push(color);
-                // push vertices
-                let gpu_x = (edge_position.east - pike.east) * scale_radius + pike.east;
-                let gpu_z = (edge_position.north - pike.north) * scale_radius + pike.north; // * roof_rel
-                let this_pos = [gpu_x, wall_height + roof_height * scale_up, -gpu_z];
-
-                // push indices
-                let index = self.attributes.vertices_positions.len();
-                self.attributes.vertices_positions.push(last_pos); // right vertice different than left to get corneres
-                self.attributes.vertices_positions.push(this_pos); // left - up=down to not get corners
-                last_pos = this_pos;
-                //println!("pso x z {} {} {:?} {:?}",pos_x,pos_z,last_pos,this_pos);
-
-                // not if it is the last point/ring of the curve
-                if scale_radius > 0. {
-                    // Push indices of two treeangles
-                    self.push_indices([index, index + 1, index + one_column]);
-                    self.push_indices([index + 1, index + one_column + 1, index + one_column]);
-                }
-            } // ring
-        } // all rings
+        let silhouette = Silhouette { ring_edges };
+        self.push_extrude(footprint, silhouette, wall_height, roof_height, color);
     }
 
     fn push_walls(
@@ -430,13 +567,25 @@ impl OsmMesh {
         self.attributes.vertices_positions.push(up_right); //   +3
 
         // Push first and second treeangle
-        self.push_indices([index /*....*/, index + 1, index + 2]);
-        self.push_indices([index /*.*/+ 1, index + 3, index + 2]);
+        self.push_3_indices([index /*....*/, index + 1, index + 2]);
+        self.push_3_indices([index /*.*/+ 1, index + 3, index + 2]);
     }
 
-    fn push_indices(&mut self, indexi: [usize; 3]) {
+    fn push_3_indices(&mut self, indexi: [usize; 3]) {
+        // println!("i3: {:?}", indexi);
         self.attributes.indices_to_vertices.push(indexi[0] as u32);
         self.attributes.indices_to_vertices.push(indexi[1] as u32);
         self.attributes.indices_to_vertices.push(indexi[2] as u32);
     }
+}
+
+#[derive(Clone, Debug)]
+struct ExtrudeRing {
+    radius: f32,
+    height: f32,
+}
+
+#[derive(Clone, Debug)]
+struct Silhouette {
+    ring_edges: Vec<ExtrudeRing>,
 }

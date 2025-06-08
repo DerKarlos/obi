@@ -12,8 +12,9 @@ use crate::shape::Shape;
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: &str = "grey"; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
 pub static DEFAULT_ROOF_COLOR: &str = "red"; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
-pub static DEFAULT_WALL_HEIGHT: f32 = 2.0 * 3.0; // two floors with each 3 meters
-pub static DEFAULT_ROOF_HEIGHT: f32 = 0.0;
+pub static DEFAULT_WALL_HEIGHT: &str = "6.0"; // two floors with each 3 meters
+pub static DEFAULT_ROOF_HEIGHT: &str = "2.0";
+pub static DEFAULT_MIN_HEIGHT: &str = "2.0";
 
 pub fn circle_limit(angle: f32) -> f32 {
     if angle > f32::to_radians(180.) {
@@ -30,7 +31,7 @@ pub fn parse_color(color: &String) -> RenderColor {
     // Bevy pbr color needs f32, The parse has no .as_f32}
     match parse(color.as_str()) {
         Ok(color_scc) => {
-            println!("parse_colour: {:?} => {:?}", color, color_scc);
+            //println!("parse_colour: {:?} => {:?}", color, color_scc);
             [
                 color_scc.r as f32,
                 color_scc.g as f32,
@@ -39,8 +40,8 @@ pub fn parse_color(color: &String) -> RenderColor {
             ]
         }
 
-        Err(error) => {
-            println!("parse_colour: {}", error);
+        Err(_error) => {
+            // println!("parse_colour: {}", _error);
             [0.5, 0.5, 1.0, 1.0] // "light blue?"
         }
     }
@@ -63,7 +64,61 @@ pub fn parse_height(height: Option<&String>, default: f32) -> f32 {
 
         Err(error) => {
             println!("Error! parse_height: {} for:{}:", error, hu);
-            DEFAULT_ROOF_HEIGHT
+            6.0 //DEFAULT_ROOF_HEIGHT
+        }
+    }
+}
+
+/********** /
+pub fn parse_height111(height: Option<&String>, default: f32) -> f32 {
+    if height.is_none() {
+        return default;
+    }
+
+    let string = height.unwrap();
+
+    if let Some(stripped) = string.strip_suffix("m") {
+        string = &stripped.to_string();
+    }
+
+    match string.as_str().trim().parse() {
+        Ok(height) => height,
+
+        Err(error) => {
+            println!("Error! parse_height: {} for:{}:", error, string);
+            (6.0) //DEFAULT_ROOF_HEIGHT
+        }
+    }
+}
+/ **********/
+
+fn parse_height2(string: &String) -> f32 {
+    let mut string = string.clone();
+    if let Some(stripped) = string.strip_suffix("m") {
+        string = stripped.to_string();
+    }
+    match string.as_str().trim().parse() {
+        Ok(height) => height,
+        Err(error) => {
+            println!("Error! parse_height: {} for:{}:", error, string);
+            DEFAULT_ROOF_HEIGHT.parse().unwrap()
+        }
+    }
+}
+
+fn quest_tags(
+    tags: &HashMap<String, String>,
+    option1: &str,
+    option2: &str,
+    default: &str,
+) -> String {
+    if let Some(tag) = tags.get(option1) {
+        tag.clone()
+    } else {
+        if let Some(tag) = tags.get(option2) {
+            tag.clone()
+        } else {
+            default.to_string().clone()
         }
     }
 }
@@ -75,13 +130,12 @@ pub fn building(
     building_parts: &mut Vec<BuildingPart>,
 ) {
     // Colors and Materials
-    let color_string = tags
-        .get("colour")
-        .unwrap_or(&DEFAULT_WALL_COLOR.to_string())
-        .clone();
-
-    // todo: better solution for alternative tags
-    let building_color = parse_color(tags.get("building:colour").unwrap_or(&color_string));
+    let building_color = parse_color(&quest_tags(
+        tags,
+        "building:colour",
+        "colour",
+        DEFAULT_WALL_COLOR,
+    ));
 
     let roof_color = parse_color(
         tags.get("roof:colour")
@@ -93,9 +147,10 @@ pub fn building(
         Some(roof_shape) => match roof_shape.as_str() {
             "flat" => RoofShape::Flat,
             "skillion" => RoofShape::Skillion,
-            "onion" => RoofShape::Onion,
-            "pyramidal" => RoofShape::Phyramidal,
             "gabled" => RoofShape::Gabled,
+            "pyramidal" => RoofShape::Phyramidal,
+            "dome" => RoofShape::Dome,
+            "onion" => RoofShape::Onion,
             _ => {
                 // println!("Warning: roof_shape Unknown: {}", roof_shape);
                 RoofShape::Flat // todo: gabled and geographic dependend
@@ -107,16 +162,24 @@ pub fn building(
     println!("Part id: {} roof: {:?}", id, roof_shape);
 
     let default_roof_heigt = match roof_shape {
+        RoofShape::Flat => 0.0,
         RoofShape::Skillion => 2.0, // todo: accroding to width
         RoofShape::Gabled => 2.0,
-        _ => DEFAULT_ROOF_HEIGHT,
+        _ => 2.0, //DEFAULT_ROOF_HEIGHT,
     };
 
     // Heights
-    let min_height = parse_height(tags.get("min_height"), 0.0);
+    let min_height = parse_height(tags.get("min_height"), 0.0); // DEFAULT_MIN_HEIGHT
     let roof_height = parse_height(tags.get("roof:height"), default_roof_heigt);
-    //println!(        "roof_height: {roof_height}  {default_roof_heigt} {:?}",        roof_shape);
-    let wall_height = parse_height(tags.get("height"), DEFAULT_WALL_HEIGHT) - roof_height;
+    //println!( "roof_height: {roof_height} default_roof_heigt: {default_roof_heigt} roof_shape: {:?}", roof_shape);
+    //let wall_height = parse_height(tags.get("height"), 6.0 /*DEFAULT_WALL_HEIGHT*/) - roof_height;
+
+    let wall_height = parse_height2(&quest_tags(
+        tags,
+        "building:height",
+        "height",
+        DEFAULT_WALL_HEIGHT,
+    )) - roof_height;
 
     // Get building footprint from nodes
     // else { todo("drop last and modulo index") }
@@ -199,18 +262,3 @@ pub fn building(
 
     building_parts.push(building_part);
 }
-
-/******** todo: traid?
-fn node<T>(
-    element: T,
-    gpu_ground_null_coordinates: &GeographicCoordinates,
-    nodes_map: &mut HashMap<u64, OsmNode>,
-) {
-    let osm_node = OsmNode {
-        position: gpu_ground_null_coordinates
-            .coordinates_to_position(element.lat.unwrap(), element.lon.unwrap()),
-    };
-    nodes_map.insert(element.id, osm_node);
-    // println!("Node: id = {:?} lat = {:?} lon = {:?}", element.id, element.lat.unwrap(), element.lon.unwrap() );
-}
-*******/
