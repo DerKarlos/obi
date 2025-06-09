@@ -1,5 +1,5 @@
 use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
-use crate::kernel_out::{GpuPosition, OsmMeshAttributes, RenderColor};
+use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition};
 use crate::shape::Shape;
 use std::cmp::min;
 use std::ops::Sub;
@@ -9,19 +9,19 @@ use std::ops::Sub;
 
 // Constants / Parameters
 static MULTI_MESH: bool = false;
-static _GPU_POSITION_NULL: GpuPosition = [0.0, 0.0, 0.0];
+static _GPU_POSITION_NULL: RenderPosition = [0.0, 0.0, 0.0];
 
 // Local methodes of GroundPosition, only to be used in the renderer!
 impl GroundPosition {
-    fn to_gpu_position(self, height: f32) -> GpuPosition {
+    fn to_gpu_position(self, height: f32) -> RenderPosition {
         // Minus north because +north is -z in the GPU space.
         [self.east, height, -self.north]
     }
 }
 
 impl Shape {
-    fn get_gpu_positions(&self, height: f32) -> Vec<GpuPosition> {
-        let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
+    fn get_gpu_positions(&self, height: f32) -> Vec<RenderPosition> {
+        let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
         for position in &self.positions {
             let this_gpu_position_up = position.to_gpu_position(height);
             roof_gpu_positions.push(this_gpu_position_up);
@@ -204,7 +204,7 @@ impl OsmMesh {
 
     fn push_skillion(&mut self, building_part: &BuildingPart, color: RenderColor) {
         let footprint = &building_part.footprint;
-        let mut roof_gpu_positions: Vec<GpuPosition> = Vec::new();
+        let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
         for position in footprint.positions.iter() {
             let height = self.calc_roof_position_height(position, building_part);
             roof_gpu_positions.push(position.to_gpu_position(height))
@@ -327,7 +327,7 @@ impl OsmMesh {
         wall_height: f32,
         roof_height: f32,
         pike: GroundPosition,
-    ) -> GpuPosition {
+    ) -> RenderPosition {
         let gpu_x = (edge.east - pike.east) * ring.radius + pike.east;
         let gpu_z = (edge.north - pike.north) * ring.radius + pike.north;
         let gpu_y = wall_height + roof_height * ring.height;
@@ -343,7 +343,7 @@ impl OsmMesh {
         color: RenderColor,
     ) {
         let soft_edges = footprint.positions.len() > 0; //ttt 8;
-        let mut gpu_positions: Vec<Vec<GpuPosition>> = Vec::new();
+        let mut gpu_positions: Vec<Vec<RenderPosition>> = Vec::new();
         for (ring_index, ring) in silhouette.ring_edges.iter().enumerate() {
             gpu_positions.push(Vec::new());
             for edge in footprint.positions.iter() {
@@ -397,7 +397,7 @@ impl OsmMesh {
 
     fn push_soft_edges(
         &mut self,
-        gpu_positions: &Vec<Vec<GpuPosition>>,
+        gpu_positions: &Vec<Vec<RenderPosition>>,
         ring_index: usize,
         edge_index: usize,
         ec: usize, // edge count per ring
@@ -433,7 +433,7 @@ impl OsmMesh {
 
     fn push_hard_edges(
         &mut self,
-        gpu_positions: &Vec<Vec<GpuPosition>>,
+        gpu_positions: &Vec<Vec<RenderPosition>>,
         ring_index: usize,
         edge_index: usize,
         edges_count: usize,
@@ -545,10 +545,10 @@ impl OsmMesh {
 
     fn push_square(
         &mut self,
-        down_left: GpuPosition,
-        down_right: GpuPosition,
-        up_left: GpuPosition,
-        up_right: GpuPosition,
+        down_left: RenderPosition,
+        down_right: RenderPosition,
+        up_left: RenderPosition,
+        up_right: RenderPosition,
         color: RenderColor,
     ) {
         // First index of the comming 4 positions

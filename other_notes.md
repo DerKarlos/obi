@@ -21,6 +21,7 @@ Testing with a moderate complex building OR a lage complex one
 * no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
 * Not valide tagged???: 45696973
 * dome: part: 159243621   buiding: 437150850
+* Way: St Paul's Cathedral 369161987  -  Test center gabled: 664642004 (footprint is rounded!)
 
 ### Notes on WASM:
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update

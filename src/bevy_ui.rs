@@ -68,10 +68,21 @@ pub fn input_handler(
 ) {
     if keyboard_input.pressed(KeyCode::ArrowDown) {
         for mut transform in &mut query {
-            transform.rotate_x(time.delta_secs() / 1.2);
+            transform.translation.z += time.delta_secs() * 50.;
         }
     }
     if keyboard_input.pressed(KeyCode::ArrowUp) {
+        for mut transform in &mut query {
+            transform.translation.z -= time.delta_secs() * 50.;
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::KeyS) {
+        for mut transform in &mut query {
+            transform.rotate_x(time.delta_secs() / 1.2);
+        }
+    }
+    if keyboard_input.pressed(KeyCode::KeyX) {
         for mut transform in &mut query {
             transform.rotate_x(-time.delta_secs() / 1.2);
         }
@@ -117,7 +128,7 @@ pub fn setup(
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let scale = osm_meshes.scale as f32;
+    let scale = osm_meshes.scale as f32 / 2.;
     // circular base
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(15.0 * scale))),
