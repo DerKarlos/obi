@@ -2,6 +2,9 @@ use bytes::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
+//
+//
+
 use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode};
 use crate::osm2layers::building;
 use crate::shape::Shape;
@@ -12,9 +15,48 @@ use crate::shape::Shape;
 static _YES: &str = "yes";
 static NO: &str = "no";
 
-// DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-// https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
-// The test-server does not have needed objects (like Reifenberg), but they could be PUT into
+pub struct InputJson {
+    api_url: String, // just a dummy?
+}
+
+impl Default for InputJson {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl InputJson {
+    pub fn new() -> Self {
+        let api_url = "https://api.openstreetmap.org/api/0.6/".to_string(); // env::var("OPENSTREETMAP_HOST")?;
+        //
+        Self { api_url }
+    }
+
+    pub async fn geo_bbox_of_way(
+        &self,
+        way_id: u64,
+    ) -> Result<BoundingBox, Box<dyn std::error::Error>> {
+        let url = format!("{}way/{}/full.json", self.api_url, way_id);
+        let bytes = reqwest::get(url).await?.bytes().await?;
+        Ok(geo_bbox_of_way_bytes(&bytes))
+    }
+
+    pub async fn scan_osm(
+        &self,
+        bounding_box: &BoundingBox,
+        gpu_ground_null_coordinates: &GeographicCoordinates,
+        show_only: u64,
+    ) -> Result<Vec<BuildingPart>, Box<dyn std::error::Error>> {
+        let url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
+        let bytes = reqwest::get(url).await?.bytes().await?;
+        Ok(scan_osm_bytes(
+            bytes,
+            &gpu_ground_null_coordinates,
+            show_only,
+        ))
+    }
+}
+
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
 pub fn way_url(way_id: u64) -> String {

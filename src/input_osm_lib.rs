@@ -1,8 +1,7 @@
 use std::collections::HashMap;
-//use std::fmt::Error;
+//
+//
 
-// https://docs.rs/openstreetmap-api/latest/openstreetmap_api/
-// https://github.com/topics/openstreetmap-api
 use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::{Credentials, Node, Way};
@@ -17,15 +16,8 @@ use crate::shape::Shape;
 static _YES: &str = "yes";
 static NO: &str = "no";
 
-//#[derive(Default)]
 pub struct InputLib {
     client: Openstreetmap,
-}
-
-impl Default for Shape {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Default for InputLib {
