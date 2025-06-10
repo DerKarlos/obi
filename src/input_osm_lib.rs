@@ -16,7 +16,9 @@ use crate::shape::Shape;
 static _YES: &str = "yes";
 static NO: &str = "no";
 
+#[derive(Debug)]
 pub struct InputLib {
+    api_url: String, // just a dummy?
     client: Openstreetmap,
 }
 
@@ -28,9 +30,19 @@ impl Default for InputLib {
 
 impl InputLib {
     pub fn new() -> Self {
-        let host = "https://api.openstreetmap.org/api".to_string(); // env::var("OPENSTREETMAP_HOST")?;
-        let client = Openstreetmap::new(host, Credentials::None);
-        Self { client }
+        let api_url = "https://api.openstreetmap.org/api".to_string();
+        let client = Openstreetmap::new(&api_url, Credentials::None);
+        Self { api_url, client }
+    }
+
+    pub fn way_url(&self, way_id: u64) -> String {
+        format!("{}way/{}/full.json", self.api_url, way_id)
+    }
+
+    pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
+        // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
+        // GET   /api/0.6/map?bbox=left,bottom,right,top
+        format!("{}map.json?bbox={}", self.api_url, bounding_box)
     }
 
     pub async fn geo_bbox_of_way(&self, way_id: u64) -> Result<BoundingBox, OpenstreetmapError> {

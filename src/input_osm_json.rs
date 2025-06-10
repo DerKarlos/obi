@@ -15,6 +15,7 @@ use crate::shape::Shape;
 static _YES: &str = "yes";
 static NO: &str = "no";
 
+#[derive(Debug)]
 pub struct InputJson {
     api_url: String, // just a dummy?
 }
@@ -27,9 +28,18 @@ impl Default for InputJson {
 
 impl InputJson {
     pub fn new() -> Self {
-        let api_url = "https://api.openstreetmap.org/api/0.6/".to_string(); // env::var("OPENSTREETMAP_HOST")?;
-        //
+        let api_url = "https://api.openstreetmap.org/api/0.6/".to_string();
         Self { api_url }
+    }
+
+    pub fn way_url(&self, way_id: u64) -> String {
+        format!("{}way/{}/full.json", self.api_url, way_id)
+    }
+
+    pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
+        // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
+        // GET   /api/0.6/map?bbox=left,bottom,right,top
+        format!("{}map.json?bbox={}", self.api_url, bounding_box)
     }
 
     pub async fn geo_bbox_of_way(
@@ -39,6 +49,11 @@ impl InputJson {
         let url = format!("{}way/{}/full.json", self.api_url, way_id);
         let bytes = reqwest::get(url).await?.bytes().await?;
         Ok(geo_bbox_of_way_bytes(&bytes))
+    }
+
+    pub fn geo_bbox_of_way_vec(&self, bytes: &[u8]) -> BoundingBox {
+        let json_way_data: JsonData = serde_json::from_slice(bytes).unwrap();
+        geo_bbox_of_way_json(json_way_data)
     }
 
     pub async fn scan_osm(
@@ -55,13 +70,19 @@ impl InputJson {
             show_only,
         ))
     }
+
+    pub fn scan_osm_vec(
+        &self,
+        bytes: &[u8],
+        gpu_ground_null_coordinates: &GeographicCoordinates,
+        show_only: u64,
+    ) -> Vec<BuildingPart> {
+        let json_bbox_data: JsonData = serde_json::from_slice(bytes).unwrap();
+        scan_osm_json(json_bbox_data, gpu_ground_null_coordinates, show_only)
+    }
 }
 
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
-
-pub fn way_url(way_id: u64) -> String {
-    format!("{}way/{}/full.json", API_URL, way_id)
-}
 
 pub fn bbox_url(bounding_box: &BoundingBox) -> String {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
@@ -84,11 +105,6 @@ pub struct JosnElement {
 #[derive(Deserialize, Debug)]
 pub struct JsonData {
     pub elements: Vec<JosnElement>,
-}
-
-pub fn geo_bbox_of_way_vec(bytes: &[u8]) -> BoundingBox {
-    let json_way_data: JsonData = serde_json::from_slice(bytes).unwrap();
-    geo_bbox_of_way_json(json_way_data)
 }
 
 pub fn geo_bbox_of_way_string(bytes: &&str) -> BoundingBox {
@@ -118,15 +134,6 @@ pub fn geo_bbox_of_way_json(json_way_data: JsonData) -> BoundingBox {
         }
     }
     bounding_box
-}
-
-pub fn scan_osm_vec(
-    bytes: &[u8],
-    gpu_ground_null_coordinates: &GeographicCoordinates,
-    show_only: u64,
-) -> Vec<BuildingPart> {
-    let json_bbox_data: JsonData = serde_json::from_slice(bytes).unwrap();
-    scan_osm_json(json_bbox_data, gpu_ground_null_coordinates, show_only)
 }
 
 pub fn scan_osm_bytes(

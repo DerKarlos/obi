@@ -61,7 +61,7 @@ pub fn spawn_osm_mesh(
 
 // System to receive input from the user,
 // check out examples/input/ for more examples about user input.
-pub fn input_handler(
+pub fn input_control(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut Transform, With<Controled>>,
     time: Res<Time>,
@@ -152,7 +152,7 @@ pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
             scale,
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, input_handler)
+        .add_systems(Update, input_control)
         .run();
 }
 

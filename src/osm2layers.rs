@@ -74,7 +74,7 @@ pub fn parse_height(height: Option<&String>) -> f32 {
     }
 }
 
-fn quest_two_tags<'a>(
+fn tags_get2<'a>(
     tags: &'a HashMap<String, String>,
     option1: &str,
     option2: &str,
@@ -115,7 +115,7 @@ pub fn building(
 
     // ** Colors and Materials **
     let building_color = parse_color(
-        quest_two_tags(tags, "building:colour", "colour"),
+        tags_get2(tags, "building:colour", "colour"),
         DEFAULT_WALL_COLOR,
     );
     let roof_color = parse_color(tags.get("roof:colour"), DEFAULT_ROOF_COLOR);
@@ -138,8 +138,8 @@ pub fn building(
     //println!( "roof_height: {roof_height} default_roof_heigt: {default_roof_heigt} roof_shape: {:?}", roof_shape);
     //let wall_height = parse_height(tags.get("height"), 6.0 /*DEFAULT_WALL_HEIGHT*/) - roof_height;
 
-    let mut building_height = parse_height(quest_two_tags(tags, "building:height", "height"));
-    let levels = parse_height(quest_two_tags(tags, "building:levels", "building:levels"));
+    let mut building_height = parse_height(tags_get2(tags, "building:height", "height"));
+    let levels = parse_height(tags_get2(tags, "building:levels", "building:levels"));
     if building_height == 0. && levels > 0. {
         building_height = levels * 3.0;
     }

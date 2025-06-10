@@ -21,16 +21,16 @@
   },
 
   {
-    "label": "example async_json",
+    "label": "example async",
     "use_new_terminal": false,
-    "command": "cargo run --example async_json",
+    "command": "cargo run --example async",
     "tags": ["example"]
   },
 
   {
-    "label": "example async_lib",
+    "label": "example async BACKTRACE",
     "use_new_terminal": false,
-    "command": "RUST_BACKTRACE=1 cargo run --example async_lib",
+    "command": "RUST_BACKTRACE=1 cargo run --example async",
     "tags": ["example"]
   },
 

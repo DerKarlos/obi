@@ -18,15 +18,15 @@ use bevy::{
 
 use bevy_args::{BevyArgsPlugin, Deserialize, Parser, Serialize}; // https://github.com/mosure/bevy_args
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::wasm_bindgen;
+//#[cfg(target_arch = "wasm32")]
+//use wasm_bindgen::prelude::wasm_bindgen;
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-unsafe extern "C" {
-    #[wasm_bindgen(js_namespace = console)]
-    fn log_UNUSED(s: &str);
-}
+//#[cfg(target_arch = "wasm32")]
+//#[wasm_bindgen]
+//unsafe extern "C" {
+//    #[wasm_bindgen(js_namespace = console)]
+//    fn log(s: &str);
+//}
 
 use bevy_web_asset::WebAssetPlugin; // https://github.com/johanhelsing/bevy_web_asset
 // Bevy not only loads from files, but from the web. THis crate adds http(s)
@@ -46,8 +46,6 @@ use bevy_web_asset::WebAssetPlugin; // https://github.com/johanhelsing/bevy_web_
 // https://medium.com/@jpmtech/getting-started-with-instruments-a35485574601
 
 use thiserror::Error;
-
-use osm_tb::*;
 
 #[derive(Asset, TypePath, Debug)]
 struct BytesVec {
@@ -88,19 +86,34 @@ impl AssetLoader for BytesAssetLoader {
 #[derive(Default, Debug, Resource, Serialize, Deserialize, Parser)]
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
 pub struct UrlClArgs {
-    //   _reifenberg_id: 121486088 _passau_dom_id: 24771505 _westminster_id: 367642719 _marienplatz_id: 223907278
+    // passau_dom_id: 24771505 reifenberg_id: 121486088 westminster_id: 367642719
     #[arg(long, default_value = "24771505")]
     pub way: u64,
     #[arg(long, default_value = "0")]
     pub only: i32,
 }
-// RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029
+// How to run:
+// RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029  // Error! in bevy_web_asset (html-lib)
 // http://localhost:8080/?way=24771505
 
 fn read_and_use_args(args: Res<UrlClArgs>, mut state: ResMut<State>) {
     info!(" {:?}", *args);
     state.way_id = args.way as u64;
     state.show_only = args.only as u64;
+}
+
+#[derive(Resource, Default, Debug)]
+struct State {
+    // Strange!: The value api is never set like this: let api = InputJson::new(); // InputJson or InputLib
+    // but it works!?!?!? Well, it's a struct with only a string, set with ::new() so:
+    // Bevy seems to create and fill this struct State by default values.
+    api: osm_tb::InputJson, // InputJson only. InputLib does not support a splitted solution to read the API external and only scan the byte stream.
+    way_id: u64,
+    show_only: u64,
+    bytes: Handle<BytesVec>,
+    step1: bool,
+    step2: bool,
+    gpu_ground_null_coordinates: osm_tb::GeographicCoordinates,
 }
 
 fn main() {
@@ -119,25 +132,16 @@ fn main() {
         .add_systems(Startup, read_and_use_args)
         .add_systems(Startup, setup)
         .add_systems(Update, on_load)
-        .add_systems(Update, osm_tb::input_handler)
+        .add_systems(Update, osm_tb::input_control)
         .run();
 
     info!("### OSM-BI ###");
 }
 
-#[derive(Resource, Default)]
-struct State {
-    way_id: u64,
-    show_only: u64,
-    bytes: Handle<BytesVec>,
-    step1: bool,
-    step2: bool,
-    gpu_ground_null_coordinates: GeographicCoordinates,
-}
-
 fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     // Get the center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-    let mut url = way_url(state.way_id);
+    let mut url = state.api.way_url(state.way_id);
+    // info!("(((((( State: {:?} ))))))", &state);
     info!("++++++++++ Way_URL: {url}");
 
     if LOCAL_TEST {
@@ -170,9 +174,9 @@ fn on_load(
     if !state.step1 {
         // info!("Bytes asset loaded: {:?}", bytes.unwrap());
 
-        let bounding_box = geo_bbox_of_way_vec(&bytes.unwrap().bytes);
+        let bounding_box = state.api.geo_bbox_of_way_vec(&bytes.unwrap().bytes);
         state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
-        let mut url = bbox_url(&bounding_box);
+        let mut url = state.api.bbox_url(&bounding_box);
         info!("**** bbox_url: {url}");
 
         if LOCAL_TEST {
@@ -182,14 +186,14 @@ fn on_load(
         state.bytes = asset_server.load(url);
         state.step1 = true;
     } else {
-        let building_parts = scan_osm_vec(
+        let building_parts = state.api.scan_osm_vec(
             &bytes.unwrap().bytes,
             &state.gpu_ground_null_coordinates,
             state.show_only,
         );
         info!("scan done, buildings: {:?} ", building_parts.len());
-        let osm_meshes = scan_objects(building_parts);
-        bevy_osm(commands, meshes, materials, osm_meshes, 25.);
+        let osm_meshes = osm_tb::scan_objects(building_parts);
+        osm_tb::bevy_osm(commands, meshes, materials, osm_meshes, 25.);
 
         state.step2 = true;
     }
