@@ -8,6 +8,9 @@
 
 
 ## Examples and Test Ways:
+let mut id = 45696973; //369161987; // 121486088 369161987; //159243621; // 437150850 //  121486088
+let show_only: u64 = 0; // 159243622; //1174629866; //1174306433;
+
 * Oriental Pearl Tower (40778038) Relation: Saint Basil's Cathedral (3030568)
 * Westminster Abbey (364313092)
 Testing with a moderate complex building OR a lage complex one
@@ -19,7 +22,7 @@ Testing with a moderate complex building OR a lage complex one
 * marienplatz_id = 223907278; // 15
 * fo_gabled = 45696973; // rectangle: 47942624 +schräg: 45697283  haustür: 47942638  eingeeckt: 45697162  winklel: 45402141
 * no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
-* Not valide tagged???: 45696973
+* Not valide tagged???: 45696973 bowed building, no part
 * dome: part: 159243621   buiding: 437150850
 * Way: St Paul's Cathedral 369161987  -  Test center gabled: 664642004 (footprint is rounded!)
 

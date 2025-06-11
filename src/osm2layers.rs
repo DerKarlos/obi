@@ -52,23 +52,22 @@ pub fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor 
     }
 }
 
-pub fn parse_height(height: Option<&String>) -> f32 {
-    if height.is_none() {
+pub fn parse_height(height_option: Option<&String>) -> f32 {
+    if height_option.is_none() {
         return 0.;
     }
 
-    let mut hu = height.unwrap().clone();
+    let mut height = height_option.unwrap().clone();
 
-    if hu.ends_with("m") {
-        hu = hu.strip_suffix("m").unwrap().to_string();
-        //hu = &hu.as_str().strip_suffix("m").unwrap().to_string();
+    if height.ends_with("m") {
+        height = height.strip_suffix("m").unwrap().to_string();
     }
 
-    match hu.as_str().trim().parse() {
+    match height.as_str().trim().parse() {
         Ok(height) => height,
 
         Err(error) => {
-            println!("Error! parse_height: {} for:{}:", error, hu);
+            println!("Error! parse_height: {} for:{}:", error, height);
             0.
         }
     }
@@ -126,6 +125,7 @@ pub fn building(
         RoofShape::Flat => 0.0,
         RoofShape::Skillion => 2.0, // todo: accroding to width
         RoofShape::Gabled => 2.0,
+        RoofShape::None => 0.0,
         _ => 2.0, //DEFAULT_ROOF_HEIGHT,
     };
 
@@ -197,14 +197,6 @@ pub fn building(
     // Not here, in the fn rotate against the actual angle to got 0 degrees
     let bounding_box_rotated = footprint.rotate(roof_angle);
 
-    // This is NOT valid. F4maps is NOT doing it. Test with Reifenberg. It came from the Java-Tool
-    // if bounding_box_rotated.east_larger_than_nord() {
-    //     roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-    // This way is a good example: 363815745 beause it has many nodes on the longer side
-    // println!( "### {}: east_larger_than_nord: {}", element.id, roof_angle.to_degrees() );
-    //}
-    // println!( "id: {} roof_shape: {:?} angle: {}", element.id, roof_shape, roof_angle.to_degrees() );
-
     let building_part = BuildingPart {
         _id: id,
         _part: true, // ??? not only parts!
@@ -220,6 +212,8 @@ pub fn building(
         roof_angle,
         roof_color,
     };
+
+    // println!("building_part: {:?}", building_part);
 
     building_parts.push(building_part);
 }

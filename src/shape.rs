@@ -74,10 +74,10 @@ impl Shape {
             bounding_box_rotated.include(&rotated_position);
         }
 
-        println!(
-            "e: {:?} w{:?}",
-            bounding_box_rotated.east, bounding_box_rotated.west
-        );
+        //3 println!(
+        //3     "e: {:?} w{:?}",
+        //3     bounding_box_rotated.east, bounding_box_rotated.west
+        //3 );
         let new_rotated_center_east = (bounding_box_rotated.east - bounding_box_rotated.west) / 2.0;
         //                                      8   -                       -4 = 12 / 2 = 6
         let corretion_shift = new_rotated_center_east - bounding_box_rotated.east;
@@ -85,12 +85,12 @@ impl Shape {
         bounding_box_rotated._shift(corretion_shift);
         self.shift = corretion_shift;
         for position in &mut self.rotated_positions {
-            println!(
-                "rot east: {:?}+{:?}={:?}",
-                position.east.clone(),
-                corretion_shift,
-                position.east + corretion_shift
-            );
+            //3 println!(
+            //3     "rot east: {:?}+{:?}={:?}",
+            //3     position.east.clone(),
+            //3     corretion_shift,
+            //3     position.east + corretion_shift
+            //3 );
             position.east += corretion_shift; // used in split_at_x_zero
         }
 
@@ -147,7 +147,7 @@ impl Shape {
                 right_vertices.push(self.positions[i]);
             }
 
-            println!(" - Test1 i: {i} {current} {next}");
+            //3 println!(" - Test1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line      && true
             if current.east.signum() != next.east.signum() {
                 // Calculate the intersection point
@@ -160,9 +160,9 @@ impl Shape {
 
                 // Add the intersection point to both shapes
                 let intersection_rotated_back = intersection.rotate(angle).add(self.center);
-                println!(
-                    "- Test2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
-                );
+                //3 println!(
+                //3     "- Test2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
+                //3 );
                 left_vertices.push(intersection_rotated_back);
                 right_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);

@@ -16,3 +16,6 @@ F4map thin roofs-trick:
 * https://demo.f4map.com/#lat=50.1694588&lon=8.6372565&zoom=18&camera.theta=58.514&camera.phi=8.021&lat=50.1688086&lon=8.6388286
 * S-GL: https://streets.gl/#50.1688086,8.6388286,45.00,0.00,2000.00
 * https://osmgo.org/go.html?lat=50.1688086&lon=8.6388286238025&dir=0&view=-45&ele=555
+
+The API:Lib  Info: XML doesn't have arrays, just multible lines with the same "ids" for node or tag
+* Contakt the creator (by an issue in repo) Tell what you did and what deltas (element sort) to json and problems and wishes (HashMap)

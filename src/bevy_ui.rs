@@ -130,10 +130,16 @@ pub fn setup(
 
     let scale = osm_meshes.scale as f32 / 2.;
     // circular base
+    const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
+
     commands.spawn((
         Mesh3d(meshes.add(Circle::new(15.0 * scale))),
         MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+        Transform {
+            translation: Vec3::new(0., SLIGHTLY_BELOW_GROUND_0, 0.),
+            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            ..default()
+        },
     ));
 
     light_and_camera(commands, scale);

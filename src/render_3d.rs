@@ -159,10 +159,10 @@ impl OsmMesh {
         let height =
             building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
 
-        let rh = building_part.roof_height;
-        println!(
-            "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
-        );
+        //3 let rh = building_part.roof_height;
+        //3 println!(
+        //3     "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
+        //3 );
 
         height
     }
