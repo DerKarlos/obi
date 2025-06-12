@@ -68,12 +68,12 @@ pub fn input_control(
 ) {
     if keyboard_input.pressed(KeyCode::ArrowDown) {
         for mut transform in &mut query {
-            transform.translation.z += time.delta_secs() * 50.;
+            transform.translation.z -= time.delta_secs() * 50.;
         }
     }
     if keyboard_input.pressed(KeyCode::ArrowUp) {
         for mut transform in &mut query {
-            transform.translation.z -= time.delta_secs() * 50.;
+            transform.translation.z += time.delta_secs() * 50.;
         }
     }
 

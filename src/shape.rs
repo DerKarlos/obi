@@ -13,6 +13,7 @@ pub struct Shape {
     longest_distance: f32,
     pub longest_angle: f32,
     // is_clockwise: bool,
+    pub holes: Vec<Shape>,
 }
 
 impl Shape {
@@ -26,6 +27,7 @@ impl Shape {
             longest_distance: 0.,
             longest_angle: 0.,
             //is_clockwise: false,
+            holes: Vec::new(),
         }
     }
 
@@ -34,6 +36,11 @@ impl Shape {
         self.bounding_box.include(&position);
         self.center.north += position.north;
         self.center.east += position.east;
+    }
+
+    pub fn push_hole(&mut self, mut hole: Shape) {
+        hole.positions.reverse();
+        self.holes.push(hole);
     }
 
     pub fn close(&mut self) {
@@ -100,15 +107,27 @@ impl Shape {
     pub fn get_triangulate_indices(&self) -> Vec<usize> {
         //
         let mut vertices = Vec::<f32>::new();
+        let mut holes_starts = Vec::<usize>::new();
         for position in &self.positions {
-            // why y before x ???
+            // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
         }
         //println!("roof_po: {:?}", &vertices);
 
-        //let indices =
-        earcutr::earcut(&vertices, &[], 2).unwrap()
+        for hole in &self.holes {
+            holes_starts.push(vertices.len() / 2);
+            // println!("holes_starts: {:?}", &holes_starts);
+            for position in &hole.positions {
+                vertices.push(position.north);
+                vertices.push(position.east);
+            }
+        }
+
+        // println!("triangulate vertices: {:?}", &vertices);
+        earcutr::earcut(&vertices, &holes_starts, 2).unwrap()
+        // type VerticesIndex = usize;
+        //      hole_indices: &[VerticesIndex],
         //println!("{:?}", indices);
 
         //indices

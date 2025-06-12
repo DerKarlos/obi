@@ -26,6 +26,14 @@ impl Shape {
             let this_gpu_position_up = position.to_gpu_position(height);
             roof_gpu_positions.push(this_gpu_position_up);
         }
+
+        for hole in &self.holes {
+            for position in &hole.positions {
+                let this_gpu_position_up = position.to_gpu_position(height);
+                roof_gpu_positions.push(this_gpu_position_up);
+            }
+        }
+
         roof_gpu_positions
     }
 }
@@ -515,13 +523,28 @@ impl OsmMesh {
         min_height: f32,
         color: RenderColor,
     ) {
-        let position = building_part.footprint.positions.last().unwrap();
+        let footprint = building_part.footprint.clone();
+        self.push_wall_shape(building_part, &footprint, min_height, color);
+
+        for hole in &footprint.holes {
+            self.push_wall_shape(building_part, &hole, min_height, color);
+        }
+    }
+
+    fn push_wall_shape(
+        &mut self,
+        building_part: &mut BuildingPart,
+        footprint: &Shape,
+        min_height: f32,
+        color: RenderColor,
+    ) {
+        let position = footprint.positions.last().unwrap();
         // todo: fn for next 3 lines
         let height = self.calc_roof_position_height(position, building_part);
         let mut last_gpu_position_down = position.to_gpu_position(min_height);
         let mut last_gpu_position_up = position.to_gpu_position(height);
 
-        for position in building_part.footprint.positions.iter() {
+        for position in footprint.positions.iter() {
             let height = self.calc_roof_position_height(position, building_part);
             let this_gpu_position_down = position.to_gpu_position(min_height);
             let this_gpu_position_up = position.to_gpu_position(height);

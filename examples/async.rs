@@ -15,7 +15,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Reifenberg: 121486088
-    // St Paul's Cathedral: 369161987 mit Relation: 9235275 mit Outer: 664646816
+    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
+    // Bau 46:                                 Relation: 2819147 with Outer: 45590896 and  Inner: 210046607
 
     let mut id = 369161987;
     let show_only: u64 = 0;

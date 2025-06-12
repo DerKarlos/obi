@@ -73,7 +73,7 @@ pub fn parse_height(height_option: Option<&String>) -> f32 {
     }
 }
 
-fn tags_get2<'a>(
+pub fn tags_get2<'a>(
     tags: &'a HashMap<String, String>,
     option1: &str,
     option2: &str,
@@ -109,7 +109,7 @@ pub fn building(
                 RoofShape::Flat // todo: gabled and geographic dependend
             }
         },
-        None => RoofShape::None,
+        None => RoofShape::Flat,
     };
 
     // ** Colors and Materials **
@@ -119,7 +119,7 @@ pub fn building(
     );
     let roof_color = parse_color(tags.get("roof:colour"), DEFAULT_ROOF_COLOR);
 
-    println!("Part id: {} roof: {:?}", id, roof_shape);
+    println!("fn building: Part id: {} roof: {:?}", id, roof_shape);
 
     let default_roof_heigt = match roof_shape {
         RoofShape::Flat => 0.0,
@@ -142,6 +142,9 @@ pub fn building(
     let levels = parse_height(tags_get2(tags, "building:levels", "building:levels"));
     if building_height == 0. && levels > 0. {
         building_height = levels * 3.0;
+    }
+    if building_height == 0. {
+        building_height = DEFAULT_WALL_HEIGHT;
     }
     let wall_height = building_height - roof_height;
 
@@ -200,7 +203,7 @@ pub fn building(
     let building_part = BuildingPart {
         _id: id,
         _part: true, // ??? not only parts!
-        footprint,
+        footprint: footprint.clone(),
         //center,
         // _bounding_box: bounding_box,
         bounding_box_rotated,

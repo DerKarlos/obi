@@ -6,7 +6,7 @@ use std::collections::HashMap;
 //
 
 use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, OsmNode};
-use crate::osm2layers::building;
+use crate::osm2layers::{building, tags_get2};
 use crate::shape::Shape;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,13 +177,7 @@ pub fn scan_osm_json(
                 &mut ways_map,
                 show_only,
             ),
-            "relation" => relation(
-                element,
-                &mut building_parts,
-                &mut nodes_map,
-                &mut ways_map,
-                show_only,
-            ),
+            "relation" => relation(element, &mut building_parts, &mut ways_map, show_only),
             _ => println!(
                 "Error: Unknown element type: {}  id: {}",
                 element.element_type, element.id
@@ -211,19 +205,41 @@ fn way(
     element: JosnElement,
     building_parts: &mut Vec<BuildingPart>,
     nodes_map: &mut HashMap<u64, OsmNode>,
-    ways_map: &mut HashMap<u64, JosnElement>,
+    ways_map: &mut HashMap<u64, Shape>,
     show_only: u64,
 ) {
-    // println!("element = {:?}", element);
+    // Validate way-nodes
 
-    if element.tags.is_none() {
-        // println!( "way without tags! ID: {} Relation(-Outer) or Multipolligon?",element.id);
-        println!("way without tags! ID: {}", element.id);
-        ways_map.insert(element.id, element);
+    let nodes = &mut element.nodes.unwrap();
+
+    // Only closed ways (yet)
+    if nodes.first().unwrap() != nodes.last().unwrap() {
+        //println!("Not a closed way id: {}", element.id);
         return;
     }
 
+    if nodes.len() < 3 {
+        println!("Closed way with < 3 corners! id: {}", &element.id);
+        return;
+    } else {
+        nodes.pop();
+    }
+
+    // println!("element = {:?}", element);
+
+    let mut footprint = Shape::new();
+    for node_id in nodes.iter() {
+        let node = nodes_map.get(node_id).unwrap();
+        footprint.push(node.position);
+    } // nodes
+    footprint.close();
+    ways_map.insert(element.id, footprint.clone());
+
     if show_only > 0 && element.id != show_only {
+        return;
+    }
+
+    if element.tags.is_none() {
         return;
     }
 
@@ -232,50 +248,27 @@ fn way(
     let part = tags.get("building:part").unwrap_or(string_no);
     let id = element.id;
 
-    // Validate way-nodes
-    let nodes = &mut element.nodes.unwrap();
-    //println!("nodes: {:?}", nodes);
-    if nodes.first().unwrap() != nodes.last().unwrap() {
-        //println!("Not a closed way id: {}", element.id);
-        return;
-    }
-    if nodes.len() < 3 {
-        println!("Closed way with < 3 corners! id: {}", &element.id);
-        return;
-    } else {
-        nodes.pop();
-    }
-
-    let mut footprint = Shape::new();
-    for node_id in nodes.iter() {
-        let node = nodes_map.get(node_id).unwrap();
-        footprint.push(node.position);
-    } // nodes
-    footprint.close();
-
     // ??? not only parts!    || show_only < 0
-    if part != NO {
+    if part != NO || show_only > 0 {
         building(footprint, id, tags, building_parts);
     }
 }
 
 fn relation(
     element: JosnElement,
-    mut building_parts: &mut Vec<BuildingPart>,
-    mut nodes_map: &mut HashMap<u64, OsmNode>,
-    mut ways_map: &mut HashMap<u64, JosnElement>,
+    building_parts: &mut Vec<BuildingPart>,
+    mut ways_map: &mut HashMap<u64, Shape>,
     show_only: u64,
 ) {
     // https://api.openstreetmap.org/api/0.6/relation/8765346/full.json
+    //println!("relation, id: {:?} {}", element.id, show_only);
 
-    println!("rel id: {:?} =?= {}", element.id, show_only);
-
-    if show_only > 0 && element.id != 9235275 {
+    if show_only > 0 && element.id != show_only {
         // show_only
         return;
     }
 
-    //println!("rel: {:?}", element);
+    println!("Relation, id: {:?}", element.id);
 
     if element.members.is_none() {
         println!("Relation without members! id: {:?}", element.id);
@@ -284,19 +277,21 @@ fn relation(
 
     let members = element.members.unwrap();
 
-    /*
-    rel; JosnElement {
-        id: 8765346, element_type: "relation", lat: None, lon: None, nodes: None,
-        members: Some([Member { element_type: "way", element_ref: 3713548, role: "outer" }, Member { element_type: "way", element_ref: 629776387, role: "inner" }]),
-        tags: Some({"type": "multipolygon", "lit": "yes", "foot": "yes", "surface": "paving_stones", "highway": "pedestrian"}) }
-
-    mem; [
-        Member { element_type: "way", element_ref: 3713548, role: "outer" },
-        Member { element_type: "way", element_ref: 629776387, role: "inner" }
-    ]
-    */
-
     let tags = &element.tags.unwrap();
+    let relation_type = tags.get("type").unwrap();
+    if relation_type != "multipolygon" {
+        //println!("Unprocessed relation type: {relation_type}");
+        return;
+    }
+
+    //println!("rel tags: {:?}", tags);
+    let part_option = tags_get2(tags, "building:part", "building");
+    if part_option.is_none() && show_only == 0 {
+        //println!("Unprocessed relation non-part tag {}", element.id);
+        return;
+    }
+
+    let mut footprint = Shape::new();
 
     for member in members {
         //println!("mem: {:?}", &member);
@@ -304,47 +299,34 @@ fn relation(
             return;
         }
         match member.role.as_str() {
-            "outer" => outer(
-                &mut building_parts,
-                &mut nodes_map,
-                &mut ways_map,
-                member.element_ref,
-                &tags,
-            ),
-            "inner" => inner(),
+            "outer" => {
+                let outer_ref = member.element_ref;
+                let option = ways_map.get(&outer_ref);
+                if option.is_none() {
+                    println!("outer none, id/ref: {}", outer_ref);
+                    return;
+                }
+                footprint = ways_map.get(&outer_ref).unwrap().clone();
+            }
+            "inner" => {
+                inner(&mut ways_map, member.element_ref, &mut footprint);
+            }
             _ => (),
         }
     }
+
+    let id = element.id;
+    building(footprint, id, tags, building_parts);
 }
 
-fn outer(
-    building_parts: &mut Vec<BuildingPart>,
-    nodes_map: &mut HashMap<u64, OsmNode>,
-    ways_map: &mut HashMap<u64, JosnElement>,
-    elements_ref: u64,
-    tags: &HashMap<String, String>,
-) {
+fn inner(ways_map: &mut HashMap<u64, Shape>, elements_ref: u64, footprint: &mut Shape) {
     //println!("elements_ref: {:?}", &elements_ref);
     let option = ways_map.get(&elements_ref);
     if option.is_none() {
-        // println!("none");
+        println!("inner none, id/ref: {}", elements_ref);
         return;
     }
-    let outer_way = ways_map.get(&elements_ref).unwrap().clone();
+    let hole = ways_map.get(&elements_ref).unwrap().clone();
+    footprint.push_hole(hole);
     //println!("outer_way; {:?}", &outer_way);
-    //way(outer_way, building_parts, nodes_map, ways_map, 0);
-
-    let id = outer_way.id;
-    //let tags = outer_way.tags.as_ref().unwrap();
-    //let tags = &HashMap::new(); //<String, String>
-    let mut footprint = Shape::new();
-    let nodes = outer_way.nodes.unwrap();
-    for node_id in nodes.iter() {
-        let node = nodes_map.get(node_id).unwrap();
-        footprint.push(node.position);
-    } // nodes
-    footprint.close();
-
-    building(footprint, id, tags, building_parts);
 }
-fn inner() {}
