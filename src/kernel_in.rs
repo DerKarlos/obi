@@ -1,12 +1,15 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+use std::collections::HashMap;
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
 
-use crate::shape::Shape;
 //use std::fmt::Display;
 use std::fmt;
 use std::ops::{Add, Sub};
+
+use crate::input_osm_json::Member;
+use crate::shape::Shape;
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
@@ -109,6 +112,16 @@ pub struct OsmNode {
     pub position: GroundPosition,
 }
 
+pub struct OsmWay {
+    pub footprint: Shape,
+    pub tags: Option<HashMap<String, String>>,
+}
+
+pub struct OsmRelation {
+    pub members: Vec<Member>,
+    pub tags: Option<HashMap<String, String>>,
+}
+
 // Internal type of the 3d-renderer. It's just luck, it is the same as needed for the gpu-renderer Bevy ;-)
 pub type RenderColor = [f32; 4];
 
@@ -173,24 +186,6 @@ impl BoundingBox {
         }
     }
 
-    pub fn _from_geo_range(geographic_coordinates: &GeographicCoordinates, range: f64) -> Self {
-        let range = range / LAT_FAKT; // First test with 15 meter
-        BoundingBox {
-            north: (geographic_coordinates.latitude + range) as f32,
-            south: (geographic_coordinates.latitude - range) as f32,
-            west: (geographic_coordinates.longitude - range) as f32,
-            east: (geographic_coordinates.longitude + range) as f32,
-        }
-    }
-
-    //    pub fn to_string(&self) -> String {
-    //        format!("{},{},{},{}", self.west, self.south, self.east, self.north)
-    //    }
-
-    // let left_top = to_position(&CoordinatesAtGroundPositionNull, left, top);
-    // println!("range: left_top={} url={}", left_top, url);
-    // GET   /api/0.6/map?bbox=left,bottom,right,top
-
     pub fn include(&mut self, position: &GroundPosition) {
         self.north = self.north.max(position.north);
         self.south = self.south.min(position.north);
@@ -198,11 +193,7 @@ impl BoundingBox {
         self.west = self.west.min(position.east);
     }
 
-    pub fn _east_larger_than_nord(&self) -> bool {
-        self.east - self.west > self.north - self.south
-    }
-
-    pub fn _shift(&mut self, shift: f32) {
+    pub fn shift(&mut self, shift: f32) {
         self.north += shift;
         self.south += shift;
         self.east += shift;

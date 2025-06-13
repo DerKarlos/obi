@@ -141,7 +141,7 @@ impl OsmMesh {
             .sub(building_part.footprint.center)
             .rotate(-building_part.roof_angle) // skillion
             .east;
-        println!("roof_angle: {}", building_part.roof_angle.to_degrees());
+        // println!("roof_angle: {}", building_part.roof_angle.to_degrees());
         let inclination = building_part.roof_height
             / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
@@ -218,7 +218,6 @@ impl OsmMesh {
             roof_gpu_positions.push(position.to_gpu_position(height))
         }
 
-        // let mut roof_gpu_positions = footprint.get_gpu_positions(height);
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
         // println!("triangles: {:?}", &indices);
@@ -350,7 +349,7 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let soft_edges = footprint.positions.len() > 0; //ttt 8;
+        let soft_edges = footprint.positions.len() > 8;
         let mut gpu_positions: Vec<Vec<RenderPosition>> = Vec::new();
         for (ring_index, ring) in silhouette.ring_edges.iter().enumerate() {
             gpu_positions.push(Vec::new());

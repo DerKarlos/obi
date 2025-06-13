@@ -14,11 +14,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "\n*********  Hi, I'm  O B I, or OSM-BI, the OSM Buiding Inspector (Json/LIB) *********\n"
     );
 
+    // Westminster 367642719, Abbey: 364313092
+    // Passau Dom: 24771505
     // Reifenberg: 121486088
-    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
     // Bau 46:                                 Relation: 2819147 with Outer: 45590896 and  Inner: 210046607
+    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
+    //   Dome: 664613340
 
-    let mut id = 369161987;
+    let mut id = 367642719;
     let show_only: u64 = 0;
 
     let args: Vec<String> = env::args().collect();

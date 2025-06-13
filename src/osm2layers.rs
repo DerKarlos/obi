@@ -5,8 +5,9 @@
 use csscolorparser::parse;
 use std::collections::HashMap;
 
-use crate::kernel_in::RenderColor;
-use crate::kernel_in::{BuildingPart, RoofShape};
+use crate::GeographicCoordinates;
+use crate::input_osm_json::Member;
+use crate::kernel_in::{BuildingPart, OsmNode, OsmRelation, OsmWay, RenderColor, RoofShape};
 use crate::shape::Shape;
 
 // This constands may come from a (3D-)render shema
@@ -15,6 +16,8 @@ pub static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; //  "red"  = 
 pub static DEFAULT_WALL_HEIGHT: f32 = 6.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
+
+static NO: &str = "no";
 
 pub fn circle_limit(angle: f32) -> f32 {
     if angle > f32::to_radians(180.) {
@@ -90,11 +93,11 @@ pub fn tags_get2<'a>(
 }
 
 pub fn building(
-    mut footprint: Shape,
+    footprint: &mut Shape,
     id: u64,
     tags: &HashMap<String, String>,
-    building_parts: &mut Vec<BuildingPart>,
-) {
+    //building_parts: &Vec<BuildingPart>,
+) -> BuildingPart {
     // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
     let roof_shape: RoofShape = match tags.get("roof:shape") {
         Some(roof_shape) => match roof_shape.as_str() {
@@ -205,7 +208,7 @@ pub fn building(
         _part: true, // ??? not only parts!
         footprint: footprint.clone(),
         //center,
-        // _bounding_box: bounding_box,
+        //bounding_box: bounding_box,
         bounding_box_rotated,
         wall_height,
         min_height,
@@ -218,5 +221,194 @@ pub fn building(
 
     // println!("building_part: {:?}", building_part);
 
-    building_parts.push(building_part);
+    // building_parts.push(building_part);
+    building_part
+}
+
+//////////////////////////////// Osm2Layer //////////////////////////////
+
+pub struct Osm2Layer {
+    gpu_ground_null_coordinates: GeographicCoordinates,
+    nodes_map: HashMap<u64, OsmNode>,
+    ways_map: HashMap<u64, OsmWay>,
+    relations_map: HashMap<u64, OsmRelation>,
+    pub building_parts: Vec<BuildingPart>,
+    show_only: u64,
+}
+
+impl Osm2Layer {
+    pub fn create(gpu_ground_null_coordinates: GeographicCoordinates, show_only: u64) -> Self {
+        Self {
+            gpu_ground_null_coordinates,
+            nodes_map: HashMap::new(),
+            ways_map: HashMap::new(),
+            relations_map: HashMap::new(),
+            building_parts: Vec::new(),
+            show_only: show_only,
+        }
+    }
+    pub fn add_node(
+        &mut self,
+        id: u64,
+        latitude: f64,
+        longitude: f64,
+        _tags: Option<HashMap<String, String>>,
+    ) {
+        self.nodes_map.insert(
+            id,
+            OsmNode {
+                position: self
+                    .gpu_ground_null_coordinates
+                    .coordinates_to_position(latitude, longitude),
+            },
+        );
+    }
+
+    pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<HashMap<String, String>>) {
+        // Only closed ways (yet)
+        if nodes.first().unwrap() != nodes.last().unwrap() {
+            //println!("Not a closed way id: {}", element.id);
+            return;
+        }
+        if nodes.len() < 3 {
+            println!("Closed way with < 3 corners! id: {}", id);
+            return;
+        } else {
+            nodes.pop();
+        }
+
+        let mut footprint = Shape::new();
+        for node_id in nodes {
+            let position = self.nodes_map.get(&node_id).unwrap().position;
+            footprint.push(position);
+        }
+        footprint.close();
+        // println!("add_way insert id: {} ", id);
+        self.ways_map.insert(id, OsmWay { footprint, tags });
+    }
+
+    pub fn add_relation(
+        &mut self,
+        id: u64,
+        members: Vec<Member>,
+        tags: Option<HashMap<String, String>>,
+    ) {
+        self.relations_map.insert(id, OsmRelation { members, tags });
+    }
+
+    pub fn scan(&mut self) {
+        println!("scan: way len = {:?}", self.ways_map.len());
+        for (id, osm_way) in self.ways_map.iter_mut() {
+            // todo: Fight Rust and make this {} a fn
+
+            //println!("scan: way id = {:?}", id);
+            if self.show_only > 0 && *id != self.show_only {
+                continue;
+            }
+
+            if osm_way.tags.is_none() {
+                continue;
+            }
+
+            let string_no = &NO.to_string();
+            let tags = osm_way.tags.as_ref().unwrap();
+            let part = tags.get("building:part").unwrap_or(string_no);
+
+            // ??? not only parts!    || show_only < 0
+            if part != NO || self.show_only > 0 {
+                self.building_parts
+                    .push(building(&mut osm_way.footprint, *id, tags));
+            }
+        }
+
+        // RELATION
+        println!("scan: rel len = {:?}", self.relations_map.len());
+        for (id, osm_relation) in self.relations_map.iter() {
+            // println!("scan: rel. id = {:?}", id);
+            if self.show_only > 0 && *id != self.show_only {
+                continue;
+            }
+
+            if osm_relation.tags.is_none() {
+                continue;
+            }
+
+            let string_no = &NO.to_string();
+            let tags = osm_relation.tags.as_ref().unwrap();
+            let part = tags.get("building:part").unwrap_or(string_no);
+            if part == NO && self.show_only > 0 {
+                continue;
+            }
+
+            /******* self.relation(*id, osm_relation); //  ****/
+
+            if self.show_only > 0 && *id != self.show_only {
+                // show_only
+                continue;
+            }
+
+            // println!("Relation, id: {:?}", id);
+
+            if osm_relation.members.len() == 0 {
+                println!("Relation without members! id: {:?}", id);
+                continue;
+            }
+
+            let members = osm_relation.members.clone();
+
+            let tags = &osm_relation.tags.as_ref().unwrap();
+            let relation_type = tags.get("type").unwrap();
+            if relation_type != "multipolygon" {
+                //println!("Unprocessed relation type: {relation_type}");
+                continue;
+            }
+
+            //println!("rel tags: {:?}", tags);
+            let part_option = tags_get2(tags, "building:part", "building");
+            if part_option.is_none() && self.show_only == 0 {
+                //println!("Unprocessed relation non-part tag {}", element.id);
+                continue;
+            }
+
+            let mut footprint = Shape::new();
+
+            for member in members {
+                //println!("mem: {:?}", &member);
+                if member.relation_type != "way" {
+                    continue;
+                }
+                match member.role.as_str() {
+                    "outer" => {
+                        let outer_ref = member.reference;
+                        let option = self.ways_map.get(&outer_ref);
+                        if option.is_none() {
+                            println!("outer none, id/ref: {}", outer_ref);
+                            continue;
+                        }
+                        // Todo: cloning footprint twice can't be the solution
+                        footprint = self.ways_map.get(&outer_ref).unwrap().footprint.clone();
+                    }
+                    "inner" => {
+                        self.inner(member.reference, &mut footprint);
+                    }
+                    _ => (),
+                }
+            }
+
+            self.building_parts
+                .push(building(&mut footprint, *id, tags));
+        }
+    }
+
+    fn inner(&self, elements_ref: u64, footprint: &mut Shape) {
+        //println!("elements_ref: {:?}", &elements_ref);
+        let option = self.ways_map.get(&elements_ref);
+        if option.is_none() {
+            println!("inner none, id/ref: {}", elements_ref);
+            return;
+        }
+        let hole = self.ways_map.get(&elements_ref).unwrap().footprint.clone();
+        footprint.push_hole(hole);
+        //println!("outer_way; {:?}", &outer_way);
+    }
 }

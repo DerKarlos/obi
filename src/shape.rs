@@ -89,7 +89,7 @@ impl Shape {
         //                                      8   -                       -4 = 12 / 2 = 6
         let corretion_shift = new_rotated_center_east - bounding_box_rotated.east;
         //                         6     -            8   = -2
-        bounding_box_rotated._shift(corretion_shift);
+        bounding_box_rotated.shift(corretion_shift);
         self.shift = corretion_shift;
         for position in &mut self.rotated_positions {
             //3 println!(
@@ -124,13 +124,7 @@ impl Shape {
             }
         }
 
-        // println!("triangulate vertices: {:?}", &vertices);
         earcutr::earcut(&vertices, &holes_starts, 2).unwrap()
-        // type VerticesIndex = usize;
-        //      hole_indices: &[VerticesIndex],
-        //println!("{:?}", indices);
-
-        //indices
     }
 
     /// Splits the shape at x=0, returning two new shapes:
