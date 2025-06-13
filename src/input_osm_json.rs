@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 //
 //
+//
 
 use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition};
 use crate::osm2layers::Osm2Layer;
@@ -16,7 +17,8 @@ static _NO: &str = "no";
 
 #[derive(Debug)]
 pub struct InputJson {
-    api_url: String, // just a dummy?
+    api_url: String,
+    //
 }
 
 impl Default for InputJson {
@@ -162,10 +164,6 @@ pub fn scan_osm_json(
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
 ) -> Vec<BuildingPart> {
-    //let mut : Vec<BuildingPart> = Vec::new();
-    //let mut nodes_map = HashMap::new();
-    //let mut ways_map = HashMap::new();
-
     let mut osm2layer = Osm2Layer::create(*gpu_ground_null_coordinates, show_only);
     for element in json_bbox_data.elements {
         // println!("id: {}  type: {}", element.id, element.element_type);
@@ -188,31 +186,6 @@ pub fn scan_osm_json(
     }
 
     osm2layer.scan();
-
-    /*********** old code ************ /
-
-    for element in json_bbox_data.elements {
-        // println!("element.element_type: {}", element.element_type);
-        match element.element_type.as_str() {
-            "node" => node(element, gpu_ground_null_coordinates, &mut nodes_map),
-            "way" => way(
-                element,
-                &mut building_parts,
-                &mut nodes_map,
-                &mut ways_map,
-                show_only,
-            ),
-            "relation" => relation(element, &mut building_parts, &mut ways_map, show_only),
-            _ => println!(
-                "Error: Unknown element type: {}  id: {}",
-                element.element_type, element.id
-            ),
-        }
-    }
-
-    building_parts
-
-    / *********** old code ************/
 
     osm2layer.building_parts
 }

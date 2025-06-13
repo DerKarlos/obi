@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
     //   Dome: 664613340
 
-    let mut id = 367642719;
+    let mut id = 369161987;
     let show_only: u64 = 0;
 
     let args: Vec<String> = env::args().collect();
@@ -30,7 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         id = args[1].parse().unwrap();
     }
 
-    let api = InputJson::new(); // InputJson or InputLib
+    let api = InputLib::new(); // InputJson or InputLib
     let bounding_box = api.geo_bbox_of_way(id).await?;
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
