@@ -2,6 +2,7 @@
 * Flickering and no roof in OSMgo: Way 1031078075
 * Some GPU-Warings from Bevy in the JS console
 * Check WebGL and WebGPU: https://bevyengine.org/examples/3d-rendering/3d-scene/
+* -1 Tagging: https://www.openstreetmap.org/node/12231809761 (see mails/messages, -1 is 0-1 layers for post codes. Building in Building?)
 
 * Is the crate https://crates.io/crates/osm-api able to build wasm and deliver the needed data? If yes, a new input "modul" is needed. A good way to fine the division of the "OSM-Toolbox"
 

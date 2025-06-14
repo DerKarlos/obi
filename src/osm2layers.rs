@@ -299,116 +299,129 @@ impl Osm2Layer {
     pub fn scan(&mut self) {
         println!("scan: way len = {:?}", self.ways_map.len());
         for (id, osm_way) in self.ways_map.iter_mut() {
-            // todo: Fight Rust and make this {} a fn
-
-            //println!("scan: way id = {:?}", id);
-            if self.show_only > 0 && *id != self.show_only {
-                continue;
-            }
-
-            if osm_way.tags.is_none() {
-                continue;
-            }
-
-            let string_no = &NO.to_string();
-            let tags = osm_way.tags.as_ref().unwrap();
-            let part = tags.get("building:part").unwrap_or(string_no);
-
-            // ??? not only parts!    || show_only < 0
-            if part != NO || self.show_only > 0 {
-                self.building_parts
-                    .push(building(&mut osm_way.footprint, *id, tags));
-            }
+            way(*id, osm_way, self.show_only, &mut self.building_parts);
         }
 
-        // RELATION
         println!("scan: rel len = {:?}", self.relations_map.len());
         for (id, osm_relation) in self.relations_map.iter() {
-            // println!("scan: rel. id = {:?}", id);
-            if self.show_only > 0 && *id != self.show_only {
-                continue;
-            }
-
-            if osm_relation.tags.is_none() {
-                continue;
-            }
-
-            let string_no = &NO.to_string();
-            let tags = osm_relation.tags.as_ref().unwrap();
-            let part = tags.get("building:part").unwrap_or(string_no);
-            if part == NO && self.show_only > 0 {
-                continue;
-            }
-
-            /******* self.relation(*id, osm_relation); //  ****/
-
-            if self.show_only > 0 && *id != self.show_only {
-                // show_only
-                continue;
-            }
-
-            // println!("Relation, id: {:?}", id);
-
-            if osm_relation.members.len() == 0 {
-                println!("Relation without members! id: {:?}", id);
-                continue;
-            }
-
-            let members = osm_relation.members.clone();
-
-            let tags = &osm_relation.tags.as_ref().unwrap();
-            let relation_type = tags.get("type").unwrap();
-            if relation_type != "multipolygon" {
-                //println!("Unprocessed relation type: {relation_type}");
-                continue;
-            }
-
-            //println!("rel tags: {:?}", tags);
-            let part_option = tags_get2(tags, "building:part", "building");
-            if part_option.is_none() && self.show_only == 0 {
-                //println!("Unprocessed relation non-part tag {}", element.id);
-                continue;
-            }
-
-            let mut footprint = Shape::new();
-
-            for member in members {
-                //println!("mem: {:?}", &member);
-                if member.relation_type != "way" {
-                    continue;
-                }
-                match member.role.as_str() {
-                    "outer" => {
-                        let outer_ref = member.reference;
-                        let option = self.ways_map.get(&outer_ref);
-                        if option.is_none() {
-                            println!("outer none, id/ref: {}", outer_ref);
-                            continue;
-                        }
-                        // Todo: cloning footprint twice can't be the solution
-                        footprint = self.ways_map.get(&outer_ref).unwrap().footprint.clone();
-                    }
-                    "inner" => {
-                        self.inner(member.reference, &mut footprint);
-                    }
-                    _ => (),
-                }
-            }
-
-            self.building_parts
-                .push(building(&mut footprint, *id, tags));
+            relation(
+                *id,
+                &osm_relation,
+                &self.ways_map,
+                self.show_only,
+                &mut self.building_parts,
+            );
         }
     }
+}
 
-    fn inner(&self, elements_ref: u64, footprint: &mut Shape) {
-        //println!("elements_ref: {:?}", &elements_ref);
-        let option = self.ways_map.get(&elements_ref);
-        if option.is_none() {
-            println!("inner none, id/ref: {}", elements_ref);
+// todo? Is it possible to make this fn as then-fn of Osm2Layer
+fn way(id: u64, osm_way: &mut OsmWay, show_only: u64, building_parts: &mut Vec<BuildingPart>) {
+    // todo: Fight Rust and make this {} a fn
+
+    //println!("scan: way id = {:?}", id);
+    if show_only > 0 && id != show_only {
+        return;
+    }
+
+    if osm_way.tags.is_none() {
+        return;
+    }
+
+    let string_no = &NO.to_string();
+    let tags = osm_way.tags.as_ref().unwrap();
+    let part = tags.get("building:part").unwrap_or(string_no);
+
+    // ??? not only parts!    || show_only < 0
+    if part != NO || show_only > 0 {
+        building_parts.push(building(&mut osm_way.footprint, id, tags));
+    }
+}
+fn relation(
+    id: u64,
+    osm_relation: &OsmRelation,
+    ways_map: &HashMap<u64, OsmWay>,
+    show_only: u64,
+    building_parts: &mut Vec<BuildingPart>,
+) {
+    // println!("scan: rel. id = {:?}", id);
+    if show_only > 0 && id != show_only {
+        return;
+    }
+
+    if osm_relation.tags.is_none() {
+        return;
+    }
+
+    let string_no = &NO.to_string();
+    let tags = osm_relation.tags.as_ref().unwrap();
+    let part = tags.get("building:part").unwrap_or(string_no);
+    if part == NO && show_only > 0 {
+        return;
+    }
+
+    /******* self.relation(*id, osm_relation); //  ****/
+
+    // println!("Relation, id: {:?}", id);
+
+    if osm_relation.members.len() == 0 {
+        println!("Relation without members! id: {:?}", id);
+        return;
+    }
+
+    let members = osm_relation.members.clone();
+
+    let tags = &osm_relation.tags.as_ref().unwrap();
+    let relation_type = tags.get("type").unwrap();
+    if relation_type != "multipolygon" {
+        //println!("Unprocessed relation type: {relation_type}");
+        return;
+    }
+
+    //println!("rel tags: {:?}", tags);
+    let part_option = tags_get2(tags, "building:part", "building");
+    if part_option.is_none() && show_only == 0 {
+        //println!("Unprocessed relation non-part tag {}", element.id);
+        return;
+    }
+
+    let mut footprint = Shape::new();
+
+    for member in members {
+        //println!("mem: {:?}", &member);
+        if member.relation_type != "way" {
             return;
         }
-        let hole = self.ways_map.get(&elements_ref).unwrap().footprint.clone();
-        footprint.push_hole(hole);
-        //println!("outer_way; {:?}", &outer_way);
+        match member.role.as_str() {
+            "outer" => {
+                let outer_ref = member.reference;
+                let option = ways_map.get(&outer_ref);
+                if option.is_none() {
+                    println!("outer none, id/ref: {}", outer_ref);
+                    return;
+                }
+                // Todo: cloning footprint twice can't be the solution
+                footprint = ways_map.get(&outer_ref).unwrap().footprint.clone();
+            }
+            "inner" => {
+                inner(member.reference, ways_map, &mut footprint);
+            }
+            _ => (),
+        }
     }
+
+    // self.
+    building_parts.push(building(&mut footprint, id, tags));
+}
+
+fn inner(elements_ref: u64, ways_map: &HashMap<u64, OsmWay>, footprint: &mut Shape) {
+    //println!("elements_ref: {:?}", &elements_ref);
+    let option = ways_map.get(&elements_ref);
+    if option.is_none() {
+        println!("inner none, id/ref: {}", elements_ref);
+        return;
+    }
+    let hole = ways_map.get(&elements_ref).unwrap().footprint.clone();
+    footprint.push_hole(hole);
+    //println!("outer_way; {:?}", &outer_way);
 }
