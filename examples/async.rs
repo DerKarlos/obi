@@ -1,3 +1,4 @@
+//???use openstreetmap_api::types::BoundingBox;
 //// my crate
 use osm_tb::*;
 
@@ -20,18 +21,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Bau 46:                                 Relation: 2819147 with Outer: 45590896 and  Inner: 210046607
     // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
     //   Dome: 664613340
+    // NY: 798166454
 
-    let mut id = 369161987;
+    let mut id = 798166454;
     let show_only: u64 = 0;
 
+    let api = InputLib::new(); // InputJson or InputLib
+
     let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
+    if args.len() == 2 {
         dbg!(&args);
         id = args[1].parse().unwrap();
     }
 
-    let api = InputLib::new(); // InputJson or InputLib
-    let bounding_box = api.geo_bbox_of_way(id).await?;
+    let bounding_box = if args.len() == 5 {
+        dbg!(&args);
+        osm_tb::BoundingBox {
+            west: args[1].parse().unwrap(),
+            east: args[2].parse().unwrap(),
+            north: args[3].parse().unwrap(),
+            south: args[4].parse().unwrap(),
+        }
+    } else {
+        let bounding_box = api.geo_bbox_of_way(id).await?;
+        bounding_box
+    };
+    println!("bounding_box: {:?}", bounding_box);
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
     let building_parts = api
