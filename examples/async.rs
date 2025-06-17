@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut id = 798166454;
     let show_only: u64 = 0;
 
-    let api = InputLib::new(); // InputJson or InputLib
+    let api = InputJson::new(); // InputJson or InputLib
 
     let args: Vec<String> = env::args().collect();
     if args.len() == 2 {

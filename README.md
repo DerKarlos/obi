@@ -1,16 +1,30 @@
 # "OBI" or "OSM-BI" - OSM Building Inspector
 
-This tool displays a single OSM building rendered in 3D, to inspect whether the edited OSM tags show the expected view. It was inspired by [Beakerboy's OSMBuilding](https://github.com/Beakerboy/OSMBuilding)) and uses some know-how of [www.OSMgo.org](https://www.osmgo.org). It may get editor features and more some day.
+This tool displays a single OSM building rendered in 3D, to inspect whether the edited OSM tags show the expected view. It was inspired by [Beakerboy's OSMBuilding](https://github.com/Beakerboy/OSMBuilding) and uses some know-how of [www.OSMgo.org](https://www.osmgo.org). It may get editor features and more some day.
 
-Actually it only renders building-parts and some of the roof:types. It does not yet support buildings with holes, polygons or subtraction of parts from the building footprint. It shows colors, but no material types.
+Actually it only renders building-parts and some of the roof:types. Newly also buildings with holes/polygons. But no subtraction of parts from the building footprint yet. It shows colors, but no material types.
 
-The control cursor keys to rotate and R for reset, more will come.
+The control cursor keys to rotate/zoom and R for reset, more will come.
 
 The building must be given as a OSM way ID, either by URL or native:
 * http://www.OSMgo.org/bevy.html?way=24771505
 * cargo run --example bevy_wasm -- --way 139890029
 
-In this repository there is a lib to read OSM data, to sort the tagging to needed values, calculate all 3D triangles and render it by an engine (Bevy only yet). There are examples to use the OSM JSON API, a ([crate](https://github.com/topics/openstreetmap-api)) to use the OSM XML API for native code only. And "bevy_wasm" to build a web-app.
+To get updates for this project, you may follow [this Fediverse account](https://en.osm.town/@rust_osm_tb)
+
+In this repository there is a lib to
+- read OSM data,
+- sort the tagging into "layers" with the needed values,
+- calculate all 3D triangles
+- and render them by an engine (Bevy and Rend3 at the moment).
+
+There are two ways to read the OSM API. See the rust example "async" how to use input-handler alternatively, by just changing the name of the handler:
+- A rust source to directly read the API as Json, or
+- A code using the crate ([openstreetmap-api](https://github.com/topics/openstreetmap-api)) which uses the XML API.
+
+The Json handler supports async and blocked acces to the OSM API. But there seems no way to build to WASM for a Web-App, neither with blocked nor with async. Fortunately there is a Rust example for Bevy, using the Bevy asset loader. Magically this runs in WASM and si the web-app, descripted abowe.
+
+The exampe for Rend3 is still in development. There is still hope, it will also run on the web. May be, it will take les download time, as I hope.
 
 ### Why Rust?
 Why not? Yes, it is hard to learn firstly. I considered to use Zig but can't go back to manual memory management after TypeScript and Rust. If someone will take response for Zig usage, I would joins this project to. Rust because it builds to any target: Desktop, mobile, Web. And I like the habit of Rust to write creates/libs to be reused. There are quite some crates for OSM. And projects, too:
@@ -22,7 +36,7 @@ I wanted to use the new Zed IDE instead of VS-Code, because it is not from Micro
 I wanted to use CodeBerg (or GitLab or SourceHud) as Repository website to get away from MicroSoft and to Europe may be. But I could not get it running yet, so it is still on GitHub.
 
 ### Why Bevy?
-Less complicated 3D render engines may be added later too. And all of them use WGPU anyway. Just WGPU would do it? If you like, join this project and try it. The 3D-rendering-part of this project may become a separate crate or build features may select different renderer.
+Less complicated 3D render engines are added too. And all of them use WGPU anyway. Just WGPU would do it? If you like, join this project and try it. The 3D-rendering-part of this project may become a separate crate or build features may select different renderer.
 Just in case, this Building viewer/editor may become more, Bevy would allow for gamification.
 
 ### Geo- and GPU Positions concept
