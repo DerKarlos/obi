@@ -35,6 +35,13 @@
   },
 
   {
+    "label": "example rend3",
+    "use_new_terminal": false,
+    "command": "cargo run --example rend3",
+    "tags": ["example"]
+  },
+
+  {
     "label": "example bevy_wasm wasm",
     "use_new_terminal": false,
     "command": "sh bevy_wasm.sh",

@@ -19,7 +19,7 @@ The [WaterMap]( https://en.osm.town/@amapanda),
 
 ### Zed and Codeberg
 I wanted to use the new Zed IDE instead of VS-Code, because it is not from MicroSoft, written in Rust, it offers AI functions built in. Works great so far, but there is no Debugging yet.
-I wanted to use CodeBerg (or GitLab or xxx) as Repository website to get away from MicroSoft and to Europe may be. But I could not get it running yet, so it is still on GitHub.
+I wanted to use CodeBerg (or GitLab or SourceHud) as Repository website to get away from MicroSoft and to Europe may be. But I could not get it running yet, so it is still on GitHub.
 
 ### Why Bevy?
 Less complicated 3D render engines may be added later too. And all of them use WGPU anyway. Just WGPU would do it? If you like, join this project and try it. The 3D-rendering-part of this project may become a separate crate or build features may select different renderer.
