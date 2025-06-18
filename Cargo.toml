@@ -3,16 +3,40 @@ name = "osm_tb"
 version = "0.1.0"
 edition = "2024"
 
+####################
+###### OSM TB ######
+####################
+
 [workspace]
-members = []
+members = ["examples/rend3"]
 
 [lib]
 name = "osm_tb"
 path = "src/lib.rs"
 
+
+[features]
+default = ["bevy", "json"]         ## , "xmllib"
+bevy = ["dep:bevy"]
+rend3 = []
+json = []
+xmllib = ["dep:openstreetmap-api"]
+
+#### In /Users/karlos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/openstreetmap-api-0.3.1/src/lib.rs :
+#### #[derive(Debug, Default, Clone)]
+#### pub enum Credentials {
+####     Basic(String, String), // Username, password
+####     #[default] // karlos
+####     None,
+#### }
+
 [[example]]
 name = "async"
 path = "examples/async.rs"
+
+[[example]]
+name = "rend3"
+path = "examples/rend3.rs"
 
 
 [dev-dependencies]
@@ -21,78 +45,45 @@ thiserror = "2.0"
 [dependencies]
 
 error-chain = "0.12"
-#reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json"] }
 bytes = "1"
 
-# Rend3 as render engine:
-reqwest = { version = "0.12", features = [
-    "blocking",
-    "json",
-] } # reqwest with JSON parsing support
-rend3 = { version = "^0", path = "/Users/karlos/projects/rend3/rend3" }
-rend3-framework = { version = "^0", path = "/Users/karlos/projects/rend3/rend3-framework" }
-rend3-routine = { version = "^0", path = "/Users/karlos/projects/rend3/rend3-routine" }
-glam = "0"
-winit = "0"
-
-#bevy = "0"
-#bevy = { version = "0", default-features = false, features = [] }
 
 ##   TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3
-#bevy = { version = "0", default-features = false, features = [
-#    #"android-game-activity",
-#    #"android_shared_stdcxx",
-#    #"animation",
-#    #"async_executor",
-#    #"bevy_asset",
-#    #"bevy_audio",
-#    #"bevy_color",
-#    #"bevy_core_pipeline",
-#    #"bevy_gilrs",
-#    #"bevy_gizmos",
-#    #"bevy_gltf",
-#    #"bevy_input_focus",
-#    "bevy_log",
-#    #"bevy_mesh_picking_backend",
-#    "bevy_pbr",
-#    #"bevy_picking",
-#    #"bevy_render",
-#    #"bevy_scene",
-#    #"bevy_sprite",
-#    #"bevy_sprite_picking_backend",
-#    #"bevy_state",
-#    #"bevy_text",
-#    "bevy_ui",
-#    "bevy_ui_picking_backend",
-#    #"bevy_window",
-#    "bevy_winit",
-#    #"custom_cursor",
-#    #"default_font",
-#    #"hdr",
-#    #"multi_threaded",
-#    #"png",
-#    #"smaa_luts",
-#    #"std",
-#    #"sysinfo_plugin",
-#    "tonemapping_luts",
-#    #"vorbis",
-#    "webgl2",
-#    #"x11",
-#] }
+bevy = { version = "0", optional = true, default-features = false, features = [
+    "bevy_log",
+    "bevy_pbr",
+    "bevy_ui",
+    "bevy_ui_picking_backend",
+    "bevy_winit",
+    "tonemapping_luts",
+    "webgl2",
+] }
 
-#bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
-#bevy_args = "1"
+bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
+bevy_args = "1"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
-#openstreetmap-api = "0.3" ## openstreetmap-api-rs/example/
+openstreetmap-api = { version = "0.3", optional = true }
+
 csscolorparser = "0.6"
 earcutr = "0.4.3"
 
 
 [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+
+
+#[target.'cfg(target_arch = "wasm32")'.dependencies]
+#js-sys = "0.3"
+#gloo-console = "0.3"
+#web-sys = "0.3.67"
+#wasm-bindgen = "0.2.83"
+#wasm-bindgen-futures = "0.4"
+
+
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 tokio = { version = "1.0", features = [
     # Only features sync,macros,io-util,rt,time are supported on wasm.
@@ -110,7 +101,3 @@ web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
 # [target.'cfg(target_arch = "wasm32")'.dependencies]
 # console_error_panic_hook = "0"
 # wasm-bindgen = "0"
-
-
-## [target.'cfg(target_arch = "wasm32")'.dependencies]
-## bevy = {version = "0.5", default-features = false, features = []}
