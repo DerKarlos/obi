@@ -164,15 +164,15 @@ impl OsmMesh {
             building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west;
         let inclination = building_part.roof_height * 2. / width;
 
-        let height =
-            building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination;
+        // let height =
+        building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination
 
         //3 let rh = building_part.roof_height;
         //3 println!(
         //3     "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
         //3 );
 
-        height
+        //height
     }
 
     fn calc_roof_position_height(
@@ -292,15 +292,16 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
-        ring_edges.push(ExtrudeRing {
-            radius: 1.,
-            height: 0.,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.,
-            height: 1.,
-        });
+        let ring_edges: Vec<ExtrudeRing> = vec![
+            ExtrudeRing {
+                radius: 1.,
+                height: 0.,
+            },
+            ExtrudeRing {
+                radius: 0.,
+                height: 1.,
+            },
+        ];
         let silhouette = Silhouette { ring_edges };
         self.push_extrude(footprint, silhouette, wall_height, roof_height, color);
     }
@@ -404,7 +405,7 @@ impl OsmMesh {
 
     fn push_soft_edges(
         &mut self,
-        gpu_positions: &Vec<Vec<RenderPosition>>,
+        gpu_positions: &[Vec<RenderPosition>], // &Vec<Vec<RenderPosition>>,
         ring_index: usize,
         edge_index: usize,
         ec: usize, // edge count per ring
@@ -421,6 +422,8 @@ impl OsmMesh {
         let index10 = (edge_index + 1) % ec + (ring_index + 0) * ec;
         let index01 = (edge_index + 0) % ec + (ring_index + 1) * ec;
         let index11 = (edge_index + 1) % ec + (ring_index + 1) * ec;
+        // ??? # [ allow(clippy::identity_op)]
+
         //println!(
         //    "10: {index10} {edge_index} {ec} {ring_index} {}",
         //    (edge_index + 1) % ec,
@@ -440,7 +443,7 @@ impl OsmMesh {
 
     fn push_hard_edges(
         &mut self,
-        gpu_positions: &Vec<Vec<RenderPosition>>,
+        gpu_positions: &[Vec<RenderPosition>], //&Vec<Vec<RenderPosition>>,
         ring_index: usize,
         edge_index: usize,
         edges_count: usize,
@@ -462,55 +465,56 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
-        ring_edges.push(ExtrudeRing {
-            radius: 1.00,
-            height: 0.00,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 1.12,
-            height: 0.09,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 1.27,
-            height: 0.15,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 1.36,
-            height: 0.27,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 1.28,
-            height: 0.42,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 1.10,
-            height: 0.51,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.95,
-            height: 0.53,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.62,
-            height: 0.58,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.49,
-            height: 0.61,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.21,
-            height: 0.69,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.10,
-            height: 0.79,
-        });
-        ring_edges.push(ExtrudeRing {
-            radius: 0.00,
-            height: 1.00,
-        });
+        let ring_edges: Vec<ExtrudeRing> = vec![
+            ExtrudeRing {
+                radius: 1.00,
+                height: 0.00,
+            },
+            ExtrudeRing {
+                radius: 1.12,
+                height: 0.09,
+            },
+            ExtrudeRing {
+                radius: 1.27,
+                height: 0.15,
+            },
+            ExtrudeRing {
+                radius: 1.36,
+                height: 0.27,
+            },
+            ExtrudeRing {
+                radius: 1.28,
+                height: 0.42,
+            },
+            ExtrudeRing {
+                radius: 1.10,
+                height: 0.51,
+            },
+            ExtrudeRing {
+                radius: 0.95,
+                height: 0.53,
+            },
+            ExtrudeRing {
+                radius: 0.62,
+                height: 0.58,
+            },
+            ExtrudeRing {
+                radius: 0.49,
+                height: 0.61,
+            },
+            ExtrudeRing {
+                radius: 0.21,
+                height: 0.69,
+            },
+            ExtrudeRing {
+                radius: 0.10,
+                height: 0.79,
+            },
+            ExtrudeRing {
+                radius: 0.00,
+                height: 1.00,
+            },
+        ];
 
         let silhouette = Silhouette { ring_edges };
         self.push_extrude(footprint, silhouette, wall_height, roof_height, color);
@@ -526,7 +530,7 @@ impl OsmMesh {
         self.push_wall_shape(building_part, &footprint, min_height, color);
 
         for hole in &footprint.holes {
-            self.push_wall_shape(building_part, &hole, min_height, color);
+            self.push_wall_shape(building_part, hole, min_height, color);
         }
     }
 

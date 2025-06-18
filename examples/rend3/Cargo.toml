@@ -1,0 +1,40 @@
+[package]
+name = "rend3"
+version = "0.1.0"
+edition = "2024"
+
+####################
+####### Rend3 ######
+####################
+
+
+[[bin]]
+name = "rend3"
+path = "src/main.rs"
+
+
+[dependencies]
+osm_tb = { version = "^0", features = [
+    "rend3",
+], path = "/Users/karlos/projects/OBI" }
+
+#error-chain = "0.12"
+#reqwest = { version = "0.12", features = ["json"] }
+#bytes = "1"
+
+# Rend3 as render engine:
+rend3 = { version = "^0", path = "/Users/karlos/projects/rend3/rend3" }
+rend3-framework = { version = "^0", path = "/Users/karlos/projects/rend3/rend3-framework" }
+rend3-routine = { version = "^0", path = "/Users/karlos/projects/rend3/rend3-routine" }
+
+reqwest = { version = "0.12", features = [
+    "blocking",
+    "json",
+] } # reqwest with JSON parsing support
+
+# Linear algebra library
+glam = "0.25"
+# Channel
+flume = "0.11"
+# windowing
+winit = "0.29.4"

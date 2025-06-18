@@ -35,10 +35,11 @@
   },
 
   {
-    "label": "example rend3",
+    "label": "rend3",
+    "cwd": "/Users/karlos/projects/OBI/examples/rend3",
     "use_new_terminal": false,
-    "command": "cargo run --example rend3",
-    "tags": ["example"]
+    "command": "cargo run",
+    "tags": ["workspace", "member"]
   },
 
   {

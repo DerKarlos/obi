@@ -6,7 +6,7 @@ use std::collections::HashMap;
 //
 //
 
-use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition};
+use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, Member};
 use crate::osm2layers::Osm2Layer;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -69,7 +69,7 @@ impl InputJson {
         let bytes = reqwest::get(url).await?.bytes().await?;
         Ok(scan_osm_bytes(
             bytes,
-            &gpu_ground_null_coordinates,
+            gpu_ground_null_coordinates,
             show_only,
         ))
     }
@@ -91,16 +91,6 @@ pub fn bbox_url(bounding_box: &BoundingBox) -> String {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     // GET   /api/0.6/map?bbox=left,bottom,right,top
     format!("{}map.json?bbox={}", API_URL, bounding_box)
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct Member {
-    #[serde(rename = "type")]
-    pub relation_type: String,
-    #[serde(rename = "ref")]
-    pub reference: u64,
-    #[serde(rename = "role")]
-    pub role: String,
 }
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10

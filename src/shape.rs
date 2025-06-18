@@ -16,6 +16,12 @@ pub struct Shape {
     pub holes: Vec<Shape>,
 }
 
+impl Default for Shape {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Shape {
     pub fn new() -> Self {
         Self {

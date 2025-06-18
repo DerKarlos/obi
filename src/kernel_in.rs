@@ -1,6 +1,8 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+use serde::Deserialize;
 use std::collections::HashMap;
+
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
 
@@ -8,7 +10,6 @@ pub static PI: f32 = std::f32::consts::PI;
 use std::fmt;
 use std::ops::{Add, Sub};
 
-use crate::input_osm_json::Member;
 use crate::shape::Shape;
 
 #[derive(Default, Clone, Copy, Debug)]
@@ -44,6 +45,12 @@ impl GeographicCoordinates {
 pub struct GroundPosition {
     pub north: f32,
     pub east: f32,
+}
+
+impl Default for GroundPosition {
+    fn default() -> Self {
+        Self::ZERO
+    }
 }
 
 impl Add for GroundPosition {
@@ -217,4 +224,14 @@ pub struct BuildingPart {
     pub roof_height: f32,
     pub roof_angle: f32,
     pub roof_color: RenderColor,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct Member {
+    #[serde(rename = "type")]
+    pub relation_type: String,
+    #[serde(rename = "ref")]
+    pub reference: u64,
+    #[serde(rename = "role")]
+    pub role: String,
 }

@@ -6,7 +6,7 @@ use csscolorparser::parse;
 use std::collections::HashMap;
 
 use crate::GeographicCoordinates;
-use crate::input_osm_json::Member;
+use crate::kernel_in::Member;
 use crate::kernel_in::{BuildingPart, OsmNode, OsmRelation, OsmWay, RenderColor, RoofShape};
 use crate::shape::Shape;
 
@@ -84,11 +84,7 @@ pub fn tags_get2<'a>(
     if let Some(tag) = tags.get(option1) {
         Some(tag)
     } else {
-        if let Some(tag) = tags.get(option2) {
-            Some(tag)
-        } else {
-            None
-        }
+        tags.get(option2)
     }
 }
 
@@ -203,7 +199,8 @@ pub fn building(
     // Not here, in the fn rotate against the actual angle to got 0 degrees
     let bounding_box_rotated = footprint.rotate(roof_angle);
 
-    let building_part = BuildingPart {
+    // let building_part =
+    BuildingPart {
         _id: id,
         _part: true, // ??? not only parts!
         footprint: footprint.clone(),
@@ -217,12 +214,10 @@ pub fn building(
         roof_height,
         roof_angle,
         roof_color,
-    };
+    }
 
     // println!("building_part: {:?}", building_part);
-
-    // building_parts.push(building_part);
-    building_part
+    // building_part
 }
 
 //////////////////////////////// Osm2Layer //////////////////////////////
@@ -244,7 +239,7 @@ impl Osm2Layer {
             ways_map: HashMap::new(),
             relations_map: HashMap::new(),
             building_parts: Vec::new(),
-            show_only: show_only,
+            show_only,
         }
     }
     pub fn add_node(
@@ -306,7 +301,7 @@ impl Osm2Layer {
         for (id, osm_relation) in self.relations_map.iter() {
             relation(
                 *id,
-                &osm_relation,
+                osm_relation,
                 &self.ways_map,
                 self.show_only,
                 &mut self.building_parts,
@@ -364,7 +359,7 @@ fn relation(
 
     // println!("Relation, id: {:?}", id);
 
-    if osm_relation.members.len() == 0 {
+    if osm_relation.members.is_empty() {
         println!("Relation without members! id: {:?}", id);
         return;
     }

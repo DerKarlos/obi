@@ -55,6 +55,10 @@ impl rend3_framework::App for ObiExample {
         let bounding_box = api.geo_bbox_of_way_vec(&bytes);
         println!("bounding_box: {:?}", &bounding_box);
         let url = api.bbox_url(&bounding_box);
+
+        // load async inside a sync main - will it compile to wasm?
+        // spawn(async move {
+
         let mut res = reqwest::blocking::get(url).unwrap();
         let mut bytes: Vec<u8> = Vec::new();
         res.read_to_end(&mut bytes).unwrap();

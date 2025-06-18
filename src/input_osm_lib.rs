@@ -6,7 +6,7 @@ use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::Credentials;
 
-use crate::input_osm_json::Member;
+use crate::kernel_in::Member;
 use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition};
 use crate::osm2layers::Osm2Layer;
 

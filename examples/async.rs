@@ -19,11 +19,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Passau Dom: 24771505
     // Reifenberg: 121486088
     // Bau 46:                                 Relation: 2819147 with Outer: 45590896 and  Inner: 210046607
-    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816
-    //   Dome: 664613340
-    // NY: 798166454
+    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816  Dome: 664613340
 
-    let mut id = 798166454;
+    let mut id = 369161987;
     let show_only: u64 = 0;
 
     let api = InputJson::new(); // InputJson or InputLib
