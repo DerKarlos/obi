@@ -16,11 +16,12 @@ path = "src/lib.rs"
 
 
 [features]
-default = ["bevy", "json"]         ## , "xmllib"
+default = ["bevy", "json", "async"] ##  json / xmllib
 bevy = ["dep:bevy"]
 rend3 = []
 json = []
 xmllib = ["dep:openstreetmap-api"]
+async = []
 
 #### In /Users/karlos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/openstreetmap-api-0.3.1/src/lib.rs :
 #### #[derive(Debug, Default, Clone)]

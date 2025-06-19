@@ -1,36 +1,36 @@
 [
   {
-    "label": "build otb",
+    "label": "build OSM-TB (bin)",
     "use_new_terminal": false,
     "command": "cargo build",
     "tags": ["cargo"]
   },
 
   {
-    "label": "build otb wasm",
+    "label": "build OSM-TB (wasm)",
     "use_new_terminal": false,
     "command": "cargo build --release --target wasm32-unknown-unknown",
     "tags": ["cargo"]
   },
 
   {
-    "label": "clippy otb",
+    "label": "clippy OSM-TB",
     "use_new_terminal": false,
     "command": "cargo clippy",
     "tags": ["cargo"]
   },
 
   {
-    "label": "example async",
+    "label": "example: m_async",
     "use_new_terminal": false,
-    "command": "cargo run --example async",
+    "command": "RUST_BACKTRACE=1 cargo run --example m_async",
     "tags": ["example"]
   },
 
   {
-    "label": "example async BACKTRACE",
+    "label": "example: bevy_wasm wasm",
     "use_new_terminal": false,
-    "command": "RUST_BACKTRACE=1 cargo run --example async",
+    "command": "sh bevy_wasm.sh",
     "tags": ["example"]
   },
 
@@ -40,19 +40,5 @@
     "use_new_terminal": false,
     "command": "cargo run",
     "tags": ["workspace", "member"]
-  },
-
-  {
-    "label": "example bevy_wasm wasm",
-    "use_new_terminal": false,
-    "command": "sh bevy_wasm.sh",
-    "tags": ["example"]
-  },
-
-  {
-    "label": "example bevy_wasm native (error)",
-    "use_new_terminal": false,
-    "command": "cargo run --example bevy_wasm",
-    "tags": ["example"]
   }
 ]

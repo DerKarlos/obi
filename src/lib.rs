@@ -14,7 +14,7 @@ pub use input_osm_json::*;
 #[cfg(feature = "xmllib")]
 mod input_osm_lib;
 #[cfg(feature = "xmllib")]
-pub use input_osm_lib::InputLib;
+pub use input_osm_lib::InputOsm;
 
 // Sort OSM taggign to data layer, used by the input modules
 mod osm2layers;
@@ -48,3 +48,8 @@ pub use bevy_ui::*;
 // REND3
 //#[cfg(feature = "rend3")]
 //mod rend3_ui;
+
+// ASYNC
+#[cfg(feature = "async")]
+mod main_async;
+pub use main_async::main_async;

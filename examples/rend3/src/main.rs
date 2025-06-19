@@ -4,7 +4,7 @@ use rend3::types::glam::*;
 use reqwest;
 use std::io::Read;
 
-use osm_tb::{InputJson, scan_objects};
+use osm_tb::{InputOsm, scan_objects};
 
 const SAMPLE_COUNT: rend3::types::SampleCount = rend3::types::SampleCount::One;
 
@@ -46,7 +46,7 @@ impl rend3_framework::App for ObiExample {
     }
 
     fn setup(&mut self, context: rend3_framework::SetupContext<'_>) {
-        let api = InputJson::new(); // InputJson or InputLib
+        let api = InputOsm::new(); // InputJson or InputLib
         let url = api.way_url(369161987);
         let mut res = reqwest::blocking::get(url).unwrap();
         let mut bytes: Vec<u8> = Vec::new();

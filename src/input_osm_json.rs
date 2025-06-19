@@ -16,18 +16,18 @@ static _YES: &str = "yes";
 static _NO: &str = "no";
 
 #[derive(Debug)]
-pub struct InputJson {
+pub struct InputOsm {
     api_url: String,
     //
 }
 
-impl Default for InputJson {
+impl Default for InputOsm {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl InputJson {
+impl InputOsm {
     pub fn new() -> Self {
         let api_url = "https://api.openstreetmap.org/api/0.6/".to_string();
         Self { api_url }

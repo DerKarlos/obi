@@ -36,10 +36,7 @@ pub fn spawn_osm_mesh(
     let uvs: Vec<[f32; 2]> = vec![[0.; 2]];
     let uvs = uvs.repeat(count);
 
-    let normals: Vec<[f32; 3]> = vec![[1.; 3]];
-    let normals = normals.repeat(count);
-
-    let mesh = Mesh::new(
+    let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     )
@@ -48,9 +45,9 @@ pub fn spawn_osm_mesh(
         osm_mesh.vertices_positions.clone(),
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
     .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
+    mesh.compute_normals();
 
     commands.spawn((
         Mesh3d(meshes.add(mesh)),

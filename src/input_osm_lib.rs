@@ -17,18 +17,18 @@ static _YES: &str = "yes";
 static _NO: &str = "no";
 
 #[derive(Debug)]
-pub struct InputLib {
+pub struct InputOsm {
     api_url: String,
     client: Openstreetmap,
 }
 
-impl Default for InputLib {
+impl Default for InputOsm {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl InputLib {
+impl InputOsm {
     pub fn new() -> Self {
         let api_url = "https://api.openstreetmap.org/api".to_string();
         let client = Openstreetmap::new(&api_url, Credentials::None);

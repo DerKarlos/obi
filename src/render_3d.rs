@@ -418,11 +418,11 @@ impl OsmMesh {
         self.attributes.vertices_colors.push(color);
 
         // Calculate indexi of the square
-        let index00 = (edge_index + 0) % ec + (ring_index + 0) * ec;
-        let index10 = (edge_index + 1) % ec + (ring_index + 0) * ec;
-        let index01 = (edge_index + 0) % ec + (ring_index + 1) * ec;
+        const O: usize = 0; // Just to make the next lines equal and to show, the Offset may also be 0
+        let index00 = (edge_index + O) % ec + (ring_index + O) * ec;
+        let index10 = (edge_index + 1) % ec + (ring_index + O) * ec;
+        let index01 = (edge_index + O) % ec + (ring_index + 1) * ec;
         let index11 = (edge_index + 1) % ec + (ring_index + 1) * ec;
-        // ??? # [ allow(clippy::identity_op)]
 
         //println!(
         //    "10: {index10} {edge_index} {ec} {ring_index} {}",

@@ -1,18 +1,27 @@
-//???use openstreetmap_api::types::BoundingBox;
-//// my crate
-use osm_tb::*;
-
-//// other crates
+// other crates
 use std::env;
+
+#[cfg(feature = "json")]
+use crate::input_osm_json::*;
+#[cfg(feature = "xmllib")]
+use crate::input_osm_lib::*;
+
+use crate::bevy_ui::bevy_init;
+use crate::kernel_in::{BoundingBox, LAT_FAKT};
+use crate::render_3d::scan_objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Example-Main: "OBI" directly by OSM-API Json ///////////////////////////////////////////////////
 // Example-Main: "OBI" by LIB openstreetmap-api (XML) /////////////////////////////////////////////
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(feature = "json")]
+    let input = "Json";
+    #[cfg(feature = "xmllib")]
+    let input = "LIB";
+
     println!(
-        "\n*********  Hi, I'm  O B I, or OSM-BI, the OSM Buiding Inspector (Json/LIB) *********\n"
+        "\n*********  Hi, I'm  O B I, or OSM-BI, the OSM Buiding Inspector ({input}) *********\n"
     );
 
     // Westminster 367642719, Abbey: 364313092
@@ -34,15 +43,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bounding_box = if args.len() == 5 {
         dbg!(&args);
-        osm_tb::BoundingBox {
+        BoundingBox {
             west: args[1].parse().unwrap(),
             east: args[2].parse().unwrap(),
             north: args[3].parse().unwrap(),
             south: args[4].parse().unwrap(),
         }
     } else {
-        let bounding_box = api.geo_bbox_of_way(id).await?;
-        bounding_box
+        api.geo_bbox_of_way(id).await?
     };
     println!("bounding_box: {:?}", bounding_box);
 

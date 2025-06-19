@@ -107,7 +107,7 @@ struct State {
     // Strange!: The value api is never set like this: let api = InputJson::new(); // InputJson or InputLib
     // but it works!?!?!? Well, it's a struct with only a string, set with ::new() so:
     // Bevy seems to create and fill this struct State by default values.
-    api: osm_tb::InputJson, // InputJson only. InputLib does not support a splitted solution to read the API external and only scan the byte stream.
+    api: osm_tb::InputOsm, // InputJson only. InputLib does not support a splitted solution to read the API external and only scan the byte stream.
     way_id: u64,
     show_only: u64,
     bytes: Handle<BytesVec>,
