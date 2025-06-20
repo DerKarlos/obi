@@ -29,8 +29,8 @@ pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
 
 // 3D and 2D rendere are possible
-mod render_3d;
-pub use render_3d::*;
+mod to_3d;
+pub use to_3d::*;
 
 // Interface from an rederer to an output
 mod kernel_out;

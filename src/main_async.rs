@@ -8,7 +8,7 @@ use crate::input_osm_lib::*;
 
 use crate::bevy_ui::bevy_init;
 use crate::kernel_in::{BoundingBox, LAT_FAKT};
-use crate::render_3d::scan_objects;
+use crate::to_3d::scan_objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Example-Main: "OBI" directly by OSM-API Json ///////////////////////////////////////////////////
@@ -31,7 +31,7 @@ pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
     // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816  Dome: 664613340
 
     let mut id = 369161987;
-    let show_only: u64 = 0;
+    let show_only: u64 = 0; //629776388;
 
     let api = InputOsm::new();
 

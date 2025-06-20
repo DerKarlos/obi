@@ -10,6 +10,7 @@ use std::ops::Sub;
 // Constants / Parameters
 static MULTI_MESH: bool = false;
 static _GPU_POSITION_NULL: RenderPosition = [0.0, 0.0, 0.0];
+static O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
 
 // Local methodes of GroundPosition, only to be used in the renderer!
 impl GroundPosition {
@@ -418,7 +419,6 @@ impl OsmMesh {
         self.attributes.vertices_colors.push(color);
 
         // Calculate indexi of the square
-        const O: usize = 0; // Just to make the next lines equal and to show, the Offset may also be 0
         let index00 = (edge_index + O) % ec + (ring_index + O) * ec;
         let index10 = (edge_index + 1) % ec + (ring_index + O) * ec;
         let index01 = (edge_index + O) % ec + (ring_index + 1) * ec;
@@ -547,19 +547,34 @@ impl OsmMesh {
         let mut last_gpu_position_down = position.to_gpu_position(min_height);
         let mut last_gpu_position_up = position.to_gpu_position(height);
 
+        //for edge_index in 0..edges {
+
+        // First vertex index of the comming walls
+        let mut to_last_index = (footprint.positions.len() * 2 - 2) as isize;
+
         for position in footprint.positions.iter() {
             let height = self.calc_roof_position_height(position, building_part);
             let this_gpu_position_down = position.to_gpu_position(min_height);
             let this_gpu_position_up = position.to_gpu_position(height);
 
             // Walls
-            self.push_square(
-                last_gpu_position_down,
-                this_gpu_position_down,
-                last_gpu_position_up,
-                this_gpu_position_up,
-                color,
-            );
+            if footprint.is_circular {
+                self.push_square_soft(
+                    to_last_index,
+                    this_gpu_position_down,
+                    this_gpu_position_up,
+                    color,
+                );
+            } else {
+                self.push_square(
+                    last_gpu_position_down,
+                    this_gpu_position_down,
+                    last_gpu_position_up,
+                    this_gpu_position_up,
+                    color,
+                );
+            }
+            to_last_index = -2;
 
             // Roof Points for triangulation and Onion, Positions for a Phyramide
             last_gpu_position_down = this_gpu_position_down;
@@ -568,6 +583,38 @@ impl OsmMesh {
     }
 
     //// basic pushes: ////
+
+    fn push_square_soft(
+        &mut self,
+        to_last_index: isize,
+        down: RenderPosition,
+        up: RenderPosition,
+        color: RenderColor,
+    ) {
+        let start_index = self.attributes.vertices_positions.len();
+
+        // Push the for colors
+        self.attributes.vertices_colors.push(color);
+        self.attributes.vertices_colors.push(color);
+        // Push the two new positions
+        self.attributes.vertices_positions.push(down);
+        self.attributes.vertices_positions.push(up);
+
+        // Push first and second treeangle
+        // Calculate indexi of the square
+        let index00 = start_index + O;
+        let index10 = start_index + 1;
+        let index01 = (index00 as isize + to_last_index) as usize;
+        let index11 = (index10 as isize + to_last_index) as usize;
+
+        //println!(
+        //    "10: {index10} {edge_index} {ec} {ring_index} {}",
+        //    (edge_index + 1) % ec,
+        //);
+        // Push indices of two treeangles
+        self.push_3_indices([index00, index10, index01]);
+        self.push_3_indices([index10, index11, index01]);
+    }
 
     fn push_square(
         &mut self,

@@ -12,6 +12,7 @@ pub struct Shape {
     pub center: GroundPosition,
     longest_distance: f32,
     pub longest_angle: f32,
+    pub is_circular: bool,
     // is_clockwise: bool,
     pub holes: Vec<Shape>,
 }
@@ -32,6 +33,7 @@ impl Shape {
             center: GroundPosition::ZERO,
             longest_distance: 0.,
             longest_angle: 0.,
+            is_circular: false,
             //is_clockwise: false,
             holes: Vec::new(),
         }
@@ -56,6 +58,8 @@ impl Shape {
         self.center.east /= count;
 
         let mut clockwise_sum = 0.;
+        let mut radius_max: f32 = 0.;
+        let mut radius_min: f32 = 1.0e9;
         for (index, position) in self.positions.iter().enumerate() {
             let next = (index + 1) % self.positions.len();
             let next_position = self.positions[next];
@@ -69,12 +73,23 @@ impl Shape {
             // direction
             clockwise_sum +=
                 (next_position.north - position.north) * (next_position.east + position.east);
+            // circular
+            let (distance, _) = self.center.distance_angle_to_other(position);
+            radius_max = radius_max.max(distance);
+            radius_min = radius_min.min(distance);
         }
         // https://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
         let is_clockwise = clockwise_sum > 0.0;
         if !is_clockwise {
             self.positions.reverse();
         }
+        // radius iregularity is less but x% of the radius
+        self.is_circular =
+            (((radius_max - radius_min) / radius_max * 100.) as u32) < 10 && count >= 10.;
+        //println!(
+        //    "r max/min {radius_max}/{radius_min} len: {count} = {:?}",
+        //    (radius_max - radius_min) / radius_max * 100.
+        //);
     }
 
     // Shape.rotate

@@ -118,7 +118,10 @@ pub fn building(
     );
     let roof_color = parse_color(tags.get("roof:colour"), DEFAULT_ROOF_COLOR);
 
-    println!("fn building: Part id: {} roof: {:?}", id, roof_shape);
+    println!(
+        "fn building: Part id: {} roof: {:?} cirular: {}",
+        id, roof_shape, footprint.is_circular
+    );
 
     let default_roof_heigt = match roof_shape {
         RoofShape::Flat => 0.0,
@@ -278,7 +281,10 @@ impl Osm2Layer {
             footprint.push(position);
         }
         footprint.close();
-        // println!("add_way insert id: {} ", id);
+        println!(
+            "add_way insert id: {} circular: {} ",
+            id, footprint.is_circular
+        );
         self.ways_map.insert(id, OsmWay { footprint, tags });
     }
 
