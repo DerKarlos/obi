@@ -541,6 +541,11 @@ impl OsmMesh {
         min_height: f32,
         color: RenderColor,
     ) {
+        // todo: thread 'main' panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
+        if footprint.positions.is_empty() {
+            println!("footprint.positions.is_empty {}", building_part._id);
+            return;
+        }
         let position = footprint.positions.last().unwrap();
         // todo: fn for next 3 lines
         let height = self.calc_roof_position_height(position, building_part);

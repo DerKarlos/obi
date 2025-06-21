@@ -86,8 +86,8 @@ impl AssetLoader for BytesAssetLoader {
 #[derive(Default, Debug, Resource, Serialize, Deserialize, Parser)]
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
 pub struct UrlClArgs {
-    // passau_dom_id: 24771505 reifenberg_id: 121486088 westminster_id: 367642719
-    #[arg(long, default_value = "367642719")]
+    // passau_dom_id: 24771505 reifenberg_id: 121486088 westminster_id: 367642719 - St Paul's Cathedral: 369161987
+    #[arg(long, default_value = "369161987")]
     pub way: u64,
     #[arg(long, default_value = "0")]
     pub only: i32,

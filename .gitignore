@@ -5,3 +5,6 @@ Cargo.lock
 /main.dSYM
 /out
 /src/bin
+/out.wasm
+/examples/args
+/out.bevy

@@ -8,7 +8,7 @@ edition = "2024"
 ####################
 
 [workspace]
-members = ["examples/rend3"]
+members = ["examples/rend3", "examples/args"]
 
 [lib]
 name = "osm_tb"
@@ -45,12 +45,9 @@ thiserror = "2.0"
 
 [dependencies]
 
-error-chain = "0.12"
+##   TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3error-chain = "0.12"
 reqwest = { version = "0.12", features = ["json"] }
 bytes = "1"
-
-
-##   TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3
 bevy = { version = "0", optional = true, default-features = false, features = [
     "bevy_log",
     "bevy_pbr",
@@ -63,7 +60,6 @@ bevy = { version = "0", optional = true, default-features = false, features = [
 
 bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
 bevy_args = "1"
-clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -71,6 +67,10 @@ openstreetmap-api = { version = "0.3", optional = true }
 
 csscolorparser = "0.6"
 earcutr = "0.4.3"
+
+# get args by clap and web ability for clap
+clap = { version = "4", features = ["derive"] }
+we_clap = { version = "0", features = ["web-alert"] } ## web-alert  web-console
 
 
 [target.'cfg(target_arch = "aarch64")'.dev-dependencies]

@@ -124,6 +124,7 @@ pub struct OsmWay {
     pub tags: Option<HashMap<String, String>>,
 }
 
+#[derive(Debug)]
 pub struct OsmRelation {
     pub members: Vec<Member>,
     pub tags: Option<HashMap<String, String>>,
@@ -198,6 +199,20 @@ impl BoundingBox {
         self.south = self.south.min(position.north);
         self.east = self.east.max(position.east);
         self.west = self.west.min(position.east);
+    }
+
+    pub fn min_range(&mut self, range: f32) {
+        println!("{self}");
+        // range in meter to degres
+        let range = range / LAT_FAKT as f32;
+        let center_north = (self.north - self.south) / 2. + self.south;
+        let center_east = (self.east - self.west) / 2. + self.west;
+        println!("{range} {center_north} {center_east}");
+        self.north = self.north.max(center_north + range);
+        self.south = self.south.min(center_north - range);
+        self.east = self.east.max(center_east + range);
+        self.west = self.west.min(center_east - range);
+        println!("{self}");
     }
 
     pub fn shift(&mut self, shift: f32) {

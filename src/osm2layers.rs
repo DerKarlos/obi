@@ -111,17 +111,17 @@ pub fn building(
         None => RoofShape::Flat,
     };
 
+    println!(
+        "fn building: Part id: {} roof: {:?} cirular: {}",
+        id, roof_shape, footprint.is_circular
+    );
+
     // ** Colors and Materials **
     let building_color = parse_color(
         tags_get2(tags, "building:colour", "colour"),
         DEFAULT_WALL_COLOR,
     );
     let roof_color = parse_color(tags.get("roof:colour"), DEFAULT_ROOF_COLOR);
-
-    println!(
-        "fn building: Part id: {} roof: {:?} cirular: {}",
-        id, roof_shape, footprint.is_circular
-    );
 
     let default_roof_heigt = match roof_shape {
         RoofShape::Flat => 0.0,
@@ -363,7 +363,7 @@ fn relation(
 
     /******* self.relation(*id, osm_relation); //  ****/
 
-    // println!("Relation, id: {:?}", id);
+    println!("Relation, id: {:?}", id);
 
     if osm_relation.members.is_empty() {
         println!("Relation without members! id: {:?}", id);
@@ -373,7 +373,15 @@ fn relation(
     let members = osm_relation.members.clone();
 
     let tags = &osm_relation.tags.as_ref().unwrap();
-    let relation_type = tags.get("type").unwrap();
+    // thread 'main' panicked at src/osm2layers.rs:376:42:    cargo run --example m_async -- -r 1000   member with type ""
+    let mut relation_type_option = tags.get("type");
+    let multipolygon = "multipolygon".to_string();
+    if relation_type_option.is_none() {
+        println!("relation {id} has no type (and a member without type?).");
+        // asume multipolygon (without inner)  todo: code is merde!
+        relation_type_option = Some(&multipolygon);
+    }
+    let relation_type = relation_type_option.unwrap();
     if relation_type != "multipolygon" {
         //println!("Unprocessed relation type: {relation_type}");
         return;
