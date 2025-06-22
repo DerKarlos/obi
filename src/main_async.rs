@@ -23,12 +23,16 @@ pub struct UrlClArgs {
 // Implement web enabled parser for your struct
 impl we_clap::WeParser for UrlClArgs {}
 
+#[cfg(feature = "bevy")]
+use crate::bevy_ui::*;
+#[cfg(feature = "rend3")]
+use crate::rend3_ui::*;
+
 #[cfg(feature = "json")]
 use crate::input_osm_json::*;
 #[cfg(feature = "xmllib")]
 use crate::input_osm_lib::*;
 
-use crate::bevy_ui::bevy_init;
 use crate::kernel_in::LAT_FAKT;
 use crate::to_3d::scan_objects;
 
@@ -68,7 +72,7 @@ pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
 
     let meshes = scan_objects(building_parts);
     let scale = bounding_box.max_radius() / 10. * LAT_FAKT;
-    bevy_init(meshes, scale);
+    render_init(meshes, scale);
 
     Ok(())
 }

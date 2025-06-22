@@ -3,12 +3,12 @@ name = "osm_tb"
 version = "0.1.0"
 edition = "2024"
 
-####################
-###### OSM TB ######
-####################
+#########################
+###### OSM ToolBox ######
+#########################
 
 [workspace]
-members = ["examples/rend3", "examples/args"]
+members = ["examples/rend3"]
 
 [lib]
 name = "osm_tb"
@@ -16,13 +16,12 @@ path = "src/lib.rs"
 
 
 [features]
-default = ["bevy", "json", "async"] ##  json / xmllib
-bevy = ["dep:bevy"]
-rend3 = []
+default = ["async", "json", "bevy"]                                            ##  json OR xmllib, bevy OR rend3
+bevy = ["dep:bevy", "dep:bevy_web_asset", "dep:bevy_args"]
+rend3 = ["dep:rend3", "dep:rend3-framework", "dep:rend3-routine", "dep:winit"]
+async = []
 json = []
 xmllib = ["dep:openstreetmap-api"]
-async = []
-
 #### In /Users/karlos/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/openstreetmap-api-0.3.1/src/lib.rs :
 #### #[derive(Debug, Default, Clone)]
 #### pub enum Credentials {
@@ -31,23 +30,13 @@ async = []
 ####     None,
 #### }
 
-[[example]]
-name = "async"
-path = "examples/async.rs"
-
-[[example]]
-name = "rend3"
-path = "examples/rend3.rs"
-
-
 [dev-dependencies]
 thiserror = "2.0"
 
 [dependencies]
 
-##   TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3error-chain = "0.12"
-reqwest = { version = "0.12", features = ["json"] }
-bytes = "1"
+
+### Bevy as render engine:    TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3   Without XM-Lib: 54
 bevy = { version = "0", optional = true, default-features = false, features = [
     "bevy_log",
     "bevy_pbr",
@@ -57,16 +46,29 @@ bevy = { version = "0", optional = true, default-features = false, features = [
     "tonemapping_luts",
     "webgl2",
 ] }
+bevy_web_asset = { version = "0.11.0", optional = true } # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
+bevy_args = { version = "1", optional = true }
 
-bevy_web_asset = "0.11.0"                          # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
-bevy_args = "1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 
+### Rend3 as render engine:
+rend3 = { version = "0", optional = true, default-features = false, path = "/Users/karlos/projects/rend3/rend3" }
+rend3-framework = { version = "^0", optional = true, path = "/Users/karlos/projects/rend3/rend3-framework" }
+rend3-routine = { version = "^0", optional = true, path = "/Users/karlos/projects/rend3/rend3-routine" }
+winit = { version = "0.29.4", optional = true }
+
+
+### OSM-Lib as API:
 openstreetmap-api = { version = "0.3", optional = true }
 
+### Other dependencies:
+reqwest = { version = "0.12", features = ["json"] }
+bytes = "1"
+# error-chain = "0.12"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 csscolorparser = "0.6"
 earcutr = "0.4.3"
+
 
 # get args by clap and web ability for clap
 clap = { version = "4", features = ["derive"] }
@@ -75,14 +77,6 @@ we_clap = { version = "0", features = ["web-alert"] } ## web-alert  web-console
 
 [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-
-
-#[target.'cfg(target_arch = "wasm32")'.dependencies]
-#js-sys = "0.3"
-#gloo-console = "0.3"
-#web-sys = "0.3.67"
-#wasm-bindgen = "0.2.83"
-#wasm-bindgen-futures = "0.4"
 
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -96,9 +90,21 @@ tokio = { version = "1.0", features = [
     "time",
 ] }
 
-#[target.'cfg(target_arch = "wasm32")'.features]
+# [target.'cfg(target_arch = "wasm32")'.features]
 web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
+
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# js-sys = "0.3"
+# gloo-console = "0.3"
+# web-sys = "0.3.67"
+# wasm-bindgen = "0.2.83"
+# wasm-bindgen-futures = "0.4"
 
 # [target.'cfg(target_arch = "wasm32")'.dependencies]
 # console_error_panic_hook = "0"
 # wasm-bindgen = "0"
+
+
+[[example]]
+name = "m_async"
+path = "examples/m_async.rs"

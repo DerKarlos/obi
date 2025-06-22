@@ -18,16 +18,6 @@ use bevy::{
 
 use bevy_args::{BevyArgsPlugin, Deserialize, Parser, Serialize}; // https://github.com/mosure/bevy_args
 
-//#[cfg(target_arch = "wasm32")]
-//use wasm_bindgen::prelude::wasm_bindgen;
-
-//#[cfg(target_arch = "wasm32")]
-//#[wasm_bindgen]
-//unsafe extern "C" {
-//    #[wasm_bindgen(js_namespace = console)]
-//    fn log(s: &str);
-//}
-
 use bevy_web_asset::WebAssetPlugin; // https://github.com/johanhelsing/bevy_web_asset
 // Bevy not only loads from files, but from the web. THis crate adds http(s)
 // The bevy ability to read the extention and create a bevy/rust type is kept.
@@ -116,41 +106,6 @@ struct State {
     gpu_ground_null_coordinates: osm_tb::GeographicCoordinates,
 }
 
-fn main() {
-    // Outputs don't work before App:new
-
-    App::new()
-        .add_plugins(WebAssetPlugin::default()) // for http(s)
-        .add_plugins(DefaultPlugins.set(AssetPlugin {
-            meta_check: AssetMetaCheck::Never,
-            ..default()
-        }))
-        .add_plugins(BevyArgsPlugin::<UrlClArgs>::default())
-        .init_resource::<State>()
-        .init_asset::<BytesVec>()
-        .init_asset_loader::<BytesAssetLoader>()
-        .add_systems(Startup, read_and_use_args)
-        .add_systems(Startup, setup)
-        .add_systems(Update, on_load)
-        .add_systems(Update, osm_tb::input_control)
-        .run();
-
-    info!("### OSM-BI ###");
-}
-
-fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
-    // Get the center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
-    let mut url = state.api.way_url(state.way_id);
-    // info!("(((((( State: {:?} ))))))", &state);
-    info!("++++++++++ Way_URL: {url}");
-
-    if LOCAL_TEST {
-        url = "way.json".to_string();
-    }
-
-    state.bytes = asset_server.load(url);
-}
-
 fn on_load(
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
@@ -197,4 +152,39 @@ fn on_load(
 
         state.step2 = true;
     }
+}
+
+fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
+    // Get the center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
+    let mut url = state.api.way_url(state.way_id);
+    // info!("(((((( State: {:?} ))))))", &state);
+    info!("++++++++++ Way_URL: {url}");
+
+    if LOCAL_TEST {
+        url = "way.json".to_string();
+    }
+
+    state.bytes = asset_server.load(url);
+}
+
+fn main() {
+    // Outputs don't work before App:new
+
+    App::new()
+        .add_plugins(WebAssetPlugin::default()) // for http(s)
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            meta_check: AssetMetaCheck::Never,
+            ..default()
+        }))
+        .add_plugins(BevyArgsPlugin::<UrlClArgs>::default())
+        .init_resource::<State>()
+        .init_asset::<BytesVec>()
+        .init_asset_loader::<BytesAssetLoader>()
+        .add_systems(Startup, read_and_use_args)
+        .add_systems(Startup, setup)
+        .add_systems(Update, on_load)
+        .add_systems(Update, osm_tb::input_control)
+        .run();
+
+    info!("### OSM-BI ###");
 }

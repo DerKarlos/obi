@@ -46,10 +46,11 @@ pub use bevy_ui::*;
 //mod f4control;
 
 // REND3
-//#[cfg(feature = "rend3")]
-//mod rend3_ui;
+#[cfg(feature = "rend3")]
+mod rend3_ui;
 
 // ASYNC
 #[cfg(feature = "async")]
 mod main_async;
+#[cfg(feature = "async")]
 pub use main_async::main_async;

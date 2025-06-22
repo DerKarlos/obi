@@ -23,7 +23,7 @@ pub struct OsmMeshes {
 #[derive(Component)]
 pub struct Controled;
 
-pub fn spawn_osm_mesh(
+fn spawn_osm_mesh(
     osm_mesh: &OsmMeshAttributes,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
@@ -115,7 +115,7 @@ pub fn input_control(
     }
 }
 
-pub fn setup(
+fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -138,49 +138,6 @@ pub fn setup(
             ..default()
         },
     ));
-
-    light_and_camera(commands, scale);
-}
-
-// native-main.rs inits bevy
-pub fn bevy_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
-    println!(" "); // distance between test outputs and Bevy outputs
-
-    // BEVY-App
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
-        .insert_resource(OsmMeshes {
-            vec: osm_meshes,
-            scale,
-        })
-        .add_systems(Startup, setup)
-        .add_systems(Update, input_control)
-        .run();
-}
-
-// bevy-main.rs adds psm
-pub fn bevy_osm(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    osm_meshes: Vec<OsmMeshAttributes>,
-    scale: f32,
-) {
-    for mesh in &osm_meshes {
-        spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
-    }
-
-    // circular base
-    commands.spawn((
-        Mesh3d(meshes.add(Circle::new(scale * 15.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-
-    println!(" "); // distance between test outputs and Bevy outputs
-
-    commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
 
     light_and_camera(commands, scale);
 }
@@ -221,4 +178,47 @@ fn light_and_camera(mut commands: Commands, scale: f32) {
         Transform::from_xyz(-2.5 * scale, 4.5 * scale, 9.0 * scale)
             .looking_at(Vec3::new(0., 2. * scale, 0.), Vec3::Y),
     ));
+}
+
+// native-main.rs inits bevy
+pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
+    println!(" "); // distance between test outputs and Bevy outputs
+
+    // BEVY-App
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
+        .insert_resource(OsmMeshes {
+            vec: osm_meshes,
+            scale,
+        })
+        .add_systems(Startup, setup)
+        .add_systems(Update, input_control)
+        .run();
+}
+
+// bevy-main.rs adds psm
+pub fn bevy_osm(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    osm_meshes: Vec<OsmMeshAttributes>,
+    scale: f32,
+) {
+    for mesh in &osm_meshes {
+        spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
+    }
+
+    // circular base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(scale * 15.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+
+    println!(" "); // distance between test outputs and Bevy outputs
+
+    commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
+
+    light_and_camera(commands, scale);
 }

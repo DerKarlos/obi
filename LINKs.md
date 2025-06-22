@@ -40,7 +40,9 @@ Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_v
 
 
 ### Projects may be interresting:
-* Game/OSM-Editor and simulation. Ab 14:30 - https://youtube.com/watch?v=LiIoE8ArACs&si=o4XecnOFtyhClmBp
+* Game/OSM-Editor and simulation. Ab 14:30 - https://youtube.com/watch?v=LiIoE8ArACs&si=o4XecnOFtyhClmBp =>
+    https://github.com/citybound/citybound
+
 * Terrain onls?: https://www.reddit.com/r/openstreetmap/comments/1j1u2nd/still_working_on_osm_viewer_some_new_screenshots/?rdt=50604
 * How to make building parts: https://github.com/louis-e/arnis
 * What F4maps shows, and what not: https://demo.f4map.com/#lat=48.8043521&lon=9.5300202&zoom=21&camera.theta=50.493&camera.phi=-13.465
