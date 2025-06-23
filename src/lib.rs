@@ -26,6 +26,7 @@ pub use shape::*;
 mod kernel_in;
 pub use kernel_in::BoundingBox;
 pub use kernel_in::GeographicCoordinates;
+pub use kernel_in::GroundPosition;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
 
 // 3D and 2D rendere are possible
@@ -46,7 +47,7 @@ pub use bevy_ui::*;
 //mod f4control;
 
 // REND3
-#[cfg(feature = "rend3")]
+#[cfg(feature = "rend")]
 mod rend3_ui;
 
 // ASYNC

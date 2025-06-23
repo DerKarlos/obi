@@ -40,6 +40,7 @@ Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_v
 
 
 ### Projects may be interresting:
+* https://www.geofabrik.de/data/  als Input?
 * Game/OSM-Editor and simulation. Ab 14:30 - https://youtube.com/watch?v=LiIoE8ArACs&si=o4XecnOFtyhClmBp =>
     https://github.com/citybound/citybound
 

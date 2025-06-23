@@ -1,5 +1,6 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+use i_float::float::compatible::FloatPointCompatible;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -41,7 +42,7 @@ impl GeographicCoordinates {
 }
 
 // See for standard 2D features like Add: https://docs.rs/vector2/latest/vector2/struct.Vector2.html
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct GroundPosition {
     pub north: f32,
     pub east: f32,
@@ -72,6 +73,21 @@ impl Sub for GroundPosition {
             north: self.north - other.north,
             east: self.east - other.east,
         }
+    }
+}
+
+// Implement the `FloatPointCompatible` trait for CustomPoint
+impl FloatPointCompatible<f32> for GroundPosition {
+    fn from_xy(x: f32, y: f32) -> Self {
+        Self { east: x, north: y }
+    }
+
+    fn x(&self) -> f32 {
+        self.east
+    }
+
+    fn y(&self) -> f32 {
+        self.north
     }
 }
 
@@ -119,6 +135,7 @@ pub struct OsmNode {
     pub position: GroundPosition,
 }
 
+#[derive(Debug, Clone)]
 pub struct OsmWay {
     pub footprint: Shape,
     pub tags: Option<HashMap<String, String>>,
@@ -145,7 +162,7 @@ pub enum RoofShape {
     Onion,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct BoundingBox {
     pub north: f32,
     pub south: f32,
@@ -226,8 +243,8 @@ impl BoundingBox {
 // A builiding without parts is its onw part or itselve is a part
 #[derive(Clone, Debug)]
 pub struct BuildingPart {
-    pub _id: u64,
-    pub _part: bool,
+    pub id: u64,
+    pub part: bool,
     pub footprint: Shape,
     //pub _bounding_box: BoundingBox,
     pub bounding_box_rotated: BoundingBox,

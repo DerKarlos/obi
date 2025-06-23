@@ -24,9 +24,9 @@ pub struct UrlClArgs {
 impl we_clap::WeParser for UrlClArgs {}
 
 #[cfg(feature = "bevy")]
-use crate::bevy_ui::*;
-#[cfg(feature = "rend3")]
-use crate::rend3_ui::*;
+use crate::bevy_ui::render_init;
+#[cfg(feature = "rend")]
+use crate::rend3_ui::render_init;
 
 #[cfg(feature = "json")]
 use crate::input_osm_json::*;

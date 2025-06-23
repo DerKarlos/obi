@@ -12,22 +12,23 @@ let mut id = 45696973; //369161987; // 121486088 369161987; //159243621; // 4371
 let show_only: u64 = 0; // 159243622; //1174629866; //1174306433;
 
 * Oriental Pearl Tower (40778038) Relation: Saint Basil's Cathedral (3030568)
-* Westminster Abbey (364313092)
 Testing with a moderate complex building OR a lage complex one
 * https://www.openstreetmap.org/way/121486088
-* reifenberg_id = 121486088; // scale 5
-* passau_dom_id = 24771505; // scale 15   gabled: 464090146   unten: 136144290  oben: 136144289
-* westminster_id = 367642719; // 25
+
 * taj_mahal_id = 375257537;
 * marienplatz_id = 223907278; // 15
 * fo_gabled = 45696973; // rectangle: 47942624 +schräg: 45697283  haustür: 47942638  eingeeckt: 45697162  winklel: 45402141
 * no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
 * Not valide tagged???: 45696973 bowed building, no part
 * dome: part: 159243621   buiding: 437150850
-* Way: St Paul's Cathedral 369161987  -  Test center gabled: 664642004 (footprint is rounded!)
-* Way: Saint Peter's Basilica (244159210)  StPaul 369161987
-* Way: Cathedral of Notre Dame (201611261)
-* Way: Hagia Sophia (Holy Wisdom) (109862851)
+
+* Reifenberg  121486088
+* Passau Dom 24771505    gabled: 464090146   unten: 136144290  oben: 136144289
+* St Paul's Cathedral 369161987  -  Test center gabled: 664642004 (footprint is rounded!)
+* Westminster  367642719 / Abbey 364313092
+* Vatikan, Saint Peter's Basilica (244159210)
+* Cathedral of Notre Dame (201611261)
+* Hagia Sophia (Holy Wisdom) (109862851)
 
 ### Notes on WASM:
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update

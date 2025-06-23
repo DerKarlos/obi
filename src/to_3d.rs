@@ -543,7 +543,7 @@ impl OsmMesh {
     ) {
         // todo: thread 'main' panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
         if footprint.positions.is_empty() {
-            println!("footprint.positions.is_empty {}", building_part._id);
+            println!("footprint.positions.is_empty {}", building_part.id);
             return;
         }
         let position = footprint.positions.last().unwrap();

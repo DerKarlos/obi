@@ -1,3 +1,4 @@
+* Use for building - part https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay
 * Build of rend3 is so fast. Incremental build? Use it in OBI/OTB!
 * Use OMA Files: https://community.openstreetmap.org/t/a-rust-lib-crate-to-read-oma-files/129593
 * Flickering and no roof in OSMgo: Way 1031078075
