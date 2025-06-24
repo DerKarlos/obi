@@ -5,14 +5,10 @@
 use csscolorparser::parse;
 use std::collections::HashMap;
 
-use i_overlay::core::fill_rule::FillRule;
-use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::float::single::SingleFloatOverlay;
-
+use crate::GeographicCoordinates;
 use crate::kernel_in::Member;
 use crate::kernel_in::{BuildingPart, OsmNode, OsmRelation, OsmWay, RenderColor, RoofShape};
 use crate::shape::Shape;
-use crate::{GeographicCoordinates, GroundPosition};
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
@@ -238,6 +234,8 @@ pub struct Osm2Layer {
     gpu_ground_null_coordinates: GeographicCoordinates,
     nodes_map: HashMap<u64, OsmNode>,
     ways_map: HashMap<u64, OsmWay>,
+    buildings: Vec<u64>,
+    parts: Vec<u64>,
     relations_map: HashMap<u64, OsmRelation>,
     pub building_parts: Vec<BuildingPart>,
     show_only: u64,
@@ -249,6 +247,8 @@ impl Osm2Layer {
             gpu_ground_null_coordinates,
             nodes_map: HashMap::new(),
             ways_map: HashMap::new(),
+            buildings: Vec::new(),
+            parts: Vec::new(),
             relations_map: HashMap::new(),
             building_parts: Vec::new(),
             show_only,
@@ -284,7 +284,7 @@ impl Osm2Layer {
             nodes.pop();
         }
 
-        let mut footprint = Shape::new();
+        let mut footprint = Shape::new(id);
         for node_id in nodes {
             let position = self.nodes_map.get(&node_id).unwrap().position;
             footprint.push(position);
@@ -294,7 +294,25 @@ impl Osm2Layer {
         //     "add_way insert id: {} circular: {} ",
         //     id, footprint.is_circular
         // );
-        self.ways_map.insert(id, OsmWay { footprint, tags });
+
+        if tags.as_ref().is_some() {
+            if tags.as_ref().unwrap().get("building").is_some() {
+                self.buildings.push(id);
+            }
+
+            if tags.as_ref().unwrap().get("building:part").is_some() {
+                self.parts.push(id);
+            }
+        }
+
+        self.ways_map.insert(
+            id,
+            OsmWay {
+                _id: id,
+                footprint,
+                tags,
+            },
+        );
     }
 
     pub fn add_relation(
@@ -303,82 +321,58 @@ impl Osm2Layer {
         members: Vec<Member>,
         tags: Option<HashMap<String, String>>,
     ) {
-        self.relations_map.insert(id, OsmRelation { members, tags });
+        self.relations_map.insert(
+            id,
+            OsmRelation {
+                _id: id,
+                members,
+                tags,
+            },
+        );
     }
 
     pub fn scan(&mut self) {
         // Subtract parts from ways - code is to stupide! Todo!
-        // Test: cargo run --example m_async -- -r 0 -w 239592652
+        // Test1: cargo run --example m_async -- -r 0 -w 239592652
         // This way does NOT set the height/levels to maximum
-        let mut position_changes: HashMap<u64, Vec<GroundPosition>> = HashMap::new();
-        for (_id, building) in self.ways_map.iter() {
-            //let id_b = id.clone();
-            //if id_b != 239592652 {
+        // Test2: building: 278033600 + two parts: 1124726437 1124499584
+        // Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
+        // Test4: rel 2111466 Outer=building 157880278 Parts 109458125 1104998081 1104998082
+
+        for part_id in &self.parts {
+            //if *part_id != 278033600 {
             //    continue;
             //}
-            if building.tags.is_none() {
-                continue;
-            }
-            if building.tags.as_ref().unwrap().get("building").is_none() {
-                continue;
-            }
-
-            for (id, part) in self.ways_map.iter() {
-                let part = part.clone();
-                //let id_p = id.clone();
-                //if id_p != 996089813 {
-                //    // 996089811 {
+            let part = &self.ways_map.get(part_id).unwrap();
+            let positions = part.footprint.positions.clone(); // todo: avoid clone! how? by ref clashes with ownership
+            for building_id in &self.buildings {
+                //if *building_id != 239592652 {
                 //    continue;
                 //}
-
-                if part.tags.is_none() {
-                    continue;
-                }
-                if part.tags.as_ref().unwrap().get("building:part").is_none() {
-                    continue;
-                }
-
-                // subtract_part
-                let mut subj = building.footprint.positions.clone();
-                let done = position_changes.get(id);
-                if done.is_some() {
-                    subj = done.unwrap().clone();
-                }
-
-                let clip = &part.footprint.positions;
-                //println!("{} sssssssssssssss subj = {:?}", id_b, subj);
-                //println!("{} ccccccccccccccc clip = {:?}", id_p, clip);
-                let result = subj.overlay(clip, OverlayRule::Difference, FillRule::EvenOdd);
-                //println!("rrrrrrrrrrrrrrr = {:?}", result);
-                let r0 = result[0][0].clone(); // twice???
-                position_changes.insert(*id, r0);
+                let building = self.ways_map.get_mut(building_id).unwrap();
+                if *part_id == 278033600 && *part_id == 1124726437 {
+                    println!("part = {}", part_id);
+                };
+                building.footprint.substract(&positions);
             }
-        }
-        for (id, new_positions) in position_changes.iter() {
-            let building = self.ways_map.get_mut(id).unwrap();
-            building.footprint.positions = new_positions.clone();
         }
 
         println!("scan: rel len = {:?}", self.relations_map.len());
         for (id, osm_relation) in self.relations_map.iter() {
-            let o = relation(
+            let way_from_relation = relation(
                 *id,
                 osm_relation,
                 &self.ways_map,
                 self.show_only,
                 &mut self.building_parts,
             );
-            if o.is_some() {
-                self.ways_map.insert(*id, o.unwrap());
+            if way_from_relation.is_some() {
+                self.ways_map.insert(*id, way_from_relation.unwrap());
             }
         }
 
         println!("scan: way len = {:?}", self.ways_map.len());
         for (id, osm_way) in self.ways_map.iter_mut() {
-            if *id == 239592652 {
-                println!("id --------------------------");
-                //continue;
-            }
             way(*id, osm_way, self.show_only, &mut self.building_parts);
         }
     }
@@ -434,6 +428,9 @@ fn relation(
         return None;
     }
 
+    // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
+    // except the outer has no tags!
+
     /******* self.relation(*id, osm_relation); //  ****/
 
     println!("Relation, id: {:?}", id);
@@ -467,7 +464,7 @@ fn relation(
         return None;
     }
 
-    let mut footprint = Shape::new();
+    let mut footprint = Shape::new(id);
 
     for member in members {
         //println!("mem: {:?}", &member);
@@ -494,6 +491,7 @@ fn relation(
 
     // building_parts.push(building(&mut footprint, id, tags));
     Some(OsmWay {
+        _id: id,
         footprint,
         tags: Some(tags.clone()),
     })

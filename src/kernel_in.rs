@@ -137,12 +137,14 @@ pub struct OsmNode {
 
 #[derive(Debug, Clone)]
 pub struct OsmWay {
+    pub _id: u64,
     pub footprint: Shape,
     pub tags: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug)]
 pub struct OsmRelation {
+    pub _id: u64,
     pub members: Vec<Member>,
     pub tags: Option<HashMap<String, String>>,
 }

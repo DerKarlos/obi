@@ -1,10 +1,15 @@
 use std::ops::{Add, Sub};
 extern crate earcutr; // not supported vor WASM?
 
+use i_overlay::core::fill_rule::FillRule;
+use i_overlay::core::overlay_rule::OverlayRule;
+use i_overlay::float::single::SingleFloatOverlay;
+
 use crate::kernel_in::{BoundingBox, GroundPosition};
 
 #[derive(Clone, Debug)]
 pub struct Shape {
+    _id: u64,
     pub positions: Vec<GroundPosition>,
     rotated_positions: Vec<GroundPosition>,
     pub bounding_box: BoundingBox,
@@ -19,13 +24,14 @@ pub struct Shape {
 
 impl Default for Shape {
     fn default() -> Self {
-        Self::new()
+        Self::new(4711)
     }
 }
 
 impl Shape {
-    pub fn new() -> Self {
+    pub fn new(_id: u64) -> Self {
         Self {
+            _id,
             positions: Vec::new(),
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
@@ -205,5 +211,52 @@ impl Shape {
 
         self.positions = outer_vertices;
         (left_vertices, right_vertices)
+    }
+
+    pub fn substract(&mut self, other_positions: &Vec<GroundPosition>) {
+        // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
+        //println!(
+        //    "{} ssss {} subj = {:?}",
+        //    self._id,
+        //    self.positions.len(),
+        //    &self.positions
+        //);
+        //println!(
+        //    "cccc {}  clip = {:?}",
+        //    other_positions.len(),
+        //    other_positions
+        //);
+        let result =
+            self.positions
+                .overlay(other_positions, OverlayRule::Difference, FillRule::EvenOdd);
+        if result.is_empty() {
+            // outer is gone, remove way
+            self.positions = Vec::new();
+            println!("outer is gone, remove way");
+            return;
+        }
+        if result[0].is_empty() {
+            println!("shape with no outer ...");
+            return;
+        }
+        //println!(
+        //    "Rrrrrrr [{}][{}][{}] = {:?}",
+        //    result.len(),
+        //    result[0].len(),
+        //    result[0][0].len(),
+        //    result
+        //);
+        if result.len() > 1 || result[0].len() != 1 {
+            println!(
+                // todo: prozess holes in building
+                // todo: process cutted building
+                "shape substract result.len() > 1|1! [{}][{}]",
+                result.len(),
+                result[0].len(),
+            );
+        }
+        // 0o = first remaining shape, 0o = outer before the holes
+        let result00 = result[0][0].clone();
+        self.positions = result00;
     }
 }

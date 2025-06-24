@@ -254,7 +254,7 @@ impl OsmMesh {
         color: RenderColor,
         building_part: &BuildingPart,
     ) {
-        let mut footprint = Shape::new(); // &building_part.footprint;
+        let mut footprint = Shape::new(4712); // &building_part.footprint;
         footprint.positions = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();

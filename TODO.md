@@ -5,6 +5,10 @@
 * Some GPU-Warings from Bevy in the JS console
 * Check WebGL and WebGPU: https://bevyengine.org/examples/3d-rendering/3d-scene/
 * -1 Tagging: https://www.openstreetmap.org/node/12231809761 (see mails/messages, -1 is 0-1 layers for post codes. Building in Building?)
+* Panoramax: ask for an API "nearest" or use bbox and sort in the code
+* subtract Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
+* A strange part at the Gib Ben west side goes up skillion above the tower
+* https://www.openstreetmap.org/way/172649356 should be subtracted to 0 but an infinite line remains. if area < 0.1 m*m: eliminate
 
 * Is the crate https://crates.io/crates/osm-api able to build wasm and deliver the needed data? If yes, a new input "modul" is needed. A good way to fine the division of the "OSM-Toolbox"
 
