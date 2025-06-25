@@ -232,7 +232,7 @@ impl Shape {
         if result.is_empty() {
             // outer is gone, remove way
             self.positions = Vec::new();
-            println!("outer is gone, remove way");
+            // println!("outer is gone, remove way");
             return;
         }
         if result[0].is_empty() {
@@ -250,7 +250,8 @@ impl Shape {
             println!(
                 // todo: prozess holes in building
                 // todo: process cutted building
-                "shape substract result.len() > 1|1! [{}][{}]",
+                "{}: shape substract result.len() > 1|1! [{}][{}]",
+                self._id,
                 result.len(),
                 result[0].len(),
             );

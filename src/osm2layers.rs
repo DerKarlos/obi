@@ -37,9 +37,11 @@ pub fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor 
         return default;
     }
 
-    match parse(color.unwrap().as_str()) {
+    let color_string = color.unwrap().as_str();
+    //println!("colour: {} ", color_string);
+    match parse(color_string) {
         Ok(color_scc) => {
-            //println!("parse_colour: {:?} => {:?}", color, color_scc);
+            //println!("parse_colour: {:?} => {:?}", color, color_scc); // is f64: color_scc.to_array();
             [
                 color_scc.r as f32,
                 color_scc.g as f32,
@@ -48,9 +50,24 @@ pub fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor 
             ]
         }
 
+        //        let x = Color::to_array(&self)
         Err(_error) => {
-            // println!("parse_colour: {}", _error);
-            default // "light blue?"
+            match color_string {
+                // Verdigris (Grünspahn)
+                "roof_tiles" => {
+                    [186. / 255., 86. / 255., 37. / 255., 1.] // #BA5625
+                }
+                "wood" => {
+                    [145. / 255., 106. / 255., 47. / 255., 1.] // #916A2F
+                }
+                "copper" => {
+                    [98. / 255., 190. / 255., 119. / 255., 1.] //[183. / 255., 119. / 255., 41. / 255., 1.]
+                }
+                _ => {
+                    println!("parse_colour: {} => {}", color_string, _error);
+                    [98. / 255., 203. / 255., 232. / 255., 1.] // default or Electric Blue / "light blue" ?
+                }
+            }
         }
     }
 }
@@ -119,7 +136,10 @@ pub fn building(
         DEFAULT_WALL_COLOR,
     );
     // Should parts have the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
-    let roof_color = parse_color(tags.get("roof:colour"), building_color);
+    let roof_color = parse_color(
+        tags_get2(tags, "roof:colour", "roof:material"), // todo: parse_material
+        building_color,
+    );
 
     let default_roof_heigt = match roof_shape {
         RoofShape::Flat => 0.0,
@@ -171,7 +191,7 @@ pub fn building(
 
     let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
     if let Some(direction) = roof_direction {
-        println!("roof:direction {direction}");
+        //println!("roof:direction {direction}");
         match direction.as_str() {
             "N" => roof_angle = f32::to_radians(0.),
             "E" => roof_angle = f32::to_radians(90.),

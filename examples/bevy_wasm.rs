@@ -77,10 +77,12 @@ impl AssetLoader for BytesAssetLoader {
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
 pub struct UrlClArgs {
     // passau_dom_id: 24771505 reifenberg_id: 121486088 westminster_id: 367642719 - St Paul's Cathedral: 369161987
-    #[arg(long, default_value = "369161987")]
+    #[arg(short, long, default_value = "369161987")]
     pub way: u64,
-    #[arg(long, default_value = "0")]
+    #[arg(short, long, default_value = "0")]
     pub only: i32,
+    #[arg(short, long, default_value = "0")]
+    pub range: i32,
 }
 // How to run:
 // RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029  // Error! in bevy_web_asset (html-lib)
@@ -90,6 +92,7 @@ fn read_and_use_args(args: Res<UrlClArgs>, mut state: ResMut<State>) {
     info!(" {:?}", *args);
     state.way_id = args.way as u64;
     state.show_only = args.only as u64;
+    state.range = args.range as f32;
 }
 
 #[derive(Resource, Default, Debug)]
@@ -100,6 +103,7 @@ struct State {
     api: osm_tb::InputOsm, // InputJson only. InputLib does not support a splitted solution to read the API external and only scan the byte stream.
     way_id: u64,
     show_only: u64,
+    range: f32,
     bytes: Handle<BytesVec>,
     step1: bool,
     step2: bool,
@@ -129,7 +133,10 @@ fn on_load(
     if !state.step1 {
         // info!("Bytes asset loaded: {:?}", bytes.unwrap());
 
-        let bounding_box = state.api.geo_bbox_of_way_vec(&bytes.unwrap().bytes);
+        let mut bounding_box = state.api.geo_bbox_of_way_vec(&bytes.unwrap().bytes);
+        if state.range > 0. {
+            bounding_box.min_range(state.range);
+        }
         state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
         let mut url = state.api.bbox_url(&bounding_box);
         info!("**** bbox_url: {url}");
