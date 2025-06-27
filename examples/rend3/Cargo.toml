@@ -15,7 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 osm_tb = { version = "^0", features = [
-    "rend",
+    "rend2",
 ], path = "/Users/karlos/projects/OBI" }
 
 #error-chain = "0.12"

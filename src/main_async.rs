@@ -7,10 +7,11 @@ use we_clap::WeParser; // Wrapper for clap Parser
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
 pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
+    // along!  RUST_BACKTRACE=1 cargo run --example m_async -- -w 363815745 -o 363815745
+    // St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
+    // Bau 46:                                 Relation: 2819'147 with Outer: 45590896 and  Inner: 210046607
     // Passau Dom: 24771505
     // Reifenberg: 121486088
-    // Bau 46:                                 Relation: 2819147 with Outer: 45590896 and  Inner: 210046607
-    // St Paul's Cathedral: way 369161987 with Relation: 9235275 with Outer: 664646816  Dome: 664613340
     //
     #[arg(short, long, default_value = "369161987")]
     pub way: u64,
@@ -25,7 +26,7 @@ impl we_clap::WeParser for UrlClArgs {}
 
 #[cfg(feature = "bevy")]
 use crate::bevy_ui::render_init;
-#[cfg(feature = "rend")]
+#[cfg(feature = "rend3")]
 use crate::rend3_ui::render_init;
 
 #[cfg(feature = "json")]

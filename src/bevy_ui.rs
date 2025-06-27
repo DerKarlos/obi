@@ -158,7 +158,7 @@ fn light_and_camera(mut commands: Commands, scale: f32) {
     } else {
         commands.spawn((
             DirectionalLight {
-                illuminance: 50. * scale,
+                illuminance: 150. * scale,
                 shadows_enabled: true,
                 ..default()
             },

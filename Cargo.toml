@@ -16,9 +16,10 @@ path = "src/lib.rs"
 
 
 [features]
-default = ["async", "json", "bevy"]                                           ##  json OR xmllib, bevy OR
+default = ["async", "json", "bevy"]                                            ##  json OR xmllib, bevy OR
 bevy = ["dep:bevy", "dep:bevy_web_asset", "dep:bevy_args"]
-rend = ["dep:rend3", "dep:rend3-framework", "dep:rend3-routine", "dep:winit"]
+rend3 = ["dep:rend3", "dep:rend3-framework", "dep:rend3-routine", "dep:winit"]
+rend2 = ["dep:rend3", "dep:rend3-framework", "dep:rend3-routine", "dep:winit"]
 async = []
 json = []
 xmllib = ["dep:openstreetmap-api"]

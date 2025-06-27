@@ -53,23 +53,25 @@ pub fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor 
         //        let x = Color::to_array(&self)
         Err(_error) => {
             match color_string {
-                // Verdigris (Grünspahn)
-                "roof_tiles" => {
-                    [186. / 255., 86. / 255., 37. / 255., 1.] // #BA5625
-                }
-                "wood" => {
-                    [145. / 255., 106. / 255., 47. / 255., 1.] // #916A2F
-                }
-                "copper" => {
-                    [98. / 255., 190. / 255., 119. / 255., 1.] //[183. / 255., 119. / 255., 41. / 255., 1.]
-                }
+                "stone" => color_to_f32(200, 200, 200),
+                "brick" => color_to_f32(255, 128, 128),
+                "cream" => color_to_f32(255, 253, 208),
+                "roof_tiles" => color_to_f32(186, 86, 37),
+                "glass" => color_to_f32(150, 150, 220), // #light grey wiht a bit blue
+                "wood" => color_to_f32(145, 106, 47),
+                "copper" => color_to_f32(98, 190, 119), // Verdigris (Grünspahn) instead of copper = 183 119 41
+
                 _ => {
                     println!("parse_colour: {} => {}", color_string, _error);
-                    [98. / 255., 203. / 255., 232. / 255., 1.] // default or Electric Blue / "light blue" ?
+                    [98. / 255., 203. / 255., 232. / 255., 1.] // Electric Blue (or default???)
                 }
             }
         }
     }
+}
+
+fn color_to_f32(r: u8, g: u8, b: u8) -> RenderColor {
+    [r as f32 / 255., g as f32 / 255., b as f32 / 255., 1.]
 }
 
 pub fn parse_height(height_option: Option<&String>) -> f32 {
@@ -105,6 +107,23 @@ pub fn tags_get2<'a>(
     }
 }
 
+pub fn tags_get3<'a>(
+    tags: &'a HashMap<String, String>,
+    option1: &str,
+    option2: &str,
+    option3: &str,
+) -> Option<&'a String> {
+    if let Some(tag) = tags.get(option1) {
+        Some(tag)
+    } else {
+        if let Some(tag) = tags.get(option2) {
+            Some(tag)
+        } else {
+            tags.get(option3)
+        }
+    }
+}
+
 pub fn building(
     footprint: &mut Shape,
     id: u64,
@@ -132,7 +151,7 @@ pub fn building(
 
     // ** Colors and Materials **
     let building_color = parse_color(
-        tags_get2(tags, "building:colour", "colour"),
+        tags_get3(tags, "building:colour", "colour", "building:material"),
         DEFAULT_WALL_COLOR,
     );
     // Should parts have the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
@@ -213,13 +232,13 @@ pub fn building(
         }
     }
 
-    println!(
-        "fn building: Part id: {} roof: {:?} cirular: {} angle: {}",
-        id,
-        roof_shape,
-        footprint.is_circular,
-        roof_angle.to_degrees()
-    );
+    // println!(
+    //     "fn building: Part id: {} roof: {:?} cirular: {} angle: {}",
+    //     id,
+    //     roof_shape,
+    //     footprint.is_circular,
+    //     roof_angle.to_degrees()
+    // );
 
     // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
     roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
@@ -307,7 +326,7 @@ impl Osm2Layer {
         let mut footprint = Shape::new(id);
         for node_id in nodes {
             let position = self.nodes_map.get(&node_id).unwrap().position;
-            footprint.push(position);
+            footprint.push_position(position);
         }
         footprint.close();
         // println!(
@@ -358,24 +377,9 @@ impl Osm2Layer {
         // Test2: building: 278033600 + two parts: 1124726437 1124499584
         // Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
         // Test4: rel 2111466 Outer=building 157880278 Parts 109458125 1104998081 1104998082
-
-        for part_id in &self.parts {
-            //if *part_id != 278033600 {
-            //    continue;
-            //}
-            let part = &self.ways_map.get(part_id).unwrap();
-            let positions = part.footprint.positions.clone(); // todo: avoid clone! how? by ref clashes with ownership
-            for building_id in &self.buildings {
-                //if *building_id != 239592652 {
-                //    continue;
-                //}
-                let building = self.ways_map.get_mut(building_id).unwrap();
-                if *part_id == 278033600 && *part_id == 1124726437 {
-                    println!("part = {}", part_id);
-                };
-                building.footprint.substract(&positions);
-            }
-        }
+        // Test5: way 111354081 parts: 814784273 + 814784274 + 814784275
+        // Test6: rel 11192041: outer 172664019, inner 814784298
+        // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
         println!("scan: rel len = {:?}", self.relations_map.len());
         for (id, osm_relation) in self.relations_map.iter() {
@@ -388,12 +392,66 @@ impl Osm2Layer {
             );
             if way_from_relation.is_some() {
                 self.ways_map.insert(*id, way_from_relation.unwrap());
+                self.parts.push(*id);
             }
         }
 
-        println!("scan: way len = {:?}", self.ways_map.len());
-        for (id, osm_way) in self.ways_map.iter_mut() {
-            way(*id, osm_way, self.show_only, &mut self.building_parts);
+        println!("scan: part len = {:?}", self.parts.len());
+        for part_id in &self.parts {
+            println!("part_id: {part_id}");
+            //if *part_id != 278033600 {
+            //    continue;
+            //}
+            let part = &self.ways_map.get(part_id).unwrap();
+            let shape = part.footprint.clone();
+            let positions = part.footprint.positions.clone(); // todo: avoid clone! how? by ref clashes with ownership
+            for building_id in &self.buildings {
+                // println!("building_id: {building_id}");
+                //if *building_id != 239592652 {
+                //    continue;
+                //}
+                let building = self.ways_map.get_mut(building_id).unwrap();
+                if *part_id == 278033600 && *part_id == 1124726437 {
+                    println!("part = {}", part_id);
+                };
+                if building.footprint.substract(&positions) {
+                    if building.footprint.positions.is_empty() {
+                        println!(
+                            "??? push hole to mepty3! part: {} building: {} len: {}",
+                            part_id,
+                            building_id,
+                            building.footprint.positions.len()
+                        );
+                    }
+
+                    //println!(
+                    //    "footprint.holes: part = {} building: {} f:{}",
+                    //    part_id,
+                    //    building_id,
+                    //    building.footprint.positions.len()
+                    //);
+                    building.footprint.holes.push(shape.clone());
+                };
+            }
+        }
+
+        println!("scan:: part len = {:?}", self.parts.len());
+        for part_id in &self.parts {
+            println!("part_id:: {part_id}");
+            let part = self.ways_map.get_mut(part_id).unwrap();
+            way(*part_id, part, self.show_only, &mut self.building_parts);
+        }
+
+        println!("scan: way len = {:?}", self.buildings.len());
+        for building_id in &self.buildings {
+            println!("building_id:: {building_id}");
+            let building = self.ways_map.get_mut(building_id).unwrap();
+            way(
+                *building_id,
+                building,
+                self.show_only,
+                &mut self.building_parts,
+            );
         }
     }
 }
@@ -486,8 +544,9 @@ fn relation(
 
     let mut footprint = Shape::new(id);
 
-    for member in members {
-        //println!("mem: {:?}", &member);
+    // first scann for outer, later vo inner
+    for member in &members {
+        // println!("mem: {:?}", &member);
         if member.relation_type != "way" {
             return None;
         }
@@ -502,6 +561,13 @@ fn relation(
                 // Todo: cloning footprint twice can't be the solution
                 footprint = ways_map.get(&outer_ref).unwrap().footprint.clone();
             }
+            _ => (),
+        }
+    }
+
+    for member in &members {
+        //println!("mem: {:?}", &member);
+        match member.role.as_str() {
             "inner" => {
                 inner(member.reference, ways_map, &mut footprint);
             }
@@ -509,7 +575,7 @@ fn relation(
         }
     }
 
-    // building_parts.push(building(&mut footprint, id, tags));
+    // building_parts.push...
     Some(OsmWay {
         _id: id,
         footprint,
@@ -526,5 +592,5 @@ fn inner(elements_ref: u64, ways_map: &HashMap<u64, OsmWay>, footprint: &mut Sha
     }
     let hole = ways_map.get(&elements_ref).unwrap().footprint.clone();
     footprint.push_hole(hole);
-    //println!("outer_way; {:?}", &outer_way);
+    //println!("inner way; {:?}", &elements_ref);
 }

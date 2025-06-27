@@ -40,6 +40,7 @@ impl Shape {
 }
 
 pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
+    println!("to3d::scan_objects");
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
@@ -85,6 +86,14 @@ impl OsmMesh {
 
         let color = building_part.building_color;
         let roof_color = building_part.roof_color;
+
+        if building_part.footprint.positions.is_empty() {
+            //println!(
+            //    "building_part.footprint.positions.is_empty: {}",
+            //    building_part.id
+            //);
+            return; // after parts substractions, nothing is left
+        }
 
         match building_part.roof_shape {
             //

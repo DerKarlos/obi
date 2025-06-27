@@ -40,6 +40,8 @@ Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_v
 
 
 ### Projects may be interresting:
+* Overture file format Rust crate https://github.com/apache/arrow-rs/tree/main/parquet
+* Kreuzungs Editor OSM: https://www.openstreetmap.org/user/Mikhail%20Kuzin/diary/406938#comment59479
 * https://www.geofabrik.de/data/  als Input?
 * Game/OSM-Editor and simulation. Ab 14:30 - https://youtube.com/watch?v=LiIoE8ArACs&si=o4XecnOFtyhClmBp =>
     https://github.com/citybound/citybound
