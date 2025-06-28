@@ -124,6 +124,10 @@ impl GroundPosition {
     }
 }
 
+pub type GroundPositions = Vec<GroundPosition>;
+pub type Polygon = Vec<GroundPositions>;
+pub type Polygons = Vec<Polygon>;
+
 impl std::fmt::Display for GroundPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "({}, {})", self.east, self.north)

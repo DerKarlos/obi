@@ -1,5 +1,5 @@
 use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
+use crate::kernel_in::{BuildingPart, GroundPosition, GroundPositions, RoofShape};
 use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition};
 use std::cmp::min;
 use std::ops::Sub;
@@ -259,7 +259,7 @@ impl OsmMesh {
 
     fn push_roof_shape(
         &mut self,
-        side: Vec<GroundPosition>,
+        side: GroundPositions,
         color: RenderColor,
         building_part: &BuildingPart,
     ) {

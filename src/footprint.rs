@@ -5,13 +5,13 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
-use crate::kernel_in::{BoundingBox, GroundPosition};
+use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygons};
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
     _id: u64,
-    pub positions: Vec<GroundPosition>,
-    rotated_positions: Vec<GroundPosition>,
+    pub positions: GroundPositions,
+    rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
     pub shift: f32,
     pub center: GroundPosition,
@@ -19,7 +19,7 @@ pub struct Footprint {
     pub longest_angle: f32,
     pub is_circular: bool,
     // is_clockwise: bool,
-    pub multipollygon: Vec<Vec<Vec<GroundPosition>>>,
+    pub polygons: Polygons,
     pub holes: Vec<Footprint>,
 }
 
@@ -42,7 +42,7 @@ impl Footprint {
             longest_angle: 0.,
             is_circular: false,
             //is_clockwise: false,
-            multipollygon: vec![Vec::new()], // first polygon still empty, for outer and some inner holes
+            polygons: vec![Vec::new()], // first polygon still empty, for outer and some inner holes
             holes: Vec::new(),
         }
     }
@@ -55,7 +55,7 @@ impl Footprint {
     }
 
     pub fn push_hole(&mut self, mut hole: Footprint) {
-        if self.multipollygon[0].is_empty() {
+        if self.polygons[0].is_empty() {
             println!("??? push hole to mepty1: {}", self._id);
         }
 
@@ -64,7 +64,7 @@ impl Footprint {
         }
 
         hole.positions.reverse();
-        self.multipollygon[0].push(hole.positions.clone());
+        self.polygons[0].push(hole.positions.clone());
         self.holes.push(hole);
     }
 
@@ -107,7 +107,7 @@ impl Footprint {
         //    "r max/min {radius_max}/{radius_min} len: {count} = {:?}",
         //    (radius_max - radius_min) / radius_max * 100.
         //);
-        self.multipollygon[0].push(self.positions.clone());
+        self.polygons[0].push(self.positions.clone());
     }
 
     // Shape.rotate
@@ -179,7 +179,7 @@ impl Footprint {
     /// - The first shape contains all parts with x ≤ 0
     /// - The second shape contains all parts with x ≥ 0
     /// - The last shape contains all parts of the outer
-    pub fn split_at_x_zero(&mut self, angle: f32) -> (Vec<GroundPosition>, Vec<GroundPosition>) {
+    pub fn split_at_x_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
         let mut left_vertices = Vec::new();
         let mut right_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
@@ -234,7 +234,7 @@ impl Footprint {
         (left_vertices, right_vertices)
     }
 
-    pub fn substract(&mut self, other_positions: &Vec<GroundPosition>) -> bool {
+    pub fn substract_done(&mut self, other_positions: &GroundPositions) -> bool {
         const LOG: bool = false;
         // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
         if LOG {
@@ -251,8 +251,8 @@ impl Footprint {
             );
         }
 
-        let substraction = self
-            .multipollygon //self.positions
+        let remaining = self
+            .polygons //self.positions
             .overlay(other_positions, OverlayRule::Difference, FillRule::Negative);
 
         //println!(
@@ -260,7 +260,7 @@ impl Footprint {
         //    substraction, self.multipollygon, other_positions
         //);
 
-        if substraction.is_empty() {
+        if remaining.is_empty() {
             // outer is gone, remove way
             self.positions = Vec::new();
             //println!("outer is gone, remove way {}", self._id);
@@ -268,28 +268,28 @@ impl Footprint {
             //    "äää {:?} ==== {:?} ---- {:?}",
             //    substraction, self.multipollygon, other_positions
             //);
-            self.multipollygon = substraction;
+            self.polygons = remaining;
             return false;
         }
-        self.multipollygon = substraction;
-        if self.multipollygon[0].is_empty() {
+        self.polygons = remaining;
+        if self.polygons[0].is_empty() {
             println!("shape with no outer ...");
             return false;
         }
         if LOG {
             println!(
                 "Rrrrrrr [{}][{}][{}] = {:?}",
-                self.multipollygon.len(),
-                self.multipollygon[0].len(),
-                self.multipollygon[0][0].len(),
-                self.multipollygon
+                self.polygons.len(),
+                self.polygons[0].len(),
+                self.polygons[0][0].len(),
+                self.polygons
             );
 
-            if self.multipollygon.len() > 1 || self.multipollygon[0].len() != 1 {
-                if self.multipollygon.len() > 0 {
+            if self.polygons.len() > 1 || self.polygons[0].len() != 1 {
+                if self.polygons.len() > 0 {
                     println!(
                         "shape substract result.len()  [1][{}]",
-                        self.multipollygon[0][0].len(),
+                        self.polygons[0][0].len(),
                     );
                 }
             }
@@ -300,7 +300,7 @@ impl Footprint {
         // seach vor the lagest remaining part and use it below. Better use all???
         let mut max: usize = 0;
         let mut ind: usize = 0;
-        for (i, remaining) in self.multipollygon.iter().enumerate() {
+        for (i, remaining) in self.polygons.iter().enumerate() {
             if remaining[0].len() > max {
                 max = remaining[0].len();
                 ind = i;
@@ -308,14 +308,14 @@ impl Footprint {
         }
 
         // 0o = first remaining shape, 0o = outer before the holes
-        let resulti0 = self.multipollygon[ind][0].clone();
+        let resulti0 = self.polygons[ind][0].clone();
         // println!(
         //     "{} shape multipollygon {}!={}",
         //     self._id,
         //     self.multipollygon[ind][0].len(),
         //     self.positions.len()
         // );
-        let changed = self.multipollygon[ind][0].len() != self.positions.len();
+        let changed = self.polygons[ind][0].len() != self.positions.len();
         self.positions = resulti0;
         changed
     }

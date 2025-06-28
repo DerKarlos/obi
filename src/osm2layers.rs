@@ -408,7 +408,7 @@ impl Osm2Layer {
                 if *part_id == 278033600 && *part_id == 1124726437 {
                     println!("part = {}", part_id);
                 };
-                if building.footprint.substract(&positions) {
+                if building.footprint.substract_done(&positions) {
                     if building.footprint.positions.is_empty() {
                         println!(
                             "??? push hole to mepty3! part: {} building: {} len: {}",
