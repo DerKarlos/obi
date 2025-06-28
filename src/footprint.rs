@@ -8,7 +8,7 @@ use i_overlay::float::single::SingleFloatOverlay;
 use crate::kernel_in::{BoundingBox, GroundPosition};
 
 #[derive(Clone, Debug)]
-pub struct Shape {
+pub struct Footprint {
     _id: u64,
     pub positions: Vec<GroundPosition>,
     rotated_positions: Vec<GroundPosition>,
@@ -20,16 +20,16 @@ pub struct Shape {
     pub is_circular: bool,
     // is_clockwise: bool,
     pub multipollygon: Vec<Vec<Vec<GroundPosition>>>,
-    pub holes: Vec<Shape>,
+    pub holes: Vec<Footprint>,
 }
 
-impl Default for Shape {
+impl Default for Footprint {
     fn default() -> Self {
         Self::new(4711)
     }
 }
 
-impl Shape {
+impl Footprint {
     pub fn new(_id: u64) -> Self {
         Self {
             _id,
@@ -54,7 +54,7 @@ impl Shape {
         self.center.east += position.east;
     }
 
-    pub fn push_hole(&mut self, mut hole: Shape) {
+    pub fn push_hole(&mut self, mut hole: Footprint) {
         if self.multipollygon[0].is_empty() {
             println!("??? push hole to mepty1: {}", self._id);
         }

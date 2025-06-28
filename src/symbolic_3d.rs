@@ -1,6 +1,6 @@
+use crate::footprint::Footprint;
 use crate::kernel_in::{BuildingPart, GroundPosition, RoofShape};
 use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition};
-use crate::shape::Shape;
 use std::cmp::min;
 use std::ops::Sub;
 
@@ -20,7 +20,7 @@ impl GroundPosition {
     }
 }
 
-impl Shape {
+impl Footprint {
     fn get_gpu_positions(&self, height: f32) -> Vec<RenderPosition> {
         let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
         for position in &self.positions {
@@ -198,7 +198,7 @@ impl OsmMesh {
         }
     }
 
-    fn push_flat(&mut self, footprint: &Shape, height: f32, color: RenderColor) {
+    fn push_flat(&mut self, footprint: &Footprint, height: f32, color: RenderColor) {
         let mut roof_gpu_positions = footprint.get_gpu_positions(height);
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
@@ -263,7 +263,7 @@ impl OsmMesh {
         color: RenderColor,
         building_part: &BuildingPart,
     ) {
-        let mut footprint = Shape::new(4712); // &building_part.footprint;
+        let mut footprint = Footprint::new(4712); // &building_part.footprint;
         footprint.positions = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
@@ -297,7 +297,7 @@ impl OsmMesh {
 
     fn push_phyramid(
         &mut self,
-        footprint: &Shape,
+        footprint: &Footprint,
         wall_height: f32,
         roof_height: f32,
         color: RenderColor,
@@ -318,7 +318,7 @@ impl OsmMesh {
 
     fn push_dome(
         &mut self,
-        footprint: &Shape,
+        footprint: &Footprint,
         wall_height: f32,
         roof_height: f32,
         color: RenderColor,
@@ -354,7 +354,7 @@ impl OsmMesh {
 
     fn push_extrude(
         &mut self,
-        footprint: &Shape,
+        footprint: &Footprint,
         silhouette: Silhouette,
         wall_height: f32,
         roof_height: f32,
@@ -469,7 +469,7 @@ impl OsmMesh {
 
     fn push_onion(
         &mut self,
-        footprint: &Shape,
+        footprint: &Footprint,
         wall_height: f32,
         roof_height: f32,
         color: RenderColor,
@@ -546,7 +546,7 @@ impl OsmMesh {
     fn push_wall_shape(
         &mut self,
         building_part: &mut BuildingPart,
-        footprint: &Shape,
+        footprint: &Footprint,
         min_height: f32,
         color: RenderColor,
     ) {

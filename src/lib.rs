@@ -21,8 +21,8 @@ mod test;
 // Sort OSM taggign to data layer, used by the input modules
 mod osm2layers;
 pub use osm2layers::*;
-mod shape;
-pub use shape::*;
+mod footprint;
+pub use footprint::*;
 
 // Interfaces from the input modules to renderer
 mod kernel_in;
@@ -32,8 +32,8 @@ pub use kernel_in::GroundPosition;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
 
 // 3D and 2D rendere are possible
-mod to_3d;
-pub use to_3d::*;
+mod symbolic_3d;
+pub use symbolic_3d::*;
 
 // Interface from an rederer to an output
 mod kernel_out;

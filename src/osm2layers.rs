@@ -6,9 +6,9 @@ use csscolorparser::parse;
 use std::collections::HashMap;
 
 use crate::GeographicCoordinates;
+use crate::footprint::Footprint;
 use crate::kernel_in::Member;
-use crate::kernel_in::{BuildingPart, OsmNode, OsmRelation, OsmWay, RenderColor, RoofShape};
-use crate::shape::Shape;
+use crate::kernel_in::{BuildingPart, OtbNode, OtbRelation, OtbWay, RenderColor, RoofShape};
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
@@ -125,7 +125,7 @@ pub fn tags_get3<'a>(
 }
 
 pub fn building(
-    footprint: &mut Shape,
+    footprint: &mut Footprint,
     id: u64,
     tags: &HashMap<String, String>,
     //building_parts: &Vec<BuildingPart>,
@@ -271,11 +271,11 @@ pub fn building(
 
 pub struct Osm2Layer {
     gpu_ground_null_coordinates: GeographicCoordinates,
-    nodes_map: HashMap<u64, OsmNode>,
-    ways_map: HashMap<u64, OsmWay>,
+    nodes_map: HashMap<u64, OtbNode>,
+    ways_map: HashMap<u64, OtbWay>,
     buildings: Vec<u64>,
     parts: Vec<u64>,
-    relations_map: HashMap<u64, OsmRelation>,
+    relations: Vec<OtbRelation>,
     pub building_parts: Vec<BuildingPart>,
     show_only: u64,
 }
@@ -288,7 +288,7 @@ impl Osm2Layer {
             ways_map: HashMap::new(),
             buildings: Vec::new(),
             parts: Vec::new(),
-            relations_map: HashMap::new(),
+            relations: Vec::new(),
             building_parts: Vec::new(),
             show_only,
         }
@@ -302,7 +302,7 @@ impl Osm2Layer {
     ) {
         self.nodes_map.insert(
             id,
-            OsmNode {
+            OtbNode {
                 position: self
                     .gpu_ground_null_coordinates
                     .coordinates_to_position(latitude, longitude),
@@ -323,7 +323,7 @@ impl Osm2Layer {
             nodes.pop();
         }
 
-        let mut footprint = Shape::new(id);
+        let mut footprint = Footprint::new(id);
         for node_id in nodes {
             let position = self.nodes_map.get(&node_id).unwrap().position;
             footprint.push_position(position);
@@ -346,7 +346,7 @@ impl Osm2Layer {
 
         self.ways_map.insert(
             id,
-            OsmWay {
+            OtbWay {
                 _id: id,
                 footprint,
                 tags,
@@ -360,14 +360,7 @@ impl Osm2Layer {
         members: Vec<Member>,
         tags: Option<HashMap<String, String>>,
     ) {
-        self.relations_map.insert(
-            id,
-            OsmRelation {
-                _id: id,
-                members,
-                tags,
-            },
-        );
+        self.relations.push(OtbRelation { id, members, tags });
     }
 
     pub fn scan(&mut self) {
@@ -381,18 +374,19 @@ impl Osm2Layer {
         // Test6: rel 11192041: outer 172664019, inner 814784298
         // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
-        println!("scan: rel len = {:?}", self.relations_map.len());
-        for (id, osm_relation) in self.relations_map.iter() {
+        println!("scan: rel len = {:?}", self.relations.len());
+        for osm_relation in self.relations.iter() {
             let way_from_relation = relation(
-                *id,
+                osm_relation.id,
                 osm_relation,
                 &self.ways_map,
                 self.show_only,
                 &mut self.building_parts,
             );
             if way_from_relation.is_some() {
-                self.ways_map.insert(*id, way_from_relation.unwrap());
-                self.parts.push(*id);
+                self.ways_map
+                    .insert(osm_relation.id, way_from_relation.unwrap());
+                self.parts.push(osm_relation.id);
             }
         }
 
@@ -456,7 +450,7 @@ impl Osm2Layer {
     }
 }
 
-fn way(id: u64, osm_way: &mut OsmWay, show_only: u64, building_parts: &mut Vec<BuildingPart>) {
+fn way(id: u64, osm_way: &mut OtbWay, show_only: u64, building_parts: &mut Vec<BuildingPart>) {
     // todo: Fight Rust and make this {} a fn
 
     //println!("scan: way id = {:?}", id);
@@ -485,11 +479,11 @@ fn way(id: u64, osm_way: &mut OsmWay, show_only: u64, building_parts: &mut Vec<B
 }
 fn relation(
     id: u64,
-    osm_relation: &OsmRelation,
-    ways_map: &HashMap<u64, OsmWay>,
+    osm_relation: &OtbRelation,
+    ways_map: &HashMap<u64, OtbWay>,
     show_only: u64,
     _building_parts: &mut Vec<BuildingPart>,
-) -> Option<OsmWay> {
+) -> Option<OtbWay> {
     // println!("scan: rel. id = {:?}", id);
     if show_only > 0 && id != show_only {
         return None;
@@ -542,7 +536,7 @@ fn relation(
         return None;
     }
 
-    let mut footprint = Shape::new(id);
+    let mut footprint = Footprint::new(id);
 
     // first scann for outer, later vo inner
     for member in &members {
@@ -576,14 +570,14 @@ fn relation(
     }
 
     // building_parts.push...
-    Some(OsmWay {
+    Some(OtbWay {
         _id: id,
         footprint,
         tags: Some(tags.clone()),
     })
 }
 
-fn inner(elements_ref: u64, ways_map: &HashMap<u64, OsmWay>, footprint: &mut Shape) {
+fn inner(elements_ref: u64, ways_map: &HashMap<u64, OtbWay>, footprint: &mut Footprint) {
     //println!("elements_ref: {:?}", &elements_ref);
     let option = ways_map.get(&elements_ref);
     if option.is_none() {

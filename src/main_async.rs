@@ -35,7 +35,7 @@ use crate::input_osm_json::*;
 use crate::input_osm_lib::*;
 
 use crate::kernel_in::LAT_FAKT;
-use crate::to_3d::scan_objects;
+use crate::symbolic_3d::scan_objects;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Example-Main: "OBI" directly by OSM-API Json ///////////////////////////////////////////////////

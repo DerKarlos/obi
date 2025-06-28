@@ -11,7 +11,7 @@ pub static PI: f32 = std::f32::consts::PI;
 use std::fmt;
 use std::ops::{Add, Sub};
 
-use crate::shape::Shape;
+use crate::footprint::Footprint;
 
 #[derive(Default, Clone, Copy, Debug)]
 pub struct GeographicCoordinates {
@@ -131,20 +131,20 @@ impl std::fmt::Display for GroundPosition {
 }
 
 // todo?: move to (ALL?) input_osm_*
-pub struct OsmNode {
+pub struct OtbNode {
     pub position: GroundPosition,
 }
 
 #[derive(Debug, Clone)]
-pub struct OsmWay {
+pub struct OtbWay {
     pub _id: u64,
-    pub footprint: Shape,
+    pub footprint: Footprint,
     pub tags: Option<HashMap<String, String>>,
 }
 
 #[derive(Debug)]
-pub struct OsmRelation {
-    pub _id: u64,
+pub struct OtbRelation {
+    pub id: u64,
     pub members: Vec<Member>,
     pub tags: Option<HashMap<String, String>>,
 }
@@ -247,7 +247,7 @@ impl BoundingBox {
 pub struct BuildingPart {
     pub id: u64,
     pub part: bool,
-    pub footprint: Shape,
+    pub footprint: Footprint,
     //pub _bounding_box: BoundingBox,
     pub bounding_box_rotated: BoundingBox,
     // upper heit of the wall, independend of / including the min_height
