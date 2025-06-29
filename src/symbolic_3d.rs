@@ -14,7 +14,7 @@ static O: usize = 0; // Just to silent lint, make some lines equal and to show, 
 
 // Local methodes of GroundPosition, only to be used in the renderer!
 impl GroundPosition {
-    fn to_gpu_position(self, height: f32) -> RenderPosition {
+    pub fn to_gpu_position(self, height: f32) -> RenderPosition {
         // Minus north because +north is -z in the GPU space.
         [self.east, height, -self.north]
     }
@@ -23,13 +23,14 @@ impl GroundPosition {
 impl Footprint {
     fn get_gpu_positions(&self, height: f32) -> Vec<RenderPosition> {
         let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
-        for position in &self.positions {
+        for position in &self.polygons[0][0] {
             let this_gpu_position_up = position.to_gpu_position(height);
             roof_gpu_positions.push(this_gpu_position_up);
         }
 
-        for hole in &self.holes {
-            for position in &hole.positions {
+        for hole_index in 1..self.polygons[0].len() {
+            let hole: &GroundPositions = &self.first_polygon_u()[hole_index];
+            for position in hole {
                 let this_gpu_position_up = position.to_gpu_position(height);
                 roof_gpu_positions.push(this_gpu_position_up);
             }
@@ -40,7 +41,6 @@ impl Footprint {
 }
 
 pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
-    println!("to3d::scan_objects");
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
@@ -87,7 +87,7 @@ impl OsmMesh {
         let color = building_part.building_color;
         let roof_color = building_part.roof_color;
 
-        if building_part.footprint.positions.is_empty() {
+        if building_part.footprint.polygons[0][0].is_empty() {
             //println!(
             //    "building_part.footprint.positions.is_empty: {}",
             //    building_part.id
@@ -126,7 +126,7 @@ impl OsmMesh {
                 roof_color,
             ),
 
-            _ => self.push_flat(&building_part.footprint, wall_height, roof_color),
+            _ => self.push_flat(&mut building_part.footprint, wall_height, roof_color),
         }
 
         self.push_walls(building_part, min_height, color);
@@ -198,7 +198,7 @@ impl OsmMesh {
         }
     }
 
-    fn push_flat(&mut self, footprint: &Footprint, height: f32, color: RenderColor) {
+    fn push_flat(&mut self, footprint: &mut Footprint, height: f32, color: RenderColor) {
         let mut roof_gpu_positions = footprint.get_gpu_positions(height);
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
@@ -223,7 +223,7 @@ impl OsmMesh {
     fn push_skillion(&mut self, building_part: &BuildingPart, color: RenderColor) {
         let footprint = &building_part.footprint;
         let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
-        for position in footprint.positions.iter() {
+        for position in footprint.polygons[0][0].iter() {
             let height = self.calc_roof_position_height(position, building_part);
             roof_gpu_positions.push(position.to_gpu_position(height))
         }
@@ -264,7 +264,7 @@ impl OsmMesh {
         building_part: &BuildingPart,
     ) {
         let mut footprint = Footprint::new(4712); // &building_part.footprint;
-        footprint.positions = side;
+        footprint.polygons[0][0] = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices();
@@ -277,14 +277,14 @@ impl OsmMesh {
                 .push((roof_index_offset + index) as u32);
         }
 
-        for position in footprint.positions.iter() {
+        for position in footprint.polygons[0][0].iter() {
             let height = self.calc_roof_position_height(position, building_part);
             self.attributes
                 .vertices_positions
                 .push(position.to_gpu_position(height))
         }
 
-        for _position in &footprint.positions {
+        for _position in &footprint.polygons[0][0] {
             self.attributes.vertices_colors.push(color);
         }
 
@@ -360,11 +360,11 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let soft_edges = footprint.positions.len() > 8;
+        let soft_edges = footprint.polygons[0][0].len() > 8;
         let mut gpu_positions: Vec<Vec<RenderPosition>> = Vec::new();
         for (ring_index, ring) in silhouette.ring_edges.iter().enumerate() {
             gpu_positions.push(Vec::new());
-            for edge in footprint.positions.iter() {
+            for edge in footprint.polygons[0][0].iter() {
                 gpu_positions[ring_index].push(self.calc_extrude_position(
                     ring,
                     edge,
@@ -376,7 +376,7 @@ impl OsmMesh {
         }
 
         const ONE_LESS_RING_FACES_BUT_RING_EDGES: usize = 1;
-        let edges = footprint.positions.len();
+        let edges = footprint.polygons[0][0].len();
         let rings = silhouette.ring_edges.len() - ONE_LESS_RING_FACES_BUT_RING_EDGES;
 
         let start_index = self.attributes.vertices_positions.len();
@@ -535,28 +535,43 @@ impl OsmMesh {
         min_height: f32,
         color: RenderColor,
     ) {
-        let footprint = building_part.footprint.clone();
-        self.push_wall_shape(building_part, &footprint, min_height, color);
+        let footprint = &building_part.footprint.clone();
+        let outer = &footprint.polygons[0][0].clone();
+        self.push_wall_shape(
+            building_part,
+            outer,
+            building_part.footprint.is_circular,
+            min_height,
+            color,
+        );
 
-        for hole in &footprint.holes {
-            self.push_wall_shape(building_part, hole, min_height, color);
+        for hole_index in 1..footprint.first_polygon_u().len() {
+            let hole: &GroundPositions = &footprint.first_polygon_u()[hole_index];
+            self.push_wall_shape(
+                building_part,
+                hole,
+                footprint.is_circular,
+                min_height,
+                color,
+            );
         }
     }
 
     fn push_wall_shape(
         &mut self,
         building_part: &mut BuildingPart,
-        footprint: &Footprint,
+        hole: &GroundPositions,
+        is_circular: bool,
         min_height: f32,
         color: RenderColor,
     ) {
         // todo: thread 'main' panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
-        if footprint.positions.is_empty() {
+        if hole.is_empty() {
             // empty by purpose. replaced by parts
             // println!("footprint.positions.is_empty {}", building_part.id);
             return;
         }
-        let position = footprint.positions.last().unwrap();
+        let position = hole.last().unwrap();
         // todo: fn for next 3 lines
         let height = self.calc_roof_position_height(position, building_part);
         let mut last_gpu_position_down = position.to_gpu_position(min_height);
@@ -565,15 +580,15 @@ impl OsmMesh {
         //for edge_index in 0..edges {
 
         // First vertex index of the comming walls
-        let mut to_last_index = (footprint.positions.len() * 2 - 2) as isize;
+        let mut to_last_index = (hole.len() * 2 - 2) as isize;
 
-        for position in footprint.positions.iter() {
+        for position in hole.iter() {
             let height = self.calc_roof_position_height(position, building_part);
             let this_gpu_position_down = position.to_gpu_position(min_height);
             let this_gpu_position_up = position.to_gpu_position(height);
 
             // Walls
-            if footprint.is_circular {
+            if is_circular {
                 self.push_square_soft(
                     to_last_index,
                     this_gpu_position_down,

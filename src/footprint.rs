@@ -5,12 +5,12 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
-use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygons};
+use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
     _id: u64,
-    pub positions: GroundPositions,
+    // pub positions: GroundPositions,
     rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
     pub shift: f32,
@@ -20,7 +20,7 @@ pub struct Footprint {
     pub is_circular: bool,
     // is_clockwise: bool,
     pub polygons: Polygons,
-    pub holes: Vec<Footprint>,
+    //pub holes: Vec<Footprint>,
 }
 
 impl Default for Footprint {
@@ -33,7 +33,7 @@ impl Footprint {
     pub fn new(_id: u64) -> Self {
         Self {
             _id,
-            positions: Vec::new(),
+            // positions: Vec::new(),
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
             shift: 0.0,
@@ -42,20 +42,38 @@ impl Footprint {
             longest_angle: 0.,
             is_circular: false,
             //is_clockwise: false,
-            polygons: vec![Vec::new()], // first polygon still empty, for outer and some inner holes
-            holes: Vec::new(),
+            polygons: vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
+                                              //holes: Vec::new(),
         }
     }
 
+    pub fn first_polygon<'a>(&'a mut self) -> &'a mut Polygon {
+        &mut self.polygons[0]
+    }
+
+    pub fn first_polygon_u<'a>(&'a self) -> &'a Polygon {
+        &self.polygons[0]
+    }
+
+    pub fn first_outer<'a>(&'a mut self) -> &'a mut GroundPositions {
+        &mut self.polygons[0][0]
+    }
+
+    pub fn first_outer_u<'a>(&'a self) -> &'a GroundPositions {
+        &self.polygons[0][0]
+    }
+
     pub fn push_position(&mut self, position: GroundPosition) {
-        self.positions.push(position);
+        // self.positions.push(position);
+        self.first_outer().push(position);
         self.bounding_box.include(&position);
         self.center.north += position.north;
         self.center.east += position.east;
     }
 
-    pub fn push_hole(&mut self, mut hole: Footprint) {
-        if self.polygons[0].is_empty() {
+    /******
+    pub fn _push_hole(&mut self, mut hole: Footprint) {
+        if self.first_polygon().is_empty() {
             println!("??? push hole to mepty1: {}", self._id);
         }
 
@@ -64,22 +82,24 @@ impl Footprint {
         }
 
         hole.positions.reverse();
-        self.polygons[0].push(hole.positions.clone());
-        self.holes.push(hole);
+        self.first_polygon().push(hole.positions.clone());
+        //self.holes.push(hole);
     }
+    *****/
 
     pub fn close(&mut self) {
         // center
-        let count = self.positions.len() as f32;
+        let count = self.first_outer_u().len() as f32;
         self.center.north /= count;
         self.center.east /= count;
 
+        let positions = &mut self.polygons[0][0];
         let mut clockwise_sum = 0.;
         let mut radius_max: f32 = 0.;
         let mut radius_min: f32 = 1.0e9;
-        for (index, position) in self.positions.iter().enumerate() {
-            let next = (index + 1) % self.positions.len();
-            let next_position = self.positions[next];
+        for (index, position) in positions.iter().enumerate() {
+            let next = (index + 1) % positions.len();
+            let next_position = positions[next];
 
             // angle
             let (distance, angle) = next_position.distance_angle_to_other(position);
@@ -98,7 +118,7 @@ impl Footprint {
         // https://stackoverflow.com/questions/1165647/how-to-determine-if-a-list-of-polygon-points-are-in-clockwise-order
         let is_clockwise = clockwise_sum > 0.0;
         if !is_clockwise {
-            self.positions.reverse();
+            positions.reverse();
         }
         // radius iregularity is less but x% of the radius
         self.is_circular =
@@ -107,15 +127,15 @@ impl Footprint {
         //    "r max/min {radius_max}/{radius_min} len: {count} = {:?}",
         //    (radius_max - radius_min) / radius_max * 100.
         //);
-        self.polygons[0].push(self.positions.clone());
+        //self.first_polygon().push(positions.clone());
     }
 
     // Shape.rotate
     pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
         let mut bounding_box_rotated = BoundingBox::new();
-        for position in &self.positions {
+        for position in &self.polygons[0][0] {
             // Rotate against the actual angle to got 0 degrees
-            let rotated_position = position.sub(self.center).rotate(-roof_angle);
+            let rotated_position = position.sub(self.center.clone()).rotate(-roof_angle);
             self.rotated_positions.push(rotated_position);
             bounding_box_rotated.include(&rotated_position);
         }
@@ -147,17 +167,22 @@ impl Footprint {
         //
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
-        for position in &self.positions {
+        println!("polygons: {:?}", self.polygons);
+        for position in self.first_outer_u() {
+            // polygons[0][0] {
+            // positions {
             // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
         }
         //println!("roof_po: {:?}", &vertices);
 
-        for hole in &self.holes {
+        for hole_index in 1..self.first_polygon_u().len() {
+            let hole: &GroundPositions = &self.first_polygon_u()[hole_index];
+            //  for hole in &self.first_polygon() { //holes {
             holes_starts.push(vertices.len() / 2);
             // println!("holes_starts: {:?}", &holes_starts);
-            for position in &hole.positions {
+            for position in hole {
                 vertices.push(position.north);
                 vertices.push(position.east);
             }
@@ -184,17 +209,18 @@ impl Footprint {
         let mut right_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
+        let positions = &self.polygons[0][0];
         let n = self.rotated_positions.len();
         for i in 0..n {
             let current = self.rotated_positions[i];
             let next = self.rotated_positions[(i + 1) % n];
             //outer_vertices.push(current); //ttt
-            outer_vertices.push(self.positions[i]);
+            outer_vertices.push(positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
             if current.east == 0.0 {
-                left_vertices.push(self.positions[i]);
-                right_vertices.push(self.positions[i]);
+                left_vertices.push(positions[i]);
+                right_vertices.push(positions[i]);
                 println!(
                     "split split split split split split split split split split split split split split i:{i}"
                 );
@@ -203,9 +229,9 @@ impl Footprint {
 
             // Add current point to appropriate side
             if current.east < 0.0 {
-                left_vertices.push(self.positions[i]);
+                left_vertices.push(positions[i]);
             } else {
-                right_vertices.push(self.positions[i]);
+                right_vertices.push(positions[i]);
             }
 
             //3 println!(" - Test1 i: {i} {current} {next}");
@@ -230,19 +256,19 @@ impl Footprint {
             }
         }
 
-        self.positions = outer_vertices;
+        self.polygons[0][0] = outer_vertices;
         (left_vertices, right_vertices)
     }
 
-    pub fn substract_done(&mut self, other_positions: &GroundPositions) -> bool {
+    pub fn substract(&mut self, other_positions: &GroundPositions) -> bool {
         const LOG: bool = false;
         // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
         if LOG {
             println!(
                 "{} ssss {} subj = {:?}",
                 self._id,
-                self.positions.len(),
-                &self.positions
+                self.polygons.len(),
+                &self.polygons
             );
             println!(
                 "cccc {}  clip = {:?}",
@@ -262,17 +288,17 @@ impl Footprint {
 
         if remaining.is_empty() {
             // outer is gone, remove way
-            self.positions = Vec::new();
+            //self.positions = Vec::new();
             //println!("outer is gone, remove way {}", self._id);
             //println!(
             //    "äää {:?} ==== {:?} ---- {:?}",
             //    substraction, self.multipollygon, other_positions
             //);
             self.polygons = remaining;
-            return false;
+            return true;
         }
         self.polygons = remaining;
-        if self.polygons[0].is_empty() {
+        if self.first_polygon().is_empty() {
             println!("shape with no outer ...");
             return false;
         }
@@ -280,12 +306,12 @@ impl Footprint {
             println!(
                 "Rrrrrrr [{}][{}][{}] = {:?}",
                 self.polygons.len(),
-                self.polygons[0].len(),
+                self.first_polygon().len(),
                 self.polygons[0][0].len(),
                 self.polygons
             );
 
-            if self.polygons.len() > 1 || self.polygons[0].len() != 1 {
+            if self.polygons.len() > 1 || self.first_polygon().len() != 1 {
                 if self.polygons.len() > 0 {
                     println!(
                         "shape substract result.len()  [1][{}]",
@@ -295,6 +321,9 @@ impl Footprint {
             }
         }
 
+        return false;
+
+        /******
         // todo: prozess holes in building
         // todo: process all remainings of the cutted building
         // seach vor the lagest remaining part and use it below. Better use all???
@@ -318,5 +347,6 @@ impl Footprint {
         let changed = self.polygons[ind][0].len() != self.positions.len();
         self.positions = resulti0;
         changed
+        ******/
     }
 }
