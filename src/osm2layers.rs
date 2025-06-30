@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use crate::GeographicCoordinates;
 use crate::footprint::Footprint;
 use crate::kernel_in::{BuildingPart, OtbNode, OtbRelation, OtbWay, RenderColor, RoofShape};
-use crate::kernel_in::{Member, Polygon, Polygons};
+use crate::kernel_in::{Member, Polygons};
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
@@ -374,7 +374,6 @@ impl Osm2Layer {
         // Test6: rel 11192041: outer 172664019, inner 814784298
         // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
-        /******
         println!("scan: rel len = {:?}", self.relations.len());
         for osm_relation in self.relations.iter() {
             let way_from_relation = relation(
@@ -390,9 +389,8 @@ impl Osm2Layer {
                 self.parts.push(osm_relation.id);
             }
         }
-        ******/
 
-        println!("scan: part len = {:?}", self.parts.len());
+        println!("scan: subtact part len = {:?}", self.parts.len());
         for part_id in &self.parts {
             println!("part_id: {part_id}");
             //if *part_id != 278033600 {
@@ -400,11 +398,11 @@ impl Osm2Layer {
             //}
             let part = &self.ways_map.get(part_id).unwrap();
             //let shape = part.footprint.clone();
-            let positions = part.footprint.polygons[0][0].clone(); // todo: avoid clone! how? by ref clashes with ownership
+            let plygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
             for building_id in &self.buildings {
                 println!("building_id: {building_id}");
                 let building = self.ways_map.get_mut(building_id).unwrap();
-                building.footprint.substract(&positions);
+                building.footprint.substract(&plygons);
                 //{
                 //if building.footprint.positions.is_empty() {
                 //    println!(
@@ -426,7 +424,7 @@ impl Osm2Layer {
             }
         }
 
-        println!("scan:: part len = {:?}", self.parts.len());
+        println!("scan:: show part len = {:?}", self.parts.len());
         for part_id in &self.parts {
             println!("part_id:: {part_id}");
             let part = self.ways_map.get_mut(part_id).unwrap();
@@ -434,7 +432,8 @@ impl Osm2Layer {
         }
 
         /********
-        println!("scan: way len = {:?}", self.buildings.len());
+         *****/
+        println!("scan: show way len = {:?}", self.buildings.len());
         for building_id in &self.buildings {
             println!("building_id:: {building_id}");
             let building = self.ways_map.get_mut(building_id).unwrap();
@@ -445,7 +444,6 @@ impl Osm2Layer {
                 &mut self.building_parts,
             );
         }
-        *****/
     }
 }
 
@@ -466,6 +464,10 @@ fn way(id: u64, osm_way: &mut OtbWay, show_only: u64, building_parts: &mut Vec<B
     let part_option = tags_get2(tags, "building:part", "building");
     if part_option.is_none() && show_only == 0 {
         //println!("Unprocessed relation non-part tag {}", element.id);
+        return;
+    }
+
+    if osm_way.footprint.polygons.is_empty() {
         return;
     }
 
@@ -536,6 +538,7 @@ fn relation(
     }
 
     let mut footprint = Footprint::new(id);
+    let mut outer_id: u64 = 0;
 
     // first scann for outer, later vo inner
     for member in &members {
@@ -551,8 +554,11 @@ fn relation(
                     println!("outer none, id/ref: {}", outer_ref);
                     return None;
                 }
+                println!("outer id/ref: {}", outer_ref);
                 // Todo: cloning footprint twice can't be the solution
-                footprint = ways_map.get(&outer_ref).unwrap().footprint.clone();
+                let way_with_outer = ways_map.get(&outer_ref).unwrap();
+                outer_id = way_with_outer._id;
+                footprint = way_with_outer.footprint.clone();
             }
             _ => (),
         }
@@ -568,9 +574,14 @@ fn relation(
         }
     }
 
+    if footprint.polygons.is_empty() {
+        println!("relation 1");
+        return None;
+    }
+
     // building_parts.push...
     Some(OtbWay {
-        _id: id,
+        _id: outer_id,
         footprint,
         tags: Some(tags.clone()),
     })
@@ -583,10 +594,10 @@ fn inner(elements_ref: u64, ways_map: &HashMap<u64, OtbWay>, footprint: &mut Foo
         println!("inner none, id/ref: {}", elements_ref);
         return;
     }
+    println!("inner id/ref: {}", elements_ref);
+
     // todo: what if the hole is has holes? What if the polygon is a multipolygon?
     let polygons: &Polygons = &ways_map.get(&elements_ref).unwrap().footprint.polygons;
-    let polygon: &Polygon = &polygons[0];
-    footprint.substract(&polygon[0]);
-    //footprint.push_hole(hole);
+    footprint.substract(&polygons);
     //println!("inner way; {:?}", &elements_ref);
 }

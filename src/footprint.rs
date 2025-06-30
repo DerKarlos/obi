@@ -132,6 +132,12 @@ impl Footprint {
 
     // Shape.rotate
     pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
+        //if self.polygons.is_empty() {
+        //    println!("rotate 1");
+        //    return self.bounding_box;
+        //}
+        let len = &self.polygons[0][0].len();
+        println!("{len} rotate: {:?}", &self.polygons[0][0]);
         let mut bounding_box_rotated = BoundingBox::new();
         for position in &self.polygons[0][0] {
             // Rotate against the actual angle to got 0 degrees
@@ -167,7 +173,6 @@ impl Footprint {
         //
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
-        println!("polygons: {:?}", self.polygons);
         for position in self.first_outer_u() {
             // polygons[0][0] {
             // positions {
@@ -214,7 +219,6 @@ impl Footprint {
         for i in 0..n {
             let current = self.rotated_positions[i];
             let next = self.rotated_positions[(i + 1) % n];
-            //outer_vertices.push(current); //ttt
             outer_vertices.push(positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
@@ -260,7 +264,8 @@ impl Footprint {
         (left_vertices, right_vertices)
     }
 
-    pub fn substract(&mut self, other_positions: &GroundPositions) -> bool {
+    // subttacting a hole of a polygon or a part inside a building
+    pub fn substract(&mut self, hole_positions: &Polygons) -> bool {
         const LOG: bool = false;
         // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
         if LOG {
@@ -270,20 +275,16 @@ impl Footprint {
                 self.polygons.len(),
                 &self.polygons
             );
-            println!(
-                "cccc {}  clip = {:?}",
-                other_positions.len(),
-                other_positions
-            );
+            println!("cccc {}  clip = {:?}", hole_positions.len(), hole_positions);
         }
 
         let remaining = self
             .polygons //self.positions
-            .overlay(other_positions, OverlayRule::Difference, FillRule::Negative);
+            .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive); // not working: Negative
 
         //println!(
-        //    "äää {:?} ==== {:?} ---- {:?}",
-        //    substraction, self.multipollygon, other_positions
+        //    "substract 1 {:?} ==== {:?} ---- {:?}",
+        //    remaining, self.polygons, hole_positions
         //);
 
         if remaining.is_empty() {
@@ -291,9 +292,10 @@ impl Footprint {
             //self.positions = Vec::new();
             //println!("outer is gone, remove way {}", self._id);
             //println!(
-            //    "äää {:?} ==== {:?} ---- {:?}",
-            //    substraction, self.multipollygon, other_positions
+            //    "substract 2 {:?} ==== {:?} ---- {:?}",
+            //    remaining, self.polygons, hole_positions
             //);
+
             self.polygons = remaining;
             return true;
         }
