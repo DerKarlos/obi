@@ -180,6 +180,8 @@ impl Osm2Layer {
         self.buildings_or_parts
     }
 
+    ///////////////////////
+
     pub fn add_node(
         &mut self,
         id: u64,
@@ -196,6 +198,8 @@ impl Osm2Layer {
             },
         );
     }
+
+    ///////////////////////
 
     pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<HashMap<String, String>>) {
         // Only closed ways (yet)
@@ -237,6 +241,8 @@ impl Osm2Layer {
         );
     }
 
+    ///////////////////////
+
     pub fn add_relation(
         &mut self,
         id: u64,
@@ -261,6 +267,8 @@ impl Osm2Layer {
         });
     }
 
+    ///////////////////////
+
     pub fn process_elements_from_osm_to_layers(&mut self) {
         // Subtract parts from ways - code is to stupide! Todo!
         // Test1: cargo run --example m_async -- -r 0 -w 239592652
@@ -273,13 +281,10 @@ impl Osm2Layer {
         // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
         println!("\n**** process: {:?} relations", self.relations.len());
-        for osm_relation in self.relations.iter() {
-            let way_from_relation = process_relation(
-                osm_relation.id,
-                osm_relation,
-                &self.ways_map,
-                self.show_only,
-            );
+        while !self.relations.is_empty() {
+            //for osm_relation in self.relations.iter() {
+            let osm_relation = self.relations.pop().unwrap();
+            let way_from_relation = self.process_relation(osm_relation.id, &osm_relation);
             if way_from_relation.is_some() {
                 self.ways_map
                     .insert(osm_relation.id, way_from_relation.unwrap());
@@ -315,6 +320,8 @@ impl Osm2Layer {
         }
     }
 
+    ///////////////////////
+
     // Souldn't we have MORE sub fn's ???
     fn create_building_or_part(&mut self, id: u64, otb_way: &mut OsmWay) {
         //println!("scan: way id = {:?}", id);
@@ -329,7 +336,7 @@ impl Osm2Layer {
             return;
         }
 
-        //////////////////////////////
+        // // // // // // // // //
 
         let part = tags.get("building:part").is_some();
 
@@ -457,119 +464,114 @@ impl Osm2Layer {
 
         self.buildings_or_parts.push(building_or_part);
     }
-}
 
-fn process_relation(
-    id: u64,
-    osm_relation: &OsmRelation,
-    ways_map: &HashMap<u64, OsmWay>,
-    show_only: u64,
-) -> Option<OsmWay> {
-    if show_only > 0 && id != show_only {
-        return None;
-    }
+    ///////////////////////
 
-    // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
-    // except the outer has no tags!
-
-    /******* self.relation(*id, osm_relation); //  ****/
-
-    println!("Relation: {:?}", id);
-
-    if osm_relation.members.is_empty() {
-        println!("Relation without members! id: {:?}", id);
-        return None;
-    }
-
-    let members = osm_relation.members.clone();
-
-    let tags = osm_relation.tags.as_ref().unwrap();
-    // thread 'main' panicked at src/osm2layers.rs:376:42:    cargo run --example m_async -- -r 1000   member with type ""
-    let mut relation_type_option = tags.get("type");
-    let multipolygon = "multipolygon".to_string();
-    if relation_type_option.is_none() {
-        println!("relation {id} has no type (and a member without type?).");
-        // asume multipolygon (without inner)  todo: code is merde!
-        relation_type_option = Some(&multipolygon);
-    }
-    let relation_type = relation_type_option.unwrap();
-    if relation_type != "multipolygon" {
-        //println!("Unprocessed relation type: {relation_type}");
-        return None;
-    }
-
-    //println!("rel tags: {:?}", tags);
-    let part_option = tags_get2(tags, "building:part", "building");
-    if part_option.is_none() && show_only == 0 {
-        //println!("Unprocessed relation non-part tag {}", element.id);
-        return None;
-    }
-
-    let mut footprint = Footprint::new(id);
-    let mut outer_id: u64 = 0;
-
-    // first scann for outer, later vo inner
-    for member in &members {
-        // println!("mem: {:?}", &member);
-        if member.relation_type != "way" {
+    fn process_relation(&mut self, id: u64, osm_relation: &OsmRelation) -> Option<OsmWay> {
+        if self.show_only > 0 && id != self.show_only {
             return None;
         }
-        match member.role.as_str() {
-            "outer" => {
-                let outer_ref = member.reference;
-                let option = ways_map.get(&outer_ref);
-                if option.is_none() {
-                    println!("outer none, id/ref: {}", outer_ref);
-                    return None;
+
+        // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
+        // except the outer has no tags!
+
+        /******* self.relation(*id, osm_relation); //  ****/
+
+        println!("Relation: {:?}", id);
+
+        if osm_relation.members.is_empty() {
+            println!("Relation without members! id: {:?}", id);
+            return None;
+        }
+
+        let members = osm_relation.members.clone();
+
+        let tags = osm_relation.tags.as_ref().unwrap();
+        // thread 'main' panicked at src/osm2layers.rs:376:42:    cargo run --example m_async -- -r 1000   member with type ""
+        let mut relation_type_option = tags.get("type");
+        let multipolygon = "multipolygon".to_string();
+        if relation_type_option.is_none() {
+            println!("relation {id} has no type (and a member without type?).");
+            // asume multipolygon (without inner)  todo: code is merde!
+            relation_type_option = Some(&multipolygon);
+        }
+        let relation_type = relation_type_option.unwrap();
+        if relation_type != "multipolygon" {
+            //println!("Unprocessed relation type: {relation_type}");
+            return None;
+        }
+
+        //println!("rel tags: {:?}", tags);
+        let part_option = tags_get2(tags, "building:part", "building");
+        if part_option.is_none() && self.show_only == 0 {
+            //println!("Unprocessed relation non-part tag {}", element.id);
+            return None;
+        }
+
+        let mut footprint = Footprint::new(id);
+        let mut outer_id: u64 = 0;
+
+        // first scann for outer, later vo inner
+        for member in &members {
+            // println!("mem: {:?}", &member);
+            if member.relation_type != "way" {
+                return None;
+            }
+            match member.role.as_str() {
+                "outer" => {
+                    let outer_ref = member.reference;
+                    let option = self.ways_map.get(&outer_ref);
+                    if option.is_none() {
+                        println!("outer none, id/ref: {}", outer_ref);
+                        return None;
+                    }
+                    println!("outer: {}", outer_ref);
+                    // Todo: cloning footprint twice can't be the solution
+                    let way_with_outer = self.ways_map.get(&outer_ref).unwrap();
+                    outer_id = way_with_outer._id;
+                    footprint = way_with_outer.footprint.clone();
                 }
-                println!("outer: {}", outer_ref);
-                // Todo: cloning footprint twice can't be the solution
-                let way_with_outer = ways_map.get(&outer_ref).unwrap();
-                outer_id = way_with_outer._id;
-                footprint = way_with_outer.footprint.clone();
+                _ => (),
             }
-            _ => (),
         }
-    }
 
-    for member in &members {
-        //println!("mem: {:?}", &member);
-        match member.role.as_str() {
-            "inner" => {
-                process_relation_inner(member.reference, ways_map, &mut footprint);
+        for member in &members {
+            //println!("mem: {:?}", &member);
+            match member.role.as_str() {
+                "inner" => {
+                    self.process_relation_inner(member.reference, &mut footprint);
+                }
+                _ => (),
             }
-            _ => (),
         }
+
+        if footprint.polygons.is_empty() {
+            println!("relation 1");
+            return None;
+        }
+
+        // buildings_and_parts.push...
+        Some(OsmWay {
+            _id: outer_id,
+            footprint,
+            tags: Some(tags.clone()),
+        })
     }
 
-    if footprint.polygons.is_empty() {
-        println!("relation 1");
-        return None;
+    ///////////////////////
+
+    fn process_relation_inner(&self, elements_ref: u64, footprint: &mut Footprint) {
+        //println!("elements_ref: {:?}", &elements_ref);
+        let option = self.ways_map.get(&elements_ref);
+        if option.is_none() {
+            println!("inner none, id/ref: {}", elements_ref);
+            return;
+        }
+        println!("inner: {}", elements_ref);
+
+        // todo: what if the hole is has holes? What if the polygon is a multipolygon?
+        let polygons: &Polygons = &self.ways_map.get(&elements_ref).unwrap().footprint.polygons;
+        footprint.subtract(&polygons);
+        //println!("inner way; {:?}", &elements_ref);
     }
-
-    // buildings_and_parts.push...
-    Some(OsmWay {
-        _id: outer_id,
-        footprint,
-        tags: Some(tags.clone()),
-    })
-}
-
-fn process_relation_inner(
-    elements_ref: u64,
-    ways_map: &HashMap<u64, OsmWay>,
-    footprint: &mut Footprint,
-) {
-    //println!("elements_ref: {:?}", &elements_ref);
-    let option = ways_map.get(&elements_ref);
-    if option.is_none() {
-        println!("inner none, id/ref: {}", elements_ref);
-        return;
-    }
-    println!("inner: {}", elements_ref);
-
-    // todo: what if the hole is has holes? What if the polygon is a multipolygon?
-    let polygons: &Polygons = &ways_map.get(&elements_ref).unwrap().footprint.polygons;
-    footprint.subtract(&polygons);
-    //println!("inner way; {:?}", &elements_ref);
 }
