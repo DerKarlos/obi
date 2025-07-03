@@ -10,7 +10,7 @@ pub struct UrlClArgs {
     // along!  RUST_BACKTRACE=1 cargo run --example m_async -- -w 363815745 -o 363815745
     // St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
     // Bau 46:                                 Relation: 2819'147 with Outer: 45590896 and  Inner: 210046607
-    // Passau Dom: 24771505
+    // Passau Dom: 24771505 = Outer
     // Reifenberg: 121486088
     //
     #[arg(short, long, default_value = "369161987")]
@@ -35,7 +35,7 @@ use crate::input_osm_json::*;
 use crate::input_osm_lib::*;
 
 use crate::kernel_in::LAT_FAKT;
-use crate::symbolic_3d::scan_objects;
+use crate::symbolic_3d::scan_elements_from_layer_to_mesh;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Example-Main: "OBI" directly by OSM-API Json ///////////////////////////////////////////////////
@@ -71,7 +71,7 @@ pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     // println!("building_parts: {:?}", building_parts);
 
-    let meshes = scan_objects(building_parts);
+    let meshes = scan_elements_from_layer_to_mesh(building_parts);
     let scale = bounding_box.max_radius() / 10. * LAT_FAKT;
     render_init(meshes, scale);
 

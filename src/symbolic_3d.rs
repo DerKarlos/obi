@@ -1,5 +1,7 @@
 use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingPart, GroundPosition, GroundPositions, RoofShape};
+use crate::kernel_in::{
+    BuildingOrPart, BuildingsOrParts, GroundPosition, GroundPositions, RoofShape,
+};
 use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition};
 use std::cmp::min;
 use std::ops::Sub;
@@ -40,7 +42,9 @@ impl Footprint {
     }
 }
 
-pub fn scan_objects(building_parts: Vec<BuildingPart>) -> Vec<OsmMeshAttributes> {
+pub fn scan_elements_from_layer_to_mesh(
+    building_parts: BuildingsOrParts,
+) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
@@ -76,7 +80,7 @@ impl OsmMesh {
         }
     }
 
-    fn push_building_part(&mut self, building_part: &mut BuildingPart) {
+    fn push_building_part(&mut self, building_part: &mut BuildingOrPart) {
         let min_height = building_part.min_height;
         let wall_height = building_part.wall_height;
         let roof_height = building_part.roof_height;
@@ -92,7 +96,7 @@ impl OsmMesh {
             //    "building_part.footprint.positions.is_empty: {}",
             //    building_part.id
             //);
-            return; // after parts substractions, nothing is left
+            return; // after parts subtractions, nothing is left
         }
 
         match building_part.roof_shape {
@@ -132,7 +136,7 @@ impl OsmMesh {
         self.push_walls(building_part, min_height, color);
     }
 
-    fn prepare_roof(&mut self, _building_part: &BuildingPart) {
+    fn prepare_roof(&mut self, _building_part: &BuildingOrPart) {
         // println!("angle: {}", _building_part.roof_angle);
         // todo:
         // Add positions below roof first etc.
@@ -143,7 +147,7 @@ impl OsmMesh {
     fn calc_skillion_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingPart,
+        building_part: &BuildingOrPart,
     ) -> f32 {
         //println!("ph: position: {:?}", position);
         //        let roof_slope = circle_limit(building_part.roof_angle + f32::to_radians(90.));
@@ -162,7 +166,7 @@ impl OsmMesh {
     fn calc_gabled_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingPart,
+        building_part: &BuildingOrPart,
     ) -> f32 {
         let east = position
             .sub(building_part.footprint.center)
@@ -188,7 +192,7 @@ impl OsmMesh {
     fn calc_roof_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingPart,
+        building_part: &BuildingOrPart,
     ) -> f32 {
         match building_part.roof_shape {
             RoofShape::Skillion => self.calc_skillion_position_height(position, building_part),
@@ -220,7 +224,7 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    fn push_skillion(&mut self, building_part: &BuildingPart, color: RenderColor) {
+    fn push_skillion(&mut self, building_part: &BuildingOrPart, color: RenderColor) {
         let footprint = &building_part.footprint;
         let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
         for position in footprint.polygons[0][0].iter() {
@@ -248,7 +252,7 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    fn push_gabled(&mut self, building_part: &mut BuildingPart, color: RenderColor) {
+    fn push_gabled(&mut self, building_part: &mut BuildingOrPart, color: RenderColor) {
         let (face1, face2) = building_part
             .footprint
             .split_at_x_zero(building_part.roof_angle);
@@ -261,7 +265,7 @@ impl OsmMesh {
         &mut self,
         side: GroundPositions,
         color: RenderColor,
-        building_part: &BuildingPart,
+        building_part: &BuildingOrPart,
     ) {
         let mut footprint = Footprint::new(4712); // &building_part.footprint;
         footprint.polygons[0][0] = side;
@@ -303,6 +307,7 @@ impl OsmMesh {
         color: RenderColor,
     ) {
         let ring_edges: Vec<ExtrudeRing> = vec![
+            //todo: er!(1., 0.),
             ExtrudeRing {
                 radius: 1.,
                 height: 0.,
@@ -531,7 +536,7 @@ impl OsmMesh {
 
     fn push_walls(
         &mut self,
-        building_part: &mut BuildingPart,
+        building_part: &mut BuildingOrPart,
         min_height: f32,
         color: RenderColor,
     ) {
@@ -559,7 +564,7 @@ impl OsmMesh {
 
     fn push_wall_shape(
         &mut self,
-        building_part: &mut BuildingPart,
+        building_part: &mut BuildingOrPart,
         hole: &GroundPositions,
         is_circular: bool,
         min_height: f32,
@@ -692,3 +697,18 @@ struct ExtrudeRing {
 struct Silhouette {
     ring_edges: Vec<ExtrudeRing>,
 }
+
+macro_rules! _er {
+    (r,h) => (
+        $crate::symbolic_3d::ExtrudeRing::new(
+            radius: r,
+            height: h,
+        )
+
+    );
+}
+
+//ExtrudeRing {
+//    radius: 1.00,
+//    height: 0.00,
+//},

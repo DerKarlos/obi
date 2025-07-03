@@ -1,13 +1,13 @@
-///////////////////////////////////////
-// The tactics to hanlde OSM tagging //
-///////////////////////////////////////
+/////////////////////////////////////////
+// Converting OSM data to "GIS" layers //
+/////////////////////////////////////////
 
 use csscolorparser::parse;
 use std::collections::HashMap;
 
 use crate::GeographicCoordinates;
 use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingPart, OtbNode, OtbRelation, OtbWay, RenderColor, RoofShape};
+use crate::kernel_in::{BuildingOrPart, BuildingsOrParts, GroundPosition, RenderColor, RoofShape};
 use crate::kernel_in::{Member, Polygons};
 
 // This constands may come from a (3D-)render shema
@@ -17,9 +17,9 @@ pub static DEFAULT_WALL_HEIGHT: f32 = 6.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
 
-static NO: &str = "no";
+// Helper functions for the osm to layer processing ///////////////////////////
 
-pub fn circle_limit(angle: f32) -> f32 {
+fn circle_limit(angle: f32) -> f32 {
     if angle > f32::to_radians(180.) {
         angle - f32::to_radians(360.)
     } else if angle < f32::to_radians(180.) {
@@ -29,8 +29,7 @@ pub fn circle_limit(angle: f32) -> f32 {
     }
 }
 
-// MAy return option if once needed
-pub fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
+fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
     // https://docs.rs/csscolorparser/latest/csscolorparser/
     // Bevy pbr color needs f32, The parse has no .as_f32}
     if color.is_none() {
@@ -74,7 +73,7 @@ fn color_to_f32(r: u8, g: u8, b: u8) -> RenderColor {
     [r as f32 / 255., g as f32 / 255., b as f32 / 255., 1.]
 }
 
-pub fn parse_height(height_option: Option<&String>) -> f32 {
+fn parse_height(height_option: Option<&String>) -> f32 {
     if height_option.is_none() {
         return 0.;
     }
@@ -95,7 +94,15 @@ pub fn parse_height(height_option: Option<&String>) -> f32 {
     }
 }
 
-pub fn tags_get2<'a>(
+fn tags_get_yes<'a>(tags: &'a HashMap<String, String>, searched: &str) -> Option<&'a String> {
+    if let Some(tag) = tags.get(searched) {
+        if tag == "no" { None } else { Some(tag) }
+    } else {
+        None
+    }
+}
+
+fn tags_get2<'a>(
     tags: &'a HashMap<String, String>,
     option1: &str,
     option2: &str,
@@ -107,7 +114,7 @@ pub fn tags_get2<'a>(
     }
 }
 
-pub fn tags_get3<'a>(
+fn tags_get3<'a>(
     tags: &'a HashMap<String, String>,
     option1: &str,
     option2: &str,
@@ -124,12 +131,16 @@ pub fn tags_get3<'a>(
     }
 }
 
-pub fn building(
+// Main functions for the processing ///////////////////////////
+
+// Why not inside process_building_or_part ???
+// Or souldn't we have MORE sub fn's ?
+fn create_building_part(
     footprint: &mut Footprint,
     id: u64,
     tags: &HashMap<String, String>,
     //building_parts: &Vec<BuildingPart>,
-) -> BuildingPart {
+) -> BuildingOrPart {
     let part = tags.get("building:part").is_some();
 
     // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
@@ -232,14 +243,6 @@ pub fn building(
         }
     }
 
-    // println!(
-    //     "fn building: Part id: {} roof: {:?} cirular: {} angle: {}",
-    //     id,
-    //     roof_shape,
-    //     footprint.is_circular,
-    //     roof_angle.to_degrees()
-    // );
-
     // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
     roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
 
@@ -247,7 +250,7 @@ pub fn building(
     let bounding_box_rotated = footprint.rotate(roof_angle);
 
     // let building_part =
-    BuildingPart {
+    BuildingOrPart {
         id,
         part,
         footprint: footprint.clone(),
@@ -267,16 +270,34 @@ pub fn building(
     // building_part
 }
 
-//////////////////////////////// Osm2Layer //////////////////////////////
+//////////////////////////////// Osm2Layer (API) //////////////////////////////
+
+pub struct OsmNode {
+    pub position: GroundPosition,
+}
+
+#[derive(Debug, Clone)]
+pub struct OsmWay {
+    pub _id: u64,
+    pub footprint: Footprint,
+    pub tags: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug)]
+pub struct OsmRelation {
+    pub id: u64,
+    pub members: Vec<Member>,
+    pub tags: Option<HashMap<String, String>>,
+}
 
 pub struct Osm2Layer {
     gpu_ground_null_coordinates: GeographicCoordinates,
-    nodes_map: HashMap<u64, OtbNode>,
-    ways_map: HashMap<u64, OtbWay>,
+    nodes_map: HashMap<u64, OsmNode>,
+    ways_map: HashMap<u64, OsmWay>,
     buildings: Vec<u64>,
     parts: Vec<u64>,
-    relations: Vec<OtbRelation>,
-    pub building_parts: Vec<BuildingPart>,
+    relations: Vec<OsmRelation>,
+    building_parts: BuildingsOrParts,
     show_only: u64,
 }
 
@@ -302,7 +323,7 @@ impl Osm2Layer {
     ) {
         self.nodes_map.insert(
             id,
-            OtbNode {
+            OsmNode {
                 position: self
                     .gpu_ground_null_coordinates
                     .coordinates_to_position(latitude, longitude),
@@ -329,24 +350,20 @@ impl Osm2Layer {
             footprint.push_position(position);
         }
         footprint.close();
-        // println!(
-        //     "add_way insert id: {} circular: {} ",
-        //     id, footprint.is_circular
-        // );
 
-        if tags.as_ref().is_some() {
-            if tags.as_ref().unwrap().get("building").is_some() {
+        if let Some(tags) = &tags {
+            if tags_get_yes(&tags, "building").is_some() {
                 self.buildings.push(id);
             }
-
-            if tags.as_ref().unwrap().get("building:part").is_some() {
+            if tags_get_yes(&tags, "building:part").is_some() {
                 self.parts.push(id);
             }
         }
 
+        // Now, as the tags are checked, they may get moved into the map
         self.ways_map.insert(
             id,
-            OtbWay {
+            OsmWay {
                 _id: id,
                 footprint,
                 tags,
@@ -360,10 +377,25 @@ impl Osm2Layer {
         members: Vec<Member>,
         tags: Option<HashMap<String, String>>,
     ) {
-        self.relations.push(OtbRelation { id, members, tags });
+        if tags.is_none() {
+            println!("Relation without tags: {id}");
+            return;
+        }
+
+        let tags = tags.unwrap();
+        if tags_get_yes(&tags, "building:part").is_none() {
+            // if show_only = 0
+            return;
+        }
+
+        self.relations.push(OsmRelation {
+            id,
+            members,
+            tags: Some(tags),
+        });
     }
 
-    pub fn scan(&mut self) {
+    pub fn process_elements_from_osm_to_layers(&mut self) {
         // Subtract parts from ways - code is to stupide! Todo!
         // Test1: cargo run --example m_async -- -r 0 -w 239592652
         // This way does NOT set the height/levels to maximum
@@ -374,26 +406,25 @@ impl Osm2Layer {
         // Test6: rel 11192041: outer 172664019, inner 814784298
         // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
-        println!("scan: rel len = {:?}", self.relations.len());
+        println!("\n*** process: {:?} relations", self.relations.len());
         for osm_relation in self.relations.iter() {
-            let way_from_relation = relation(
+            let way_from_relation = process_relation(
                 osm_relation.id,
                 osm_relation,
                 &self.ways_map,
                 self.show_only,
-                &mut self.building_parts,
             );
             if way_from_relation.is_some() {
                 self.ways_map
                     .insert(osm_relation.id, way_from_relation.unwrap());
-                self.parts.push(osm_relation.id);
+                self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part! Even it is a building, it works anyway.
             }
         }
 
-        println!("scan: subtact part len = {:?}", self.parts.len());
+        println!("\nprocess: subtact {:?} parts", self.parts.len());
         for part_id in &self.parts {
             println!("part_id: {part_id}");
-            //if *part_id != 278033600 {
+            //if *part_id > 464090146 {
             //    continue;
             //}
             let part = &self.ways_map.get(part_id).unwrap();
@@ -402,42 +433,25 @@ impl Osm2Layer {
             for building_id in &self.buildings {
                 println!("building_id: {building_id}");
                 let building = self.ways_map.get_mut(building_id).unwrap();
-                building.footprint.substract(&plygons);
-                //{
-                //if building.footprint.positions.is_empty() {
-                //    println!(
-                //        "??? push hole to mepty3! part: {} building: {} len: {}",
-                //        part_id,
-                //        building_id,
-                //        building.footprint.positions.len()
-                //    );
-                //}
-
-                //println!(
-                //    "footprint.holes: part = {} building: {} f:{}",
-                //    part_id,
-                //    building_id,
-                //    building.footprint.positions.len()
-                //);
-                //building.footprint.holes.push(shape.clone());
-                //};
+                building.footprint.subtract(&plygons);
             }
         }
 
-        println!("scan:: show part len = {:?}", self.parts.len());
+        /********
+         ********/
+
+        println!("\nprocess: show {:?} parts", self.parts.len());
         for part_id in &self.parts {
             println!("part_id:: {part_id}");
             let part = self.ways_map.get_mut(part_id).unwrap();
-            way(*part_id, part, self.show_only, &mut self.building_parts);
+            process_building_or_part(*part_id, part, self.show_only, &mut self.building_parts);
         }
 
-        /********
-         *****/
-        println!("scan: show way len = {:?}", self.buildings.len());
+        println!("\nprocess: show {:?} ways", self.buildings.len());
         for building_id in &self.buildings {
             println!("building_id:: {building_id}");
             let building = self.ways_map.get_mut(building_id).unwrap();
-            way(
+            process_building_or_part(
                 *building_id,
                 building,
                 self.show_only,
@@ -445,59 +459,19 @@ impl Osm2Layer {
             );
         }
     }
-}
 
-fn way(id: u64, osm_way: &mut OtbWay, show_only: u64, building_parts: &mut Vec<BuildingPart>) {
-    // todo: Fight Rust and make this {} a fn
-
-    //println!("scan: way id = {:?}", id);
-    if show_only > 0 && id != show_only {
-        return;
-    }
-
-    if osm_way.tags.is_none() {
-        return;
-    }
-
-    let tags = osm_way.tags.as_ref().unwrap();
-
-    let part_option = tags_get2(tags, "building:part", "building");
-    if part_option.is_none() && show_only == 0 {
-        //println!("Unprocessed relation non-part tag {}", element.id);
-        return;
-    }
-
-    if osm_way.footprint.polygons.is_empty() {
-        return;
-    }
-
-    // ??? not only parts!    || show_only < 0
-    let string_no = &NO.to_string();
-    let part = tags.get("building:part").unwrap_or(string_no);
-    if part != NO || show_only > 0 || true {
-        building_parts.push(building(&mut osm_way.footprint, id, tags));
+    pub fn get_building_parts(self) -> BuildingsOrParts {
+        self.building_parts
     }
 }
-fn relation(
+
+fn process_relation(
     id: u64,
-    osm_relation: &OtbRelation,
-    ways_map: &HashMap<u64, OtbWay>,
+    osm_relation: &OsmRelation,
+    ways_map: &HashMap<u64, OsmWay>,
     show_only: u64,
-    _building_parts: &mut Vec<BuildingPart>,
-) -> Option<OtbWay> {
-    // println!("scan: rel. id = {:?}", id);
+) -> Option<OsmWay> {
     if show_only > 0 && id != show_only {
-        return None;
-    }
-
-    if osm_relation.tags.is_none() {
-        return None;
-    }
-
-    let string_no = &NO.to_string();
-    let tags = osm_relation.tags.as_ref().unwrap();
-    let part = tags.get("building:part").unwrap_or(string_no);
-    if part == NO && show_only > 0 {
         return None;
     }
 
@@ -568,7 +542,7 @@ fn relation(
         //println!("mem: {:?}", &member);
         match member.role.as_str() {
             "inner" => {
-                inner(member.reference, ways_map, &mut footprint);
+                process_relation_inner(member.reference, ways_map, &mut footprint);
             }
             _ => (),
         }
@@ -580,14 +554,19 @@ fn relation(
     }
 
     // building_parts.push...
-    Some(OtbWay {
+    Some(OsmWay {
         _id: outer_id,
         footprint,
         tags: Some(tags.clone()),
     })
 }
 
-fn inner(elements_ref: u64, ways_map: &HashMap<u64, OtbWay>, footprint: &mut Footprint) {
+fn process_relation_inner(
+    elements_ref: u64,
+    ways_map: &HashMap<u64, OsmWay>,
+    footprint: &mut Footprint,
+) {
+    //return; //ttt
     //println!("elements_ref: {:?}", &elements_ref);
     let option = ways_map.get(&elements_ref);
     if option.is_none() {
@@ -598,6 +577,27 @@ fn inner(elements_ref: u64, ways_map: &HashMap<u64, OtbWay>, footprint: &mut Foo
 
     // todo: what if the hole is has holes? What if the polygon is a multipolygon?
     let polygons: &Polygons = &ways_map.get(&elements_ref).unwrap().footprint.polygons;
-    footprint.substract(&polygons);
+    footprint.subtract(&polygons);
     //println!("inner way; {:?}", &elements_ref);
+}
+
+fn process_building_or_part(
+    id: u64,
+    otb_way: &mut OsmWay,
+    show_only: u64,
+    buildings_and_parts: &mut BuildingsOrParts,
+) {
+    //println!("scan: way id = {:?}", id);
+    if show_only > 0 && id != show_only {
+        return;
+    }
+
+    let tags = otb_way.tags.as_ref().unwrap();
+
+    if otb_way.footprint.polygons.is_empty() {
+        println!("scan: way is empty {:?}", id);
+        return;
+    }
+
+    buildings_and_parts.push(create_building_part(&mut otb_way.footprint, id, tags));
 }

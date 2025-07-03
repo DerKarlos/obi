@@ -4,7 +4,7 @@ use rend3::types::glam::*;
 use reqwest;
 use std::io::Read;
 
-use osm_tb::{InputOsm, scan_objects};
+use osm_tb::{InputOsm, scan_elements_from_layer_to_mesh};
 
 const SAMPLE_COUNT: rend3::types::SampleCount = rend3::types::SampleCount::One;
 
@@ -64,9 +64,9 @@ impl rend3_framework::App for ObiExample {
         res.read_to_end(&mut bytes).unwrap();
         println!("json.len: {:?}", bytes.len());
         let building_parts =
-            api.scan_osm_vec(&bytes, &bounding_box.center_as_geographic_coordinates(), 0);
+            api.scan_json_to_osm_vec(&bytes, &bounding_box.center_as_geographic_coordinates(), 0);
         println!("building_parts len: {:?}", building_parts.len());
-        let meshes = scan_objects(building_parts);
+        let meshes = scan_elements_from_layer_to_mesh(building_parts);
         println!("meshes len: {:?}", meshes.len());
         let vertex_positions = &meshes[0].vertices_positions;
         let mut rend_vertex_positions: Vec<Vec3> = Vec::new();

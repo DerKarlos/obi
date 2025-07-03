@@ -9,6 +9,8 @@
 * subtract Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
 * A strange part at the Gib Ben west side goes up skillion above the tower
 * https://www.openstreetmap.org/way/172649356 should be subtracted to 0 but an infinite line remains. if area < 0.1 m*m: eliminate
+* building part 367642675 with roof:height looks wrong and is not 24 as the next part
+* how to handle roof:levels = > 0 and no roof:type ?  way 138462520
 
 * Is the crate https://crates.io/crates/osm-api able to build wasm and deliver the needed data? If yes, a new input "modul" is needed. A good way to fine the division of the "OSM-Toolbox"
 

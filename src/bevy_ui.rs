@@ -125,7 +125,7 @@ fn setup(
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let scale = osm_meshes.scale as f32 / 2.;
+    let scale = osm_meshes.scale as f32 / 1.;
     // circular base
     const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
 

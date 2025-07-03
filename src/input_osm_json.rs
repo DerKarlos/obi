@@ -2,18 +2,15 @@ use bytes::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-//
-//
-//
-
-use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition, Member};
+use crate::kernel_in::{
+    BoundingBox, BuildingsOrParts, GeographicCoordinates, GroundPosition, Member,
+};
 use crate::osm2layers::Osm2Layer;
+
+const LOCAL_TEST: bool = false;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // JOSN ///////////////////////////////////////////////////////////////////////////////////////////
-
-static _YES: &str = "yes";
-static _NO: &str = "no";
 
 #[derive(Debug)]
 pub struct InputOsm {
@@ -47,8 +44,11 @@ impl InputOsm {
         &self,
         way_id: u64,
     ) -> Result<BoundingBox, Box<dyn std::error::Error>> {
-        let url = format!("{}way/{}/full.json", self.api_url, way_id);
-        println!("++++++++++ Way_URL: {url}");
+        let mut url = format!("{}way/{}/full.json", self.api_url, way_id);
+        if LOCAL_TEST {
+            url = "bbox.json".to_string();
+        }
+        println!("= Way_URL: {url}");
         let bytes = reqwest::get(url).await?.bytes().await?;
         Ok(geo_bbox_of_way_bytes(&bytes))
     }
@@ -63,25 +63,28 @@ impl InputOsm {
         bounding_box: &BoundingBox,
         gpu_ground_null_coordinates: &GeographicCoordinates,
         show_only: u64,
-    ) -> Result<Vec<BuildingPart>, Box<dyn std::error::Error>> {
-        let url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
-        println!("++++++++++ BBox_URL: {url}");
+    ) -> Result<BuildingsOrParts, Box<dyn std::error::Error>> {
+        let mut url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
+        if LOCAL_TEST {
+            url = "way.json".to_string();
+        }
+        println!("= BBox_URL: {url}");
         let bytes = reqwest::get(url).await?.bytes().await?;
-        Ok(scan_osm_bytes(
+        Ok(scan_json_to_osm_bytes(
             bytes,
             gpu_ground_null_coordinates,
             show_only,
         ))
     }
 
-    pub fn scan_osm_vec(
+    pub fn scan_json_to_osm_vec(
         &self,
         bytes: &[u8],
         gpu_ground_null_coordinates: &GeographicCoordinates,
         show_only: u64,
-    ) -> Vec<BuildingPart> {
+    ) -> BuildingsOrParts {
         let json_bbox_data: JsonData = serde_json::from_slice(bytes).unwrap();
-        scan_osm_json(json_bbox_data, gpu_ground_null_coordinates, show_only)
+        scan_json_to_osm(json_bbox_data, gpu_ground_null_coordinates, show_only)
     }
 }
 
@@ -140,20 +143,20 @@ pub fn geo_bbox_of_way_json(json_way_data: JsonData) -> BoundingBox {
     bounding_box
 }
 
-pub fn scan_osm_bytes(
+pub fn scan_json_to_osm_bytes(
     bytes: Bytes,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
-) -> Vec<BuildingPart> {
+) -> BuildingsOrParts {
     let json_bbox_data: JsonData = serde_json::from_slice(&bytes).unwrap();
-    scan_osm_json(json_bbox_data, gpu_ground_null_coordinates, show_only)
+    scan_json_to_osm(json_bbox_data, gpu_ground_null_coordinates, show_only)
 }
 
-pub fn scan_osm_json(
+pub fn scan_json_to_osm(
     json_bbox_data: JsonData,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
-) -> Vec<BuildingPart> {
+) -> BuildingsOrParts {
     let mut osm2layer = Osm2Layer::create(*gpu_ground_null_coordinates, show_only);
     for element in json_bbox_data.elements {
         // println!("id: {}  type: {}", element.id, element.element_type);
@@ -175,7 +178,7 @@ pub fn scan_osm_json(
         }
     }
 
-    osm2layer.scan();
+    osm2layer.process_elements_from_osm_to_layers();
 
-    osm2layer.building_parts
+    osm2layer.get_building_parts()
 }

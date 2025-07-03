@@ -2,7 +2,6 @@
 
 use i_float::float::compatible::FloatPointCompatible;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
@@ -135,23 +134,6 @@ impl std::fmt::Display for GroundPosition {
 }
 
 // todo?: move to (ALL?) input_osm_*
-pub struct OtbNode {
-    pub position: GroundPosition,
-}
-
-#[derive(Debug, Clone)]
-pub struct OtbWay {
-    pub _id: u64,
-    pub footprint: Footprint,
-    pub tags: Option<HashMap<String, String>>,
-}
-
-#[derive(Debug)]
-pub struct OtbRelation {
-    pub id: u64,
-    pub members: Vec<Member>,
-    pub tags: Option<HashMap<String, String>>,
-}
 
 // Internal type of the 3d-renderer. It's just luck, it is the same as needed for the gpu-renderer Bevy ;-)
 pub type RenderColor = [f32; 4];
@@ -248,7 +230,7 @@ impl BoundingBox {
 
 // A builiding without parts is its onw part or itselve is a part
 #[derive(Clone, Debug)]
-pub struct BuildingPart {
+pub struct BuildingOrPart {
     pub id: u64,
     pub part: bool,
     pub footprint: Footprint,
@@ -263,6 +245,8 @@ pub struct BuildingPart {
     pub roof_angle: f32,
     pub roof_color: RenderColor,
 }
+
+pub type BuildingsOrParts = Vec<BuildingOrPart>;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Member {

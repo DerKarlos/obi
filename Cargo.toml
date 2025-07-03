@@ -70,8 +70,8 @@ serde_json = "1.0"
 csscolorparser = "0.6"
 earcutr = "0.4.3"
 ## https://docs.rs/i_overlay/latest/i_overlay
-i_overlay = "*"
-i_float = "*"
+i_overlay = "^4.0.2"
+i_float = "^1.15.0"
 
 # get args by clap and web ability for clap
 clap = { version = "4", features = ["derive"] }

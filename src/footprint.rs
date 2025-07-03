@@ -4,6 +4,7 @@ extern crate earcutr; // not supported vor WASM?
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
+//e i_overlay::float::simplify::SimplifyShape;
 
 use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
 
@@ -71,22 +72,6 @@ impl Footprint {
         self.center.east += position.east;
     }
 
-    /******
-    pub fn _push_hole(&mut self, mut hole: Footprint) {
-        if self.first_polygon().is_empty() {
-            println!("??? push hole to mepty1: {}", self._id);
-        }
-
-        if self.positions.is_empty() {
-            println!("??? push hole to mepty2: {}", self._id);
-        }
-
-        hole.positions.reverse();
-        self.first_polygon().push(hole.positions.clone());
-        //self.holes.push(hole);
-    }
-    *****/
-
     pub fn close(&mut self) {
         // center
         let count = self.first_outer_u().len() as f32;
@@ -132,12 +117,7 @@ impl Footprint {
 
     // Shape.rotate
     pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
-        //if self.polygons.is_empty() {
-        //    println!("rotate 1");
-        //    return self.bounding_box;
-        //}
-        let len = &self.polygons[0][0].len();
-        println!("{len} rotate: {:?}", &self.polygons[0][0]);
+        //println!("{len} rotate: {:?}", &self.polygons[0][0]);
         let mut bounding_box_rotated = BoundingBox::new();
         for position in &self.polygons[0][0] {
             // Rotate against the actual angle to got 0 degrees
@@ -174,8 +154,6 @@ impl Footprint {
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
         for position in self.first_outer_u() {
-            // polygons[0][0] {
-            // positions {
             // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
@@ -193,15 +171,6 @@ impl Footprint {
             }
         }
 
-        //if !holes_starts.is_empty() {
-        //    if holes_starts[0] == 0 {
-        //        println!(
-        //            "{} bad holes_starts: {:?} vertices: {:?} ",
-        //            self._id, &holes_starts, &vertices
-        //        );
-        //        holes_starts = Vec::new();
-        //    }
-        //}
         earcutr::earcut(&vertices, &holes_starts, 2).unwrap()
     }
 
@@ -265,7 +234,7 @@ impl Footprint {
     }
 
     // subttacting a hole of a polygon or a part inside a building
-    pub fn substract(&mut self, hole_positions: &Polygons) -> bool {
+    pub fn subtract(&mut self, hole_positions: &Polygons) {
         const LOG: bool = false;
         // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
         if LOG {
@@ -280,29 +249,35 @@ impl Footprint {
 
         let remaining = self
             .polygons //self.positions
-            .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive); // not working: Negative
+            .overlay(hole_positions, OverlayRule::Difference, FillRule::EvenOdd);
+        //  .                                              not working::Negative
 
         //println!(
-        //    "substract 1 {:?} ==== {:?} ---- {:?}",
+        //    "subtract 1 {:?} ==== {:?} ---- {:?}",
         //    remaining, self.polygons, hole_positions
         //);
 
+        // Reifenberg small remainings. Only ::Positive works. But will it hurt other models???
+        // let remaining = remaining.simplify_shape(FillRule::Positive);
+        // let remaining = remaining.simplify_shape_custom(FillRule::Positive);
+        // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
+        //???println!("simplify_shape {:?}", remaining);
+
         if remaining.is_empty() {
-            // outer is gone, remove way
-            //self.positions = Vec::new();
-            //println!("outer is gone, remove way {}", self._id);
+            // todo: loop ways over parts. if way is gone, stop part loop
+            println!("outer is gone, remove way {}", self._id);
             //println!(
-            //    "substract 2 {:?} ==== {:?} ---- {:?}",
+            //    "subtract 2 {:?} ==== {:?} ---- {:?}",
             //    remaining, self.polygons, hole_positions
             //);
 
             self.polygons = remaining;
-            return true;
+            return;
         }
         self.polygons = remaining;
         if self.first_polygon().is_empty() {
             println!("shape with no outer ...");
-            return false;
+            return;
         }
         if LOG {
             println!(
@@ -316,39 +291,13 @@ impl Footprint {
             if self.polygons.len() > 1 || self.first_polygon().len() != 1 {
                 if self.polygons.len() > 0 {
                     println!(
-                        "shape substract result.len()  [1][{}]",
+                        "shape subtract result.len()  [1][{}]",
                         self.polygons[0][0].len(),
                     );
                 }
             }
         }
 
-        return false;
-
-        /******
-        // todo: prozess holes in building
-        // todo: process all remainings of the cutted building
-        // seach vor the lagest remaining part and use it below. Better use all???
-        let mut max: usize = 0;
-        let mut ind: usize = 0;
-        for (i, remaining) in self.polygons.iter().enumerate() {
-            if remaining[0].len() > max {
-                max = remaining[0].len();
-                ind = i;
-            }
-        }
-
-        // 0o = first remaining shape, 0o = outer before the holes
-        let resulti0 = self.polygons[ind][0].clone();
-        // println!(
-        //     "{} shape multipollygon {}!={}",
-        //     self._id,
-        //     self.multipollygon[ind][0].len(),
-        //     self.positions.len()
-        // );
-        let changed = self.polygons[ind][0].len() != self.positions.len();
-        self.positions = resulti0;
-        changed
-        ******/
+        return;
     }
 }
