@@ -265,7 +265,7 @@ impl Footprint {
 
         if remaining.is_empty() {
             // todo: loop ways over parts. if way is gone, stop part loop
-            println!("outer is gone, remove way {}", self._id);
+            println!("outer is gone {}", self._id);
             //println!(
             //    "subtract 2 {:?} ==== {:?} ---- {:?}",
             //    remaining, self.polygons, hole_positions

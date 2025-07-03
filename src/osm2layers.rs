@@ -307,9 +307,14 @@ impl Osm2Layer {
                 //let shape = part.footprint.clone();
                 let part_polygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
                 building.footprint.subtract(&part_polygons);
+                if building.footprint.polygons.is_empty() {
+                    break;
+                }
             }
 
-            self.create_building_or_part(*building_id, &mut building);
+            if !building.footprint.polygons.is_empty() {
+                self.create_building_or_part(*building_id, &mut building);
+            }
         }
 
         println!("\n**** process {:?} parts", self.parts.len());
@@ -332,7 +337,7 @@ impl Osm2Layer {
         let tags = otb_way.tags.as_ref().unwrap();
 
         if otb_way.footprint.polygons.is_empty() {
-            println!("scan: way is empty {:?}", id);
+            println!("create_building_or_part: way is empty {:?}", id);
             return;
         }
 
