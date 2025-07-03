@@ -61,7 +61,7 @@ Even Vector tiles may become an alternative, OSM or Overture, if they support bu
 * GeographicCoordinates: latitude and longitude, in f64 to get accurate meters while subtracting the GPU zero position from the actual node position.
 * GroundPosition: north and east in 32, as needed for the GPU.
 * BoundingBox: north south east and west values. May be used for GPU or geographic values.
-* BuildingPart: is the interface from the input modules to the 3D generation
+* BuildingOrPart: is the interface from the input modules to the 3D generation
 * OsmMeshAttributes: is the interface from the 3D generation to the render engine
 * JosnData: Main struct of the OSM API return, with all Elements
 * JsonElement: May be a Node, Way or a Relation. May have a geo-position, may have tagging

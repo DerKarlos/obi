@@ -148,13 +148,13 @@ fn on_load(
         state.bytes = asset_server.load(url);
         state.step1 = true;
     } else {
-        let building_parts = state.api.scan_json_to_osm_vec(
+        let buildings_and_parts = state.api.scan_json_to_osm_vec(
             &bytes.unwrap().bytes,
             &state.gpu_ground_null_coordinates,
             state.show_only,
         );
-        info!("scan done, buildings: {:?} ", building_parts.len());
-        let osm_meshes = osm_tb::scan_elements_from_layer_to_mesh(building_parts);
+        info!("scan done, buildings: {:?} ", buildings_and_parts.len());
+        let osm_meshes = osm_tb::scan_elements_from_layer_to_mesh(buildings_and_parts);
         osm_tb::bevy_osm(commands, meshes, materials, osm_meshes, 25.);
 
         state.step2 = true;

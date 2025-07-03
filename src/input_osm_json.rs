@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::kernel_in::{
-    BoundingBox, BuildingsOrParts, GeographicCoordinates, GroundPosition, Member,
+    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Member,
 };
 use crate::osm2layers::Osm2Layer;
 
@@ -63,7 +63,7 @@ impl InputOsm {
         bounding_box: &BoundingBox,
         gpu_ground_null_coordinates: &GeographicCoordinates,
         show_only: u64,
-    ) -> Result<BuildingsOrParts, Box<dyn std::error::Error>> {
+    ) -> Result<BuildingsAndParts, Box<dyn std::error::Error>> {
         let mut url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
         if LOCAL_TEST {
             url = "way.json".to_string();
@@ -82,7 +82,7 @@ impl InputOsm {
         bytes: &[u8],
         gpu_ground_null_coordinates: &GeographicCoordinates,
         show_only: u64,
-    ) -> BuildingsOrParts {
+    ) -> BuildingsAndParts {
         let json_bbox_data: JsonData = serde_json::from_slice(bytes).unwrap();
         scan_json_to_osm(json_bbox_data, gpu_ground_null_coordinates, show_only)
     }
@@ -147,7 +147,7 @@ pub fn scan_json_to_osm_bytes(
     bytes: Bytes,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
-) -> BuildingsOrParts {
+) -> BuildingsAndParts {
     let json_bbox_data: JsonData = serde_json::from_slice(&bytes).unwrap();
     scan_json_to_osm(json_bbox_data, gpu_ground_null_coordinates, show_only)
 }
@@ -156,7 +156,7 @@ pub fn scan_json_to_osm(
     json_bbox_data: JsonData,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
-) -> BuildingsOrParts {
+) -> BuildingsAndParts {
     let mut osm2layer = Osm2Layer::create(*gpu_ground_null_coordinates, show_only);
     for element in json_bbox_data.elements {
         // println!("id: {}  type: {}", element.id, element.element_type);
@@ -180,5 +180,5 @@ pub fn scan_json_to_osm(
 
     osm2layer.process_elements_from_osm_to_layers();
 
-    osm2layer.get_building_parts()
+    osm2layer.get_buildings_and_parts()
 }

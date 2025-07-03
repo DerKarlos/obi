@@ -63,10 +63,10 @@ impl rend3_framework::App for ObiExample {
         let mut bytes: Vec<u8> = Vec::new();
         res.read_to_end(&mut bytes).unwrap();
         println!("json.len: {:?}", bytes.len());
-        let building_parts =
+        let buildings_and_parts =
             api.scan_json_to_osm_vec(&bytes, &bounding_box.center_as_geographic_coordinates(), 0);
-        println!("building_parts len: {:?}", building_parts.len());
-        let meshes = scan_elements_from_layer_to_mesh(building_parts);
+        println!("buildings_and_parts len: {:?}", buildings_and_parts.len());
+        let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
         println!("meshes len: {:?}", meshes.len());
         let vertex_positions = &meshes[0].vertices_positions;
         let mut rend_vertex_positions: Vec<Vec3> = Vec::new();

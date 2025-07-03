@@ -56,7 +56,7 @@ impl rend3_framework::App for ObiApp {
     }
 
     fn setup(&mut self, context: rend3_framework::SetupContext<'_>) {
-        let meshes = &self.osm_meshes; // scan_objects(building_parts);
+        let meshes = &self.osm_meshes; // scan_objects(buildings_and_parts);
         println!("meshes len: {:?}", meshes.len());
 
         let vertex_positions = &meshes[0].vertices_positions;

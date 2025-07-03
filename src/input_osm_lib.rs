@@ -6,8 +6,7 @@ use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::Credentials;
 
-use crate::kernel_in::Member;
-use crate::kernel_in::{BoundingBox, BuildingPart, GeographicCoordinates, GroundPosition};
+use crate::kernel_in::{BoundingBox, GeographicCoordinates, GroundPosition, Member};
 use crate::osm2layers::Osm2Layer;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -61,7 +60,7 @@ impl InputOsm {
         bounding_box: &BoundingBox,
         gpu_ground_null_coordinates: &GeographicCoordinates,
         show_only: u64,
-    ) -> Result<Vec<BuildingPart>, OpenstreetmapError> {
+    ) -> Result<BuildingsAndParts, OpenstreetmapError> {
         let bounding_box = openstreetmap_api::types::BoundingBox {
             left: bounding_box.west as f64,
             bottom: bounding_box.south as f64,
@@ -111,6 +110,6 @@ impl InputOsm {
 
         osm2layer.scan();
 
-        Ok(osm2layer.building_parts)
+        Ok(osm2layer.buildings_and_parts)
     }
 }

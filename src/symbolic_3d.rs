@@ -1,6 +1,6 @@
 use crate::footprint::Footprint;
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsOrParts, GroundPosition, GroundPositions, RoofShape,
+    BuildingOrPart, BuildingsAndParts, GroundPosition, GroundPositions, RoofShape,
 };
 use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition};
 use std::cmp::min;
@@ -43,15 +43,15 @@ impl Footprint {
 }
 
 pub fn scan_elements_from_layer_to_mesh(
-    building_parts: BuildingsOrParts,
+    buildings_and_parts: BuildingsAndParts,
 ) -> Vec<OsmMeshAttributes> {
     let mut osm_attributs = Vec::new();
 
     let mut osm_mesh = OsmMesh::new();
-    for mut building_part in building_parts {
-        osm_mesh.prepare_roof(&building_part);
+    for mut building_or_part in buildings_and_parts {
+        osm_mesh.prepare_roof(&building_or_part);
 
-        osm_mesh.push_building_part(&mut building_part);
+        osm_mesh.push_building_or_part(&mut building_or_part);
 
         if MULTI_MESH {
             //println!("MULTI_MESH");
@@ -80,63 +80,63 @@ impl OsmMesh {
         }
     }
 
-    fn push_building_part(&mut self, building_part: &mut BuildingOrPart) {
-        let min_height = building_part.min_height;
-        let wall_height = building_part.wall_height;
-        let roof_height = building_part.roof_height;
+    fn push_building_or_part(&mut self, building_or_part: &mut BuildingOrPart) {
+        let min_height = building_or_part.min_height;
+        let wall_height = building_or_part.wall_height;
+        let roof_height = building_or_part.roof_height;
         // println!("- m: {} w:{} r:{}", min_height, wall_height, roof_height);
 
         // https://docs.rs/geo/latest/geo/geometry/struct.LineString.html#impl-IsConvex-for-LineString%3CT%3E
 
-        let color = building_part.building_color;
-        let roof_color = building_part.roof_color;
+        let color = building_or_part.building_color;
+        let roof_color = building_or_part.roof_color;
 
-        if building_part.footprint.polygons[0][0].is_empty() {
+        if building_or_part.footprint.polygons[0][0].is_empty() {
             //println!(
-            //    "building_part.footprint.positions.is_empty: {}",
-            //    building_part.id
+            //    "building_or_part.footprint.positions.is_empty: {}",
+            //    building_or_part.id
             //);
             return; // after parts subtractions, nothing is left
         }
 
-        match building_part.roof_shape {
+        match building_or_part.roof_shape {
             //
             RoofShape::Skillion => {
-                self.push_skillion(building_part, roof_color);
+                self.push_skillion(building_or_part, roof_color);
             }
 
             RoofShape::Gabled => {
-                self.push_gabled(building_part, roof_color);
+                self.push_gabled(building_or_part, roof_color);
             }
 
             RoofShape::Phyramidal => self.push_phyramid(
-                &building_part.footprint,
+                &building_or_part.footprint,
                 wall_height,
                 roof_height,
                 roof_color,
             ),
 
             RoofShape::Dome => self.push_dome(
-                &building_part.footprint,
+                &building_or_part.footprint,
                 wall_height,
                 roof_height,
                 roof_color,
             ),
 
             RoofShape::Onion => self.push_onion(
-                &building_part.footprint,
+                &building_or_part.footprint,
                 wall_height,
                 roof_height,
                 roof_color,
             ),
 
-            _ => self.push_flat(&mut building_part.footprint, wall_height, roof_color),
+            _ => self.push_flat(&mut building_or_part.footprint, wall_height, roof_color),
         }
 
-        self.push_walls(building_part, min_height, color);
+        self.push_walls(building_or_part, min_height, color);
     }
 
-    fn prepare_roof(&mut self, _building_part: &BuildingOrPart) {
+    fn prepare_roof(&mut self, _: &BuildingOrPart) {
         // println!("angle: {}", _building_part.roof_angle);
         // todo:
         // Add positions below roof first etc.
@@ -147,41 +147,42 @@ impl OsmMesh {
     fn calc_skillion_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingOrPart,
+        building_or_part: &BuildingOrPart,
     ) -> f32 {
         //println!("ph: position: {:?}", position);
-        //        let roof_slope = circle_limit(building_part.roof_angle + f32::to_radians(90.));
+        //        let roof_slope = circle_limit(building_or_part.roof_angle + f32::to_radians(90.));
         let east = position
-            .sub(building_part.footprint.center)
-            .rotate(-building_part.roof_angle) // skillion
+            .sub(building_or_part.footprint.center)
+            .rotate(-building_or_part.roof_angle) // skillion
             .east;
-        // println!("roof_angle: {}", building_part.roof_angle.to_degrees());
-        let inclination = building_part.roof_height
-            / (building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
+        // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
+        let inclination = building_or_part.roof_height
+            / (building_or_part.bounding_box_rotated.east
+                - building_or_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
 
-        building_part.wall_height + building_part.roof_height
-            - f32::abs(east - building_part.bounding_box_rotated.west) * inclination
+        building_or_part.wall_height + building_or_part.roof_height
+            - f32::abs(east - building_or_part.bounding_box_rotated.west) * inclination
     }
 
     fn calc_gabled_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingOrPart,
+        building_or_part: &BuildingOrPart,
     ) -> f32 {
         let east = position
-            .sub(building_part.footprint.center)
-            .rotate(-building_part.roof_angle) // Rotate against the actual angle to got 0 degrees
+            .sub(building_or_part.footprint.center)
+            .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
             .east
-            + building_part.footprint.shift;
+            + building_or_part.footprint.shift;
 
         let width =
-            building_part.bounding_box_rotated.east - building_part.bounding_box_rotated.west;
-        let inclination = building_part.roof_height * 2. / width;
+            building_or_part.bounding_box_rotated.east - building_or_part.bounding_box_rotated.west;
+        let inclination = building_or_part.roof_height * 2. / width;
 
         // let height =
-        building_part.wall_height + building_part.roof_height - f32::abs(east) * inclination
+        building_or_part.wall_height + building_or_part.roof_height - f32::abs(east) * inclination
 
-        //3 let rh = building_part.roof_height;
+        //3 let rh = building_or_part.roof_height;
         //3 println!(
         //3     "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
         //3 );
@@ -192,13 +193,13 @@ impl OsmMesh {
     fn calc_roof_position_height(
         &mut self,
         position: &GroundPosition,
-        building_part: &BuildingOrPart,
+        building_or_part: &BuildingOrPart,
     ) -> f32 {
-        match building_part.roof_shape {
-            RoofShape::Skillion => self.calc_skillion_position_height(position, building_part),
-            RoofShape::Gabled => self.calc_gabled_position_height(position, building_part),
+        match building_or_part.roof_shape {
+            RoofShape::Skillion => self.calc_skillion_position_height(position, building_or_part),
+            RoofShape::Gabled => self.calc_gabled_position_height(position, building_or_part),
 
-            _ => building_part.wall_height,
+            _ => building_or_part.wall_height,
         }
     }
 
@@ -224,11 +225,11 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    fn push_skillion(&mut self, building_part: &BuildingOrPart, color: RenderColor) {
-        let footprint = &building_part.footprint;
+    fn push_skillion(&mut self, building_or_part: &BuildingOrPart, color: RenderColor) {
+        let footprint = &building_or_part.footprint;
         let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
         for position in footprint.polygons[0][0].iter() {
-            let height = self.calc_roof_position_height(position, building_part);
+            let height = self.calc_roof_position_height(position, building_or_part);
             roof_gpu_positions.push(position.to_gpu_position(height))
         }
 
@@ -252,22 +253,22 @@ impl OsmMesh {
             .append(&mut roof_gpu_positions);
     }
 
-    fn push_gabled(&mut self, building_part: &mut BuildingOrPart, color: RenderColor) {
-        let (face1, face2) = building_part
+    fn push_gabled(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
+        let (face1, face2) = building_or_part
             .footprint
-            .split_at_x_zero(building_part.roof_angle);
+            .split_at_x_zero(building_or_part.roof_angle);
 
-        self.push_roof_shape(face1, color, building_part);
-        self.push_roof_shape(face2, color, building_part);
+        self.push_roof_shape(face1, color, building_or_part);
+        self.push_roof_shape(face2, color, building_or_part);
     }
 
     fn push_roof_shape(
         &mut self,
         side: GroundPositions,
         color: RenderColor,
-        building_part: &BuildingOrPart,
+        building_or_part: &BuildingOrPart,
     ) {
-        let mut footprint = Footprint::new(4712); // &building_part.footprint;
+        let mut footprint = Footprint::new(4712); // &building_or_part.footprint;
         footprint.polygons[0][0] = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
@@ -282,7 +283,7 @@ impl OsmMesh {
         }
 
         for position in footprint.polygons[0][0].iter() {
-            let height = self.calc_roof_position_height(position, building_part);
+            let height = self.calc_roof_position_height(position, building_or_part);
             self.attributes
                 .vertices_positions
                 .push(position.to_gpu_position(height))
@@ -536,16 +537,16 @@ impl OsmMesh {
 
     fn push_walls(
         &mut self,
-        building_part: &mut BuildingOrPart,
+        building_or_part: &mut BuildingOrPart,
         min_height: f32,
         color: RenderColor,
     ) {
-        let footprint = &building_part.footprint.clone();
+        let footprint = &building_or_part.footprint.clone();
         let outer = &footprint.polygons[0][0].clone();
         self.push_wall_shape(
-            building_part,
+            building_or_part,
             outer,
-            building_part.footprint.is_circular,
+            building_or_part.footprint.is_circular,
             min_height,
             color,
         );
@@ -553,7 +554,7 @@ impl OsmMesh {
         for hole_index in 1..footprint.first_polygon_u().len() {
             let hole: &GroundPositions = &footprint.first_polygon_u()[hole_index];
             self.push_wall_shape(
-                building_part,
+                building_or_part,
                 hole,
                 footprint.is_circular,
                 min_height,
@@ -564,7 +565,7 @@ impl OsmMesh {
 
     fn push_wall_shape(
         &mut self,
-        building_part: &mut BuildingOrPart,
+        building_or_part: &mut BuildingOrPart,
         hole: &GroundPositions,
         is_circular: bool,
         min_height: f32,
@@ -573,12 +574,12 @@ impl OsmMesh {
         // todo: thread 'main' panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
         if hole.is_empty() {
             // empty by purpose. replaced by parts
-            // println!("footprint.positions.is_empty {}", building_part.id);
+            // println!("footprint.positions.is_empty {}", building_or_part.id);
             return;
         }
         let position = hole.last().unwrap();
         // todo: fn for next 3 lines
-        let height = self.calc_roof_position_height(position, building_part);
+        let height = self.calc_roof_position_height(position, building_or_part);
         let mut last_gpu_position_down = position.to_gpu_position(min_height);
         let mut last_gpu_position_up = position.to_gpu_position(height);
 
@@ -588,7 +589,7 @@ impl OsmMesh {
         let mut to_last_index = (hole.len() * 2 - 2) as isize;
 
         for position in hole.iter() {
-            let height = self.calc_roof_position_height(position, building_part);
+            let height = self.calc_roof_position_height(position, building_or_part);
             let this_gpu_position_down = position.to_gpu_position(min_height);
             let this_gpu_position_up = position.to_gpu_position(height);
 

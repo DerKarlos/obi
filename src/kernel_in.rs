@@ -234,9 +234,8 @@ pub struct BuildingOrPart {
     pub id: u64,
     pub part: bool,
     pub footprint: Footprint,
-    //pub _bounding_box: BoundingBox,
     pub bounding_box_rotated: BoundingBox,
-    // upper heit of the wall, independend of / including the min_height
+    // upper height of the wall, independend of / including the min_height
     pub wall_height: f32,
     pub min_height: f32,
     pub building_color: RenderColor,
@@ -246,7 +245,7 @@ pub struct BuildingOrPart {
     pub roof_color: RenderColor,
 }
 
-pub type BuildingsOrParts = Vec<BuildingOrPart>;
+pub type BuildingsAndParts = Vec<BuildingOrPart>;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Member {

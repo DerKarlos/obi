@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use crate::GeographicCoordinates;
 use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingOrPart, BuildingsOrParts, GroundPosition, RenderColor, RoofShape};
+use crate::kernel_in::{BuildingOrPart, BuildingsAndParts, GroundPosition, RenderColor, RoofShape};
 use crate::kernel_in::{Member, Polygons};
 
 // This constands may come from a (3D-)render shema
@@ -131,145 +131,6 @@ fn tags_get3<'a>(
     }
 }
 
-// Main functions for the processing ///////////////////////////
-
-// Why not inside process_building_or_part ???
-// Or souldn't we have MORE sub fn's ?
-fn create_building_part(
-    footprint: &mut Footprint,
-    id: u64,
-    tags: &HashMap<String, String>,
-    //building_parts: &Vec<BuildingPart>,
-) -> BuildingOrPart {
-    let part = tags.get("building:part").is_some();
-
-    // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
-    let roof_shape: RoofShape = match tags.get("roof:shape") {
-        Some(roof_shape) => match roof_shape.as_str() {
-            "flat" => RoofShape::Flat,
-            "skillion" => RoofShape::Skillion,
-            "gabled" => RoofShape::Gabled,
-            "pyramidal" => RoofShape::Phyramidal,
-            "dome" => RoofShape::Dome,
-            "onion" => RoofShape::Onion,
-            _ => {
-                // println!("Warning: roof_shape Unknown: {}", roof_shape);
-                RoofShape::Flat // todo: gabled and geographic dependend
-            }
-        },
-        None => RoofShape::Flat,
-    };
-
-    // ** Colors and Materials **
-    let building_color = parse_color(
-        tags_get3(tags, "building:colour", "colour", "building:material"),
-        DEFAULT_WALL_COLOR,
-    );
-    // Should parts have the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
-    let roof_color = parse_color(
-        tags_get2(tags, "roof:colour", "roof:material"), // todo: parse_material
-        building_color,
-    );
-
-    let default_roof_heigt = match roof_shape {
-        RoofShape::Flat => 0.0,
-        RoofShape::Skillion => 2.0, // todo: accroding to width
-        RoofShape::Gabled => 2.0,
-        RoofShape::None => 0.0,
-        _ => 2.0, //DEFAULT_ROOF_HEIGHT,
-    };
-
-    // ** Heights **  // todo: a new fn process_heights
-    let min_height = parse_height(tags.get("min_height")); // DEFAULT_MIN_HEIGHT
-    let mut roof_height = parse_height(tags.get("roof:height"));
-    if roof_height == 0. {
-        roof_height = default_roof_heigt;
-    }
-    //println!( "roof_height: {roof_height} default_roof_heigt: {default_roof_heigt} roof_shape: {:?}", roof_shape);
-    //let wall_height = parse_height(tags.get("height"), 6.0 /*DEFAULT_WALL_HEIGHT*/) - roof_height;
-
-    let mut building_height = parse_height(tags_get2(tags, "building:height", "height"));
-    let levels = parse_height(tags_get2(tags, "building:levels", "building:levels"));
-    if building_height == 0. && levels > 0. {
-        building_height = levels * 3.0;
-    }
-    if building_height == 0. {
-        building_height = DEFAULT_WALL_HEIGHT;
-    }
-    let wall_height = building_height - roof_height;
-
-    // ** Roof direction and Orientation **
-
-    // todo: parse_direction
-    let mut roof_angle = footprint.longest_angle;
-    let roof_orientation = tags.get("roof:orientation");
-    // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
-
-    // Wired!: OSM defines the roof-angle value as across the lonest way side! So, ...
-    if let Some(orientation) = roof_orientation {
-        match orientation.as_str() {
-            // ... the default along needs a rotation ...
-            "along" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
-            // ... while across is already given.
-            "across" => (),
-            _ => println!("Uncoded roof orientation value: {}", orientation),
-        }
-    } else {
-        // ... the default along needs a rotation.
-        roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-    }
-
-    let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
-    if let Some(direction) = roof_direction {
-        //println!("roof:direction {direction}");
-        match direction.as_str() {
-            "N" => roof_angle = f32::to_radians(0.),
-            "E" => roof_angle = f32::to_radians(90.),
-            "S" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
-            "W" => roof_angle = f32::to_radians(270.),
-
-            "NE" => roof_angle = f32::to_radians(45.),
-            "NW" => roof_angle = f32::to_radians(315.),
-            "SE" => roof_angle = f32::to_radians(135.),
-            "SW" => roof_angle = f32::to_radians(225.),
-            _ => {
-                let value = direction.parse();
-                if let Ok(value) = value {
-                    roof_angle = circle_limit(f32::to_radians(value));
-                } else {
-                    println!("Uncoded roof direction value: {}", direction);
-                }
-            }
-        }
-    }
-
-    // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
-    roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
-
-    // Not here, in the fn rotate against the actual angle to got 0 degrees
-    let bounding_box_rotated = footprint.rotate(roof_angle);
-
-    // let building_part =
-    BuildingOrPart {
-        id,
-        part,
-        footprint: footprint.clone(),
-        //center,
-        //bounding_box: bounding_box,
-        bounding_box_rotated,
-        wall_height,
-        min_height,
-        building_color,
-        roof_shape,
-        roof_height,
-        roof_angle,
-        roof_color,
-    }
-
-    // println!("building_part: {:?}", building_part);
-    // building_part
-}
-
 //////////////////////////////// Osm2Layer (API) //////////////////////////////
 
 pub struct OsmNode {
@@ -297,7 +158,7 @@ pub struct Osm2Layer {
     buildings: Vec<u64>,
     parts: Vec<u64>,
     relations: Vec<OsmRelation>,
-    building_parts: BuildingsOrParts,
+    buildings_or_parts: BuildingsAndParts,
     show_only: u64,
 }
 
@@ -310,10 +171,15 @@ impl Osm2Layer {
             buildings: Vec::new(),
             parts: Vec::new(),
             relations: Vec::new(),
-            building_parts: Vec::new(),
+            buildings_or_parts: Vec::new(),
             show_only,
         }
     }
+
+    pub fn get_buildings_and_parts(self) -> BuildingsAndParts {
+        self.buildings_or_parts
+    }
+
     pub fn add_node(
         &mut self,
         id: u64,
@@ -406,7 +272,7 @@ impl Osm2Layer {
         // Test6: rel 11192041: outer 172664019, inner 814784298
         // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
-        println!("\n*** process: {:?} relations", self.relations.len());
+        println!("\n**** process: {:?} relations", self.relations.len());
         for osm_relation in self.relations.iter() {
             let way_from_relation = process_relation(
                 osm_relation.id,
@@ -421,47 +287,175 @@ impl Osm2Layer {
             }
         }
 
-        println!("\nprocess: subtact {:?} parts", self.parts.len());
-        for part_id in &self.parts {
-            println!("part_id: {part_id}");
-            //if *part_id > 464090146 {
-            //    continue;
-            //}
-            let part = &self.ways_map.get(part_id).unwrap();
-            //let shape = part.footprint.clone();
-            let plygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
-            for building_id in &self.buildings {
-                println!("building_id: {building_id}");
-                let building = self.ways_map.get_mut(building_id).unwrap();
-                building.footprint.subtract(&plygons);
+        println!("\n**** process {:?} ways", self.buildings.len());
+        for building_id in &self.buildings.clone() {
+            println!("building: {building_id}");
+            let mut building = self.ways_map.remove(building_id).unwrap();
+
+            // substract parts from building
+            for part_id in &self.parts {
+                //println!("part: {part_id}");
+                //if *part_id > 464090146 {
+                //    continue;
+                //}
+                let part = &self.ways_map.get(part_id).unwrap();
+                //let shape = part.footprint.clone();
+                let part_polygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
+                building.footprint.subtract(&part_polygons);
             }
+
+            self.create_building_or_part(*building_id, &mut building);
         }
 
-        /********
-         ********/
-
-        println!("\nprocess: show {:?} parts", self.parts.len());
-        for part_id in &self.parts {
-            println!("part_id:: {part_id}");
-            let part = self.ways_map.get_mut(part_id).unwrap();
-            process_building_or_part(*part_id, part, self.show_only, &mut self.building_parts);
-        }
-
-        println!("\nprocess: show {:?} ways", self.buildings.len());
-        for building_id in &self.buildings {
-            println!("building_id:: {building_id}");
-            let building = self.ways_map.get_mut(building_id).unwrap();
-            process_building_or_part(
-                *building_id,
-                building,
-                self.show_only,
-                &mut self.building_parts,
-            );
+        println!("\n**** process {:?} parts", self.parts.len());
+        for part_id in &self.parts.clone() {
+            println!("part: {part_id}");
+            let mut part = self.ways_map.remove(part_id).unwrap();
+            self.create_building_or_part(*part_id, &mut part);
         }
     }
 
-    pub fn get_building_parts(self) -> BuildingsOrParts {
-        self.building_parts
+    // Souldn't we have MORE sub fn's ???
+    fn create_building_or_part(&mut self, id: u64, otb_way: &mut OsmWay) {
+        //println!("scan: way id = {:?}", id);
+        if self.show_only > 0 && id != self.show_only {
+            return;
+        }
+
+        let tags = otb_way.tags.as_ref().unwrap();
+
+        if otb_way.footprint.polygons.is_empty() {
+            println!("scan: way is empty {:?}", id);
+            return;
+        }
+
+        //////////////////////////////
+
+        let part = tags.get("building:part").is_some();
+
+        // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
+        let roof_shape: RoofShape = match tags.get("roof:shape") {
+            Some(roof_shape) => match roof_shape.as_str() {
+                "flat" => RoofShape::Flat,
+                "skillion" => RoofShape::Skillion,
+                "gabled" => RoofShape::Gabled,
+                "pyramidal" => RoofShape::Phyramidal,
+                "dome" => RoofShape::Dome,
+                "onion" => RoofShape::Onion,
+                _ => {
+                    // println!("Warning: roof_shape Unknown: {}", roof_shape);
+                    RoofShape::Flat // todo: gabled and geographic dependend
+                }
+            },
+            None => RoofShape::Flat,
+        };
+
+        // ** Colors and Materials **
+        let building_color = parse_color(
+            tags_get3(tags, "building:colour", "colour", "building:material"),
+            DEFAULT_WALL_COLOR,
+        );
+        // Should parts have the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
+        let roof_color = parse_color(
+            tags_get2(tags, "roof:colour", "roof:material"), // todo: parse_material
+            building_color,
+        );
+
+        let default_roof_heigt = match roof_shape {
+            RoofShape::Flat => 0.0,
+            RoofShape::Skillion => 2.0, // todo: accroding to width
+            RoofShape::Gabled => 2.0,
+            RoofShape::None => 0.0,
+            _ => 2.0, //DEFAULT_ROOF_HEIGHT,
+        };
+
+        // ** Heights **  // todo: a new fn process_heights
+        let min_height = parse_height(tags.get("min_height")); // DEFAULT_MIN_HEIGHT
+        let mut roof_height = parse_height(tags.get("roof:height"));
+        if roof_height == 0. {
+            roof_height = default_roof_heigt;
+        }
+        //println!( "roof_height: {roof_height} default_roof_heigt: {default_roof_heigt} roof_shape: {:?}", roof_shape);
+        //let wall_height = parse_height(tags.get("height"), 6.0 /*DEFAULT_WALL_HEIGHT*/) - roof_height;
+
+        let mut building_height = parse_height(tags_get2(tags, "building:height", "height"));
+        let levels = parse_height(tags_get2(tags, "building:levels", "building:levels"));
+        if building_height == 0. && levels > 0. {
+            building_height = levels * 3.0;
+        }
+        if building_height == 0. {
+            building_height = DEFAULT_WALL_HEIGHT;
+        }
+        let wall_height = building_height - roof_height;
+
+        // ** Roof direction and Orientation **
+
+        // todo: parse_direction
+        let mut roof_angle = otb_way.footprint.longest_angle;
+        let roof_orientation = tags.get("roof:orientation");
+        // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
+
+        // Wired!: OSM defines the roof-angle value as across the lonest way side! So, ...
+        if let Some(orientation) = roof_orientation {
+            match orientation.as_str() {
+                // ... the default along needs a rotation ...
+                "along" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
+                // ... while across is already given.
+                "across" => (),
+                _ => println!("Uncoded roof orientation value: {}", orientation),
+            }
+        } else {
+            // ... the default along needs a rotation.
+            roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+        }
+
+        let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
+        if let Some(direction) = roof_direction {
+            //println!("roof:direction {direction}");
+            match direction.as_str() {
+                "N" => roof_angle = f32::to_radians(0.),
+                "E" => roof_angle = f32::to_radians(90.),
+                "S" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
+                "W" => roof_angle = f32::to_radians(270.),
+
+                "NE" => roof_angle = f32::to_radians(45.),
+                "NW" => roof_angle = f32::to_radians(315.),
+                "SE" => roof_angle = f32::to_radians(135.),
+                "SW" => roof_angle = f32::to_radians(225.),
+                _ => {
+                    let value = direction.parse();
+                    if let Ok(value) = value {
+                        roof_angle = circle_limit(f32::to_radians(value));
+                    } else {
+                        println!("Uncoded roof direction value: {}", direction);
+                    }
+                }
+            }
+        }
+
+        // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
+        roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
+
+        // Not here, in the fn rotate against the actual angle to got 0 degrees
+        let bounding_box_rotated = otb_way.footprint.rotate(roof_angle);
+
+        let building_or_part = BuildingOrPart {
+            id,
+            part,
+            footprint: otb_way.footprint.clone(),
+            //center,
+            //bounding_box: bounding_box,
+            bounding_box_rotated,
+            wall_height,
+            min_height,
+            building_color,
+            roof_shape,
+            roof_height,
+            roof_angle,
+            roof_color,
+        };
+
+        self.buildings_or_parts.push(building_or_part);
     }
 }
 
@@ -480,7 +474,7 @@ fn process_relation(
 
     /******* self.relation(*id, osm_relation); //  ****/
 
-    println!("Relation, id: {:?}", id);
+    println!("Relation: {:?}", id);
 
     if osm_relation.members.is_empty() {
         println!("Relation without members! id: {:?}", id);
@@ -528,7 +522,7 @@ fn process_relation(
                     println!("outer none, id/ref: {}", outer_ref);
                     return None;
                 }
-                println!("outer id/ref: {}", outer_ref);
+                println!("outer: {}", outer_ref);
                 // Todo: cloning footprint twice can't be the solution
                 let way_with_outer = ways_map.get(&outer_ref).unwrap();
                 outer_id = way_with_outer._id;
@@ -553,7 +547,7 @@ fn process_relation(
         return None;
     }
 
-    // building_parts.push...
+    // buildings_and_parts.push...
     Some(OsmWay {
         _id: outer_id,
         footprint,
@@ -566,38 +560,16 @@ fn process_relation_inner(
     ways_map: &HashMap<u64, OsmWay>,
     footprint: &mut Footprint,
 ) {
-    //return; //ttt
     //println!("elements_ref: {:?}", &elements_ref);
     let option = ways_map.get(&elements_ref);
     if option.is_none() {
         println!("inner none, id/ref: {}", elements_ref);
         return;
     }
-    println!("inner id/ref: {}", elements_ref);
+    println!("inner: {}", elements_ref);
 
     // todo: what if the hole is has holes? What if the polygon is a multipolygon?
     let polygons: &Polygons = &ways_map.get(&elements_ref).unwrap().footprint.polygons;
     footprint.subtract(&polygons);
     //println!("inner way; {:?}", &elements_ref);
-}
-
-fn process_building_or_part(
-    id: u64,
-    otb_way: &mut OsmWay,
-    show_only: u64,
-    buildings_and_parts: &mut BuildingsOrParts,
-) {
-    //println!("scan: way id = {:?}", id);
-    if show_only > 0 && id != show_only {
-        return;
-    }
-
-    let tags = otb_way.tags.as_ref().unwrap();
-
-    if otb_way.footprint.polygons.is_empty() {
-        println!("scan: way is empty {:?}", id);
-        return;
-    }
-
-    buildings_and_parts.push(create_building_part(&mut otb_way.footprint, id, tags));
 }

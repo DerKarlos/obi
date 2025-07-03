@@ -66,12 +66,12 @@ pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
     println!("bounding_box: {:?}", &bounding_box);
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
-    let building_parts = api
+    let buildings_and_parts = api
         .scan_osm(&bounding_box, &gpu_ground_null_coordinates, args.only)
         .await?;
-    // println!("building_parts: {:?}", building_parts);
+    // println!("buildings_and_parts: {:?}", buildings_and_parts);
 
-    let meshes = scan_elements_from_layer_to_mesh(building_parts);
+    let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
     let scale = bounding_box.max_radius() / 10. * LAT_FAKT;
     render_init(meshes, scale);
 
