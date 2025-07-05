@@ -154,14 +154,14 @@ impl OsmMesh {
         let east = position
             .sub(building_or_part.footprint.center)
             .rotate(-building_or_part.roof_angle) // skillion
-            .east;
+            .north;
         // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
         let inclination = building_or_part.roof_height
-            / (building_or_part.bounding_box_rotated.east
-                - building_or_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
+            / (building_or_part.bounding_box_rotated.north
+                - building_or_part.bounding_box_rotated.south); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         building_or_part.wall_height + building_or_part.roof_height
-            - f32::abs(east - building_or_part.bounding_box_rotated.west) * inclination
+            - f32::abs(east - building_or_part.bounding_box_rotated.south) * inclination
     }
 
     fn calc_gabled_position_height(
@@ -172,11 +172,11 @@ impl OsmMesh {
         let east = position
             .sub(building_or_part.footprint.center)
             .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
-            .east
+            .north
             + building_or_part.footprint.shift;
 
-        let width =
-            building_or_part.bounding_box_rotated.east - building_or_part.bounding_box_rotated.west;
+        let width = building_or_part.bounding_box_rotated.north
+            - building_or_part.bounding_box_rotated.south;
         let inclination = building_or_part.roof_height * 2. / width;
 
         // let height =
@@ -256,7 +256,7 @@ impl OsmMesh {
     fn push_gabled(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
         let (face1, face2) = building_or_part
             .footprint
-            .split_at_x_zero(building_or_part.roof_angle);
+            .split_at_y_zero(building_or_part.roof_angle);
 
         self.push_roof_shape(face1, color, building_or_part);
         self.push_roof_shape(face2, color, building_or_part);

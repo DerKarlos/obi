@@ -8,27 +8,28 @@
 
 
 ## Examples and Test Ways:
-let mut id = 45696973; //369161987; // 121486088 369161987; //159243621; // 437150850 //  121486088
-let show_only: u64 = 0; // 159243622; //1174629866; //1174306433;
 
-* Oriental Pearl Tower (40778038) Relation: Saint Basil's Cathedral (3030568)
-Testing with a moderate complex building OR a lage complex one
-* https://www.openstreetmap.org/way/121486088
-
-* taj_mahal_id = 375257537;
-* marienplatz_id = 223907278; // 15
-* fo_gabled = 45696973; // rectangle: 47942624 +schräg: 45697283  haustür: 47942638  eingeeckt: 45697162  winklel: 45402141
-* no roof 45697280 BADs!: 45697037, 45402130  +OK+: 37616289
-* Not valide tagged???: 45696973 bowed building, no part
-* dome: part: 159243621   buiding: 437150850
-
+Most used tests
 * Reifenberg  121486088
-* Passau Dom 24771505    gabled: 464090146   unten: 136144290  oben: 136144289
-* St Paul's Cathedral 369161987  -  Test center gabled: 664642004 (footprint is rounded!)
+* Passau Dom 24771505 gabled: 464090146 skilleon south: 136144290  north: 136144289
+* St Paul's Cathedral 369161987 center gabled: 664642004
 * Westminster  367642719 / Abbey 364313092
-* Vatikan, Saint Peter's Basilica (244159210)
-* Cathedral of Notre Dame (201611261)
-* Hagia Sophia (Holy Wisdom) (109862851)
+
+Todo
+* gabled: rectangle: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
+          angled: 45402141 is correkt but not what we expect, hm???
+          komplex-ok?:37616289,45697037 -bad:45402130  bad_bow:45696973 do parts!
+
+More Examples
+* domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,
+* Saint Basil's Cathedral Relation 3030568
+* Hagia Sophia Mosque (Holy Wisdom) 109862851
+* Oriental Pearl Tower  40778038
+* Cathedral of Notre Dame  201611261
+* Vatikan, Saint Peter's Basilica  244159210
+* Taj Mahal 375257537
+* Marienplatz 223907278
+
 
 ### Notes on WASM:
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update

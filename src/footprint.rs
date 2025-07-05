@@ -8,6 +8,15 @@ use i_overlay::float::single::SingleFloatOverlay;
 
 use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
 
+pub enum Orientation {
+    None,
+    Along,
+    Across,
+    ByLongestSide,
+    ByAngleValue,
+    ByNauticDirction,
+}
+
 #[derive(Clone, Debug)]
 pub struct Footprint {
     _id: u64,
@@ -108,17 +117,13 @@ impl Footprint {
         // radius iregularity is less but x% of the radius
         self.is_circular =
             (((radius_max - radius_min) / radius_max * 100.) as u32) < 10 && count >= 10.;
-        //println!(
-        //    "r max/min {radius_max}/{radius_min} len: {count} = {:?}",
-        //    (radius_max - radius_min) / radius_max * 100.
-        //);
-        //self.first_polygon().push(positions.clone());
     }
 
     // Shape.rotate
-    pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
+    pub fn rotate(&mut self, roof_angle: f32) -> (BoundingBox, bool) {
         //println!("{len} rotate: {:?}", &self.polygons[0][0]);
         let mut bounding_box_rotated = BoundingBox::new();
+        self.rotated_positions = Vec::new();
         for position in &self.polygons[0][0] {
             // Rotate against the actual angle to got 0 degrees
             let rotated_position = position.sub(self.center.clone()).rotate(-roof_angle);
@@ -126,27 +131,19 @@ impl Footprint {
             bounding_box_rotated.include(&rotated_position);
         }
 
-        //3 println!(
-        //3     "e: {:?} w{:?}",
-        //3     bounding_box_rotated.east, bounding_box_rotated.west
-        //3 );
-        let new_rotated_center_east = (bounding_box_rotated.east - bounding_box_rotated.west) / 2.0;
-        //                                      8   -                       -4 = 12 / 2 = 6
-        let corretion_shift = new_rotated_center_east - bounding_box_rotated.east;
-        //                         6     -            8   = -2
+        let new_rotated_center_north =
+            (bounding_box_rotated.north - bounding_box_rotated.south) / 2.0;
+        let corretion_shift = new_rotated_center_north - bounding_box_rotated.north;
         bounding_box_rotated.shift(corretion_shift);
         self.shift = corretion_shift;
         for position in &mut self.rotated_positions {
-            //3 println!(
-            //3     "rot east: {:?}+{:?}={:?}",
-            //3     position.east.clone(),
-            //3     corretion_shift,
-            //3     position.east + corretion_shift
-            //3 );
-            position.east += corretion_shift; // used in split_at_x_zero
+            position.north += corretion_shift; // used in split_at_y_zero
         }
 
-        bounding_box_rotated
+        let across = bounding_box_rotated.south - bounding_box_rotated.north
+            > bounding_box_rotated.east - bounding_box_rotated.west;
+
+        (bounding_box_rotated, across)
     }
 
     pub fn get_triangulate_indices(&self) -> Vec<usize> {
@@ -174,13 +171,13 @@ impl Footprint {
         earcutr::earcut(&vertices, &holes_starts, 2).unwrap()
     }
 
-    /// Splits the shape at x=0, returning two new shapes:
-    /// - The first shape contains all parts with x ≤ 0
-    /// - The second shape contains all parts with x ≥ 0
+    /// Splits the shape at y=0, returning two new shapes:
+    /// - The first shape contains all parts with y ≤ 0
+    /// - The second shape contains all parts with y ≥ 0
     /// - The last shape contains all parts of the outer
-    pub fn split_at_x_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
-        let mut left_vertices = Vec::new();
-        let mut right_vertices = Vec::new();
+    pub fn split_at_y_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
+        let mut low_vertices = Vec::new();
+        let mut up_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
         let positions = &self.polygons[0][0];
@@ -191,9 +188,9 @@ impl Footprint {
             outer_vertices.push(positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
-            if current.east == 0.0 {
-                left_vertices.push(positions[i]);
-                right_vertices.push(positions[i]);
+            if current.north == 0.0 {
+                low_vertices.push(positions[i]);
+                up_vertices.push(positions[i]);
                 println!(
                     "split split split split split split split split split split split split split split i:{i}"
                 );
@@ -201,21 +198,21 @@ impl Footprint {
             }
 
             // Add current point to appropriate side
-            if current.east < 0.0 {
-                left_vertices.push(positions[i]);
+            if current.north < 0.0 {
+                low_vertices.push(positions[i]);
             } else {
-                right_vertices.push(positions[i]);
+                up_vertices.push(positions[i]);
             }
 
             //3 println!(" - Test1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line      && true
-            if current.east.signum() != next.east.signum() {
+            if current.north.signum() != next.north.signum() {
                 // Calculate the intersection point
-                let diagonally = -current.east / (next.east - current.east);
-                let intersection_north = current.north + diagonally * (next.north - current.north);
+                let diagonally = -current.north / (next.north - current.north);
+                let intersection_north = current.east + diagonally * (next.east - current.east);
                 let intersection = GroundPosition {
-                    north: intersection_north,
-                    east: -self.shift,
+                    east: intersection_north,
+                    north: -self.shift,
                 };
 
                 // Add the intersection point to both shapes
@@ -223,14 +220,14 @@ impl Footprint {
                 //3 println!(
                 //3     "- Test2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
                 //3 );
-                left_vertices.push(intersection_rotated_back);
-                right_vertices.push(intersection_rotated_back);
+                low_vertices.push(intersection_rotated_back);
+                up_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);
             }
         }
 
         self.polygons[0][0] = outer_vertices;
-        (left_vertices, right_vertices)
+        (low_vertices, up_vertices)
     }
 
     // subttacting a hole of a polygon or a part inside a building

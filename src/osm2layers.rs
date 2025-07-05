@@ -5,9 +5,11 @@
 use csscolorparser::parse;
 use std::collections::HashMap;
 
-use crate::GeographicCoordinates;
-use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingOrPart, BuildingsAndParts, GroundPosition, RenderColor, RoofShape};
+use crate::footprint::{Footprint, Orientation};
+use crate::kernel_in::{
+    BuildingOrPart, BuildingsAndParts, GeographicCoordinates, GroundPosition, RenderColor,
+    RoofShape,
+};
 use crate::kernel_in::{Member, Polygons};
 
 // This constands may come from a (3D-)render shema
@@ -328,15 +330,15 @@ impl Osm2Layer {
     ///////////////////////
 
     // Souldn't we have MORE sub fn's ???
-    fn create_building_or_part(&mut self, id: u64, otb_way: &mut OsmWay) {
+    fn create_building_or_part(&mut self, id: u64, osm_way: &mut OsmWay) {
         //println!("scan: way id = {:?}", id);
         if self.show_only > 0 && id != self.show_only {
             return;
         }
 
-        let tags = otb_way.tags.as_ref().unwrap();
+        let tags = osm_way.tags.as_ref().unwrap();
 
-        if otb_way.footprint.polygons.is_empty() {
+        if osm_way.footprint.polygons.is_empty() {
             println!("create_building_or_part: way is empty {:?}", id);
             return;
         }
@@ -367,10 +369,14 @@ impl Osm2Layer {
             tags_get3(tags, "building:colour", "colour", "building:material"),
             DEFAULT_WALL_COLOR,
         );
-        // Should parts have the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
+        // Should parts for default get the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
         let roof_color = parse_color(
             tags_get2(tags, "roof:colour", "roof:material"), // todo: parse_material
-            building_color,
+            if part {
+                building_color
+            } else {
+                DEFAULT_ROOF_COLOR
+            },
         );
 
         let default_roof_heigt = match roof_shape {
@@ -384,6 +390,10 @@ impl Osm2Layer {
         // ** Heights **  // todo: a new fn process_heights
         let min_height = parse_height(tags.get("min_height")); // DEFAULT_MIN_HEIGHT
         let mut roof_height = parse_height(tags.get("roof:height"));
+        let roof_levels = parse_height(tags.get("roof:levels"));
+        if roof_height == 0. && roof_levels > 0. {
+            roof_height = roof_levels * 3.0;
+        }
         if roof_height == 0. {
             roof_height = default_roof_heigt;
         }
@@ -393,7 +403,7 @@ impl Osm2Layer {
         let mut building_height = parse_height(tags_get2(tags, "building:height", "height"));
         let levels = parse_height(tags_get2(tags, "building:levels", "building:levels"));
         if building_height == 0. && levels > 0. {
-            building_height = levels * 3.0;
+            building_height = levels * 3.0 + roof_height;
         }
         if building_height == 0. {
             building_height = DEFAULT_WALL_HEIGHT;
@@ -403,27 +413,28 @@ impl Osm2Layer {
         // ** Roof direction and Orientation **
 
         // todo: parse_direction
-        let mut roof_angle = otb_way.footprint.longest_angle;
+        let mut roof_angle = osm_way.footprint.longest_angle;
         let roof_orientation = tags.get("roof:orientation");
+        let mut orienaton_by: Orientation = Orientation::ByLongestSide;
         // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
 
+        // Note! In OSM, the roof angle is along the roof slope! It is ot along the roof ridge!
         // Wired!: OSM defines the roof-angle value as across the lonest way side! So, ...
         if let Some(orientation) = roof_orientation {
             match orientation.as_str() {
-                // ... the default along needs a rotation ...
-                "along" => roof_angle = circle_limit(roof_angle + f32::to_radians(90.)),
-                // ... while across is already given.
-                "across" => (),
+                "along" => orienaton_by = Orientation::Along,
+                "across" => orienaton_by = Orientation::Across,
                 _ => println!("Uncoded roof orientation value: {}", orientation),
             }
         } else {
             // ... the default along needs a rotation.
-            roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+            // ttt roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
         }
 
         let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
         if let Some(direction) = roof_direction {
             //println!("roof:direction {direction}");
+            orienaton_by = Orientation::ByNauticDirction;
             match direction.as_str() {
                 "N" => roof_angle = f32::to_radians(0.),
                 "E" => roof_angle = f32::to_radians(90.),
@@ -438,6 +449,7 @@ impl Osm2Layer {
                     let value = direction.parse();
                     if let Ok(value) = value {
                         roof_angle = circle_limit(f32::to_radians(value));
+                        orienaton_by = Orientation::ByAngleValue;
                     } else {
                         println!("Uncoded roof direction value: {}", direction);
                     }
@@ -449,12 +461,40 @@ impl Osm2Layer {
         roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
 
         // Not here, in the fn rotate against the actual angle to got 0 degrees
-        let bounding_box_rotated = otb_way.footprint.rotate(roof_angle);
+        let (bounding_box_rotated, is_across) = osm_way.footprint.rotate(roof_angle);
+
+        let mut check_across = false;
+        let mut set_across = false;
+        match orienaton_by {
+            // OSM default is across
+            Orientation::ByLongestSide => {
+                check_across = true;
+            }
+            Orientation::Along => {
+                check_across = true;
+            }
+            Orientation::Across => {
+                check_across = true;
+                set_across = true
+            }
+
+            _ => (),
+        };
+
+        if check_across {
+            println!(
+                "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle}"
+            );
+            if is_across != set_across {
+                //    roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
+                //    (_, _) = osm_way.footprint.rotate(roof_angle);
+            }
+        }
 
         let building_or_part = BuildingOrPart {
             id,
             part,
-            footprint: otb_way.footprint.clone(),
+            footprint: osm_way.footprint.clone(),
             //center,
             //bounding_box: bounding_box,
             bounding_box_rotated,

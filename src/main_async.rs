@@ -13,7 +13,7 @@ pub struct UrlClArgs {
     // Passau Dom: 24771505 = Outer
     // Reifenberg: 121486088
     //
-    #[arg(short, long, default_value = "369161987")]
+    #[arg(short, long, default_value = "121486088")]
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,

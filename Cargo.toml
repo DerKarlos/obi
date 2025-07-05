@@ -78,7 +78,7 @@ clap = { version = "4", features = ["derive"] }
 we_clap = { version = "0", features = ["web-alert"] } ## web-alert  web-console
 
 
-[target.'cfg(target_arch = "aarch64")'.dev-dependencies]
+## [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 

@@ -70,7 +70,7 @@ impl InputOsm {
         }
         println!("= BBox_URL: {url}");
         let bytes = reqwest::get(url).await?.bytes().await?;
-        Ok(scan_json_to_osm_bytes(
+        Ok(scan_json_bytes_to_osm(
             bytes,
             gpu_ground_null_coordinates,
             show_only,
@@ -143,7 +143,7 @@ pub fn geo_bbox_of_way_json(json_way_data: JsonData) -> BoundingBox {
     bounding_box
 }
 
-pub fn scan_json_to_osm_bytes(
+pub fn scan_json_bytes_to_osm(
     bytes: Bytes,
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
