@@ -16,7 +16,7 @@ Most used tests
 * Westminster  367642719 / Abbey 364313092
 
 Todo
-* gabled: rectangle: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
+* gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
           angled: 45402141 is correkt but not what we expect, hm???
           komplex-ok?:37616289,45697037 -bad:45402130  bad_bow:45696973 do parts!
 

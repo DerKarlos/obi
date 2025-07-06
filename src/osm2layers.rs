@@ -426,9 +426,6 @@ impl Osm2Layer {
                 "across" => orienaton_by = Orientation::Across,
                 _ => println!("Uncoded roof orientation value: {}", orientation),
             }
-        } else {
-            // ... the default along needs a rotation.
-            // ttt roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
         }
 
         let roof_direction = /*parse_orientation???*/ tags.get("roof:direction");
@@ -457,10 +454,15 @@ impl Osm2Layer {
             }
         }
 
-        // This crate interprets, opposite to OSM the angle along the roof ceiling. Change this???
-        roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
+        match orienaton_by {
+            Orientation::Across => {
+                roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+            }
 
-        // Not here, in the fn rotate against the actual angle to got 0 degrees
+            _ => (),
+        };
+
+        // Not here at the parameter, but in the fn rotate against the actual angle to got 0 degrees
         let (bounding_box_rotated, is_across) = osm_way.footprint.rotate(roof_angle);
 
         let mut check_across = false;

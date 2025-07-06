@@ -7,13 +7,20 @@ use we_clap::WeParser; // Wrapper for clap Parser
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
 pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
+    // along: https://www.openstreetmap.org/way/363815745
+    //
     // along!  RUST_BACKTRACE=1 cargo run --example m_async -- -w 363815745 -o 363815745
     // St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
     // Bau 46:                                 Relation: 2819'147 with Outer: 45590896 and  Inner: 210046607
     // Passau Dom: 24771505 = Outer
     // Reifenberg: 121486088
+    // https://www.openstreetmap.org/query?lat=49.755930&lon=11.135741
+    // https://www.openstreetmap.org/way/1174306435/history/3#map=19/49.755938/11.136073
+    // https://demo.f4map.com/#lat=49.7556513&lon=11.1359205&zoom=21&camera.theta=55.936&camera.phi=-177.044
+    // https://www.osmgo.org/v03.html?lat=49.7549930806153&lon=11.135770082473757&dir=0&view=-10&ele=101&multi=1
+    // https://www.openstreetmap.org/edit?editor=id&way=1174306435#map=22/49.7558991/11.1357828
     //
-    #[arg(short, long, default_value = "121486088")]
+    #[arg(short, long, default_value = "47942638")]
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,
