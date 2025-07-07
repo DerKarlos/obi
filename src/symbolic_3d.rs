@@ -92,10 +92,7 @@ impl OsmMesh {
         let roof_color = building_or_part.roof_color;
 
         if building_or_part.footprint.polygons[0][0].is_empty() {
-            //println!(
-            //    "building_or_part.footprint.positions.is_empty: {}",
-            //    building_or_part.id
-            //);
+            //println!("footprint.positions.is_empty: {}", building_or_part.id);
             return; // after parts subtractions, nothing is left
         }
 
@@ -154,6 +151,44 @@ impl OsmMesh {
         let east = position
             .sub(building_or_part.footprint.center)
             .rotate(-building_or_part.roof_angle) // skillion
+            .north;
+        // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
+        let inclination = building_or_part.roof_height
+            / (building_or_part.bounding_box_rotated.north
+                - building_or_part.bounding_box_rotated.south); // Höhen/Tiefe der Nodes/Ecken berechenen
+
+        building_or_part.wall_height + building_or_part.roof_height
+            - f32::abs(east - building_or_part.bounding_box_rotated.south) * inclination
+    }
+
+    fn calc_gabled_position_height(
+        &mut self,
+        position: &GroundPosition,
+        building_or_part: &BuildingOrPart,
+    ) -> f32 {
+        let east = position
+            .sub(building_or_part.footprint.center)
+            .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
+            .north
+            + building_or_part.footprint.shift;
+
+        let width = building_or_part.bounding_box_rotated.north
+            - building_or_part.bounding_box_rotated.south;
+        let inclination = building_or_part.roof_height * 2. / width;
+
+        building_or_part.wall_height + building_or_part.roof_height - f32::abs(east) * inclination
+    }
+
+    fn _calc_skillion_position_height(
+        &mut self,
+        position: &GroundPosition,
+        building_or_part: &BuildingOrPart,
+    ) -> f32 {
+        //println!("ph: position: {:?}", position);
+        //        let roof_slope = circle_limit(building_or_part.roof_angle + f32::to_radians(90.));
+        let east = position
+            .sub(building_or_part.footprint.center)
+            .rotate(-building_or_part.roof_angle) // skillion
             .east;
         // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
         let inclination = building_or_part.roof_height
@@ -164,7 +199,7 @@ impl OsmMesh {
             - f32::abs(east - building_or_part.bounding_box_rotated.west) * inclination
     }
 
-    fn calc_gabled_position_height(
+    fn _calc_gabled_position_height(
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
@@ -256,7 +291,7 @@ impl OsmMesh {
     fn push_gabled(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
         let (face1, face2) = building_or_part
             .footprint
-            .split_at_x_zero(building_or_part.roof_angle);
+            .split_at_y_zero(building_or_part.roof_angle);
 
         self.push_roof_shape(face1, color, building_or_part);
         self.push_roof_shape(face2, color, building_or_part);
@@ -708,8 +743,3 @@ macro_rules! _er {
 
     );
 }
-
-//ExtrudeRing {
-//    radius: 1.00,
-//    height: 0.00,
-//},

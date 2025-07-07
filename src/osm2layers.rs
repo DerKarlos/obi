@@ -272,15 +272,7 @@ impl Osm2Layer {
     ///////////////////////
 
     pub fn process_elements_from_osm_to_layers(&mut self) {
-        // Subtract parts from ways - code is to stupide! Todo!
-        // Test1: cargo run --example m_async -- -r 0 -w 239592652
-        // This way does NOT set the height/levels to maximum
-        // Test2: building: 278033600 + two parts: 1124726437 1124499584
-        // Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
-        // Test4: rel 2111466 Outer=building 157880278 Parts 109458125 1104998081 1104998082
-        // Test5: way 111354081 parts: 814784273 + 814784274 + 814784275
-        // Test6: rel 11192041: outer 172664019, inner 814784298
-        // Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
+        // Subtract parts from ways - code is slow? Todo!
 
         println!("\n**** process: {:?} relations", self.relations.len());
         while !self.relations.is_empty() {
@@ -412,8 +404,8 @@ impl Osm2Layer {
 
         // ** Roof direction and Orientation **
 
-        // todo: parse_direction
-        let mut roof_angle = osm_way.footprint.longest_angle;
+        // The longest angle sets the dirction of the ceiling. But the tagging value is along the slope!
+        let mut roof_angle = circle_limit(osm_way.footprint.longest_angle + f32::to_radians(90.0));
         let roof_orientation = tags.get("roof:orientation");
         let mut orienaton_by: Orientation = Orientation::ByLongestSide;
         // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
@@ -454,16 +446,8 @@ impl Osm2Layer {
             }
         }
 
-        match orienaton_by {
-            Orientation::Across => {
-                roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
-            }
-
-            _ => (),
-        };
-
         // Not here at the parameter, but in the fn rotate against the actual angle to got 0 degrees
-        let (bounding_box_rotated, is_across) = osm_way.footprint.rotate(roof_angle);
+        let mut bounding_box_rotated = osm_way.footprint.rotate(roof_angle);
 
         let mut check_across = false;
         let mut set_across = false;
@@ -483,13 +467,15 @@ impl Osm2Layer {
             _ => (),
         };
 
+        let is_across = bounding_box_rotated.north - bounding_box_rotated.south
+            > bounding_box_rotated.east - bounding_box_rotated.west;
+
+        // mitte 1174306435    schmal 1174306436
         if check_across {
-            println!(
-                "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle}"
-            );
+            //println!(    "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle} - bboxr: {:?}", bounding_box_rotated);
             if is_across != set_across {
-                //    roof_angle = circle_limit(roof_angle - f32::to_radians(90.));
-                //    (_, _) = osm_way.footprint.rotate(roof_angle);
+                roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+                bounding_box_rotated = osm_way.footprint.rotate(roof_angle);
             }
         }
 
@@ -497,8 +483,6 @@ impl Osm2Layer {
             id,
             part,
             footprint: osm_way.footprint.clone(),
-            //center,
-            //bounding_box: bounding_box,
             bounding_box_rotated,
             wall_height,
             min_height,

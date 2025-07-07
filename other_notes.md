@@ -12,13 +12,15 @@
 Most used tests
 * Reifenberg  121486088
 * Passau Dom 24771505 gabled: 464090146 skilleon south: 136144290  north: 136144289
+   todo: split https://www.openstreetmap.org/way/464090137 in gabled and phyramide
 * St Paul's Cathedral 369161987 center gabled: 664642004
+   todo: spilt https://www.openstreetmap.org/way/664642004 in gabled and phyramide
 * Westminster  367642719 / Abbey 364313092
 
 Todo
 * gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
-          angled: 45402141 is correkt but not what we expect, hm???
-          komplex-ok?:37616289,45697037 -bad:45402130  bad_bow:45696973 do parts!
+          angled: 45402141 is correkt but we expect and agle gabled, hm?
+          komplex: 37616289, 45697037 ok with "across-backup-code": 45402130  bad_bow:45696973 do parts!
 
 More Examples
 * domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,
@@ -29,6 +31,16 @@ More Examples
 * Vatikan, Saint Peter's Basilica  244159210
 * Taj Mahal 375257537
 * Marienplatz 223907278
+
+Subtract tests
+* Test1: cargo run --example m_async -- -r 0 -w 239592652
+* This way does NOT set the height/levels to maximum
+* Test2: building: 278033600 + two parts: 1124726437 1124499584
+* Test3: 278033615 1125067806 todo: part is > building! Subtraktion deletes level 0
+* Test4: rel 2111466 Outer=building 157880278 Parts 109458125 1104998081 1104998082
+* Test5: way 111354081 parts: 814784273 + 814784274 + 814784275
+* Test6: rel 11192041: outer 172664019, inner 814784298
+* Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
 
 ### Notes on WASM:

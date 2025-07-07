@@ -4,7 +4,6 @@ extern crate earcutr; // not supported vor WASM?
 use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
-//e i_overlay::float::simplify::SimplifyShape;
 
 use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
 
@@ -119,7 +118,7 @@ impl Footprint {
             (((radius_max - radius_min) / radius_max * 100.) as u32) < 10 && count >= 10.;
     }
 
-    pub fn rotate(&mut self, roof_angle: f32) -> (BoundingBox, bool) {
+    pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
         //println!("{len} rotate: {:?}", &self.polygons[0][0]);
         let mut bounding_box_rotated = BoundingBox::new();
         self.rotated_positions = Vec::new();
@@ -130,18 +129,16 @@ impl Footprint {
             bounding_box_rotated.include(&rotated_position);
         }
 
-        let new_rotated_center_east = (bounding_box_rotated.east - bounding_box_rotated.west) / 2.0;
-        let corretion_shift = new_rotated_center_east - bounding_box_rotated.east;
+        let new_rotated_center_north =
+            (bounding_box_rotated.north - bounding_box_rotated.south) / 2.0;
+        let corretion_shift = new_rotated_center_north - bounding_box_rotated.north;
         bounding_box_rotated.shift(corretion_shift);
         self.shift = corretion_shift;
         for position in &mut self.rotated_positions {
-            position.east += corretion_shift; // used in split_at_x_zero
+            position.north += corretion_shift; // used in split_at_y_zero
         }
 
-        let across = bounding_box_rotated.south - bounding_box_rotated.north
-            > bounding_box_rotated.east - bounding_box_rotated.west;
-
-        (bounding_box_rotated, across)
+        bounding_box_rotated
     }
 
     pub fn get_triangulate_indices(&self) -> Vec<usize> {
@@ -173,9 +170,9 @@ impl Footprint {
     /// - The first shape contains all parts with x ≤ 0
     /// - The second shape contains all parts with x ≥ 0
     /// - The last shape contains all parts of the outer
-    pub fn split_at_x_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
-        let mut left_vertices = Vec::new();
-        let mut right_vertices = Vec::new();
+    pub fn split_at_y_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
+        let mut low_vertices = Vec::new();
+        let mut up_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
         let positions = &self.polygons[0][0];
@@ -186,9 +183,9 @@ impl Footprint {
             outer_vertices.push(positions[i]);
 
             // If the current point is on the splitting line, add it to both shapes
-            if current.east == 0.0 {
-                left_vertices.push(positions[i]);
-                right_vertices.push(positions[i]);
+            if current.north == 0.0 {
+                low_vertices.push(positions[i]);
+                up_vertices.push(positions[i]);
                 println!(
                     "split split split split split split split split split split split split split split i:{i}"
                 );
@@ -196,21 +193,21 @@ impl Footprint {
             }
 
             // Add current point to appropriate side
-            if current.east < 0.0 {
-                left_vertices.push(positions[i]);
+            if current.north < 0.0 {
+                low_vertices.push(positions[i]);
             } else {
-                right_vertices.push(positions[i]);
+                up_vertices.push(positions[i]);
             }
 
             //3 println!(" - Test1 i: {i} {current} {next}");
             // Check if the edge crosses the x=0 line      && true
-            if current.east.signum() != next.east.signum() {
+            if current.north.signum() != next.north.signum() {
                 // Calculate the intersection point
-                let diagonally = -current.east / (next.east - current.east);
-                let intersection_north = current.north + diagonally * (next.north - current.north);
+                let diagonally = -current.north / (next.north - current.north);
+                let intersection_north = current.east + diagonally * (next.east - current.east);
                 let intersection = GroundPosition {
-                    north: intersection_north,
-                    east: -self.shift,
+                    east: intersection_north,
+                    north: -self.shift,
                 };
 
                 // Add the intersection point to both shapes
@@ -218,54 +215,28 @@ impl Footprint {
                 //3 println!(
                 //3     "- Test2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
                 //3 );
-                left_vertices.push(intersection_rotated_back);
-                right_vertices.push(intersection_rotated_back);
+                low_vertices.push(intersection_rotated_back);
+                up_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);
             }
         }
 
         self.polygons[0][0] = outer_vertices;
-        (left_vertices, right_vertices)
+        (low_vertices, up_vertices)
     }
 
     // subttacting a hole of a polygon or a part inside a building
     pub fn subtract(&mut self, hole_positions: &Polygons) {
-        const LOG: bool = false;
-        // https://github.com/iShape-Rust/iOverlay/blob/main/readme/overlay_rules.md
-        if LOG {
-            println!(
-                "{} ssss {} subj = {:?}",
-                self._id,
-                self.polygons.len(),
-                &self.polygons
-            );
-            println!("cccc {}  clip = {:?}", hole_positions.len(), hole_positions);
-        }
+        let remaining =
+            self.polygons
+                .overlay(hole_positions, OverlayRule::Difference, FillRule::EvenOdd);
+        //  .                                                  not working::Negative
 
-        let remaining = self
-            .polygons //self.positions
-            .overlay(hole_positions, OverlayRule::Difference, FillRule::EvenOdd);
-        //  .                                              not working::Negative
-
-        //println!(
-        //    "subtract 1 {:?} ==== {:?} ---- {:?}",
-        //    remaining, self.polygons, hole_positions
-        //);
-
-        // Reifenberg small remainings. Only ::Positive works. But will it hurt other models???
-        // let remaining = remaining.simplify_shape(FillRule::Positive);
-        // let remaining = remaining.simplify_shape_custom(FillRule::Positive);
+        // simplify did not realy work, just cut it always away
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
-        //???println!("simplify_shape {:?}", remaining);
 
         if remaining.is_empty() {
-            // todo: loop ways over parts. if way is gone, stop part loop
             println!("outer is gone {}", self._id);
-            //println!(
-            //    "subtract 2 {:?} ==== {:?} ---- {:?}",
-            //    remaining, self.polygons, hole_positions
-            //);
-
             self.polygons = remaining;
             return;
         }
@@ -274,25 +245,5 @@ impl Footprint {
             println!("shape with no outer ...");
             return;
         }
-        if LOG {
-            println!(
-                "Rrrrrrr [{}][{}][{}] = {:?}",
-                self.polygons.len(),
-                self.first_polygon().len(),
-                self.polygons[0][0].len(),
-                self.polygons
-            );
-
-            if self.polygons.len() > 1 || self.first_polygon().len() != 1 {
-                if self.polygons.len() > 0 {
-                    println!(
-                        "shape subtract result.len()  [1][{}]",
-                        self.polygons[0][0].len(),
-                    );
-                }
-            }
-        }
-
-        return;
     }
 }

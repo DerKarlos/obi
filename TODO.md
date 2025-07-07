@@ -1,4 +1,12 @@
-* Use for building - part https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay
+Next todo:
+* GONE! Bau 46: Relation: 2819'147 with Outer: 45590896 and  Inner: 210046607
+* WASM optimize
+* Relation: 18951273 outer: 814784308 inner none, id/ref: 1375259094
+* parse_colour: light_brown => invalid unknown format
+* one line for   ExtrudeRing { ...  macro?!
+
+More todo:
+* Use for roof cut: https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay
 * Build of rend3 is so fast. Incremental build? Use it in OBI/OTB!
 * Use OMA Files: https://community.openstreetmap.org/t/a-rust-lib-crate-to-read-oma-files/129593
 * Flickering and no roof in OSMgo: Way 1031078075
