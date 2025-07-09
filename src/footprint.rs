@@ -141,20 +141,24 @@ impl Footprint {
         bounding_box_rotated
     }
 
-    pub fn get_triangulate_indices(&self) -> Vec<usize> {
+    pub fn get_triangulate_indices(&self, polygon_index: usize) -> Vec<usize> {
         //
+
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
-        for position in self.first_outer_u() {
+
+        //  first_outer_u() {
+        for position in &self.polygons[polygon_index][0] {
             // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
         }
         //println!("roof_po: {:?}", &vertices);
 
-        for hole_index in 1..self.first_polygon_u().len() {
-            let hole: &GroundPositions = &self.first_polygon_u()[hole_index];
-            //  for hole in &self.first_polygon() { //holes {
+        // first_polygon_u().len() {
+        for hole_index in 1..self.polygons[polygon_index].len() {
+            // .first_polygon_u()[hole_index];
+            let hole: &GroundPositions = &self.polygons[polygon_index][hole_index];
             holes_starts.push(vertices.len() / 2);
             // println!("holes_starts: {:?}", &holes_starts);
             for position in hole {
@@ -229,7 +233,7 @@ impl Footprint {
     pub fn subtract(&mut self, hole_positions: &Polygons) {
         let remaining =
             self.polygons
-                .overlay(hole_positions, OverlayRule::Difference, FillRule::EvenOdd);
+                .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
         //  .                                                  not working::Negative
 
         // simplify did not realy work, just cut it always away

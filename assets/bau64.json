@@ -1,0 +1,276 @@
+{
+  "version": "0.6",
+  "generator": "openstreetmap-cgimap 2.0.1 (3864031 spike-08.openstreetmap.org)",
+  "copyright": "OpenStreetMap and contributors",
+  "attribution": "http://www.openstreetmap.org/copyright",
+  "license": "http://opendatacommons.org/licenses/odbl/1-0/",
+  "bounds": {
+    "minlat": 49.57828,
+    "minlon": 10.959265,
+    "maxlat": 49.578846,
+    "maxlon": 10.960272
+  },
+  "elements": [
+    {
+      "type": "node",
+      "id": 581319235,
+      "lat": 49.578374,
+      "lon": 10.9600859,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319237,
+      "lat": 49.5783993,
+      "lon": 10.9600792,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319238,
+      "lat": 49.5783819,
+      "lon": 10.9599222,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319239,
+      "lat": 49.5783441,
+      "lon": 10.9599322,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319240,
+      "lat": 49.578323,
+      "lon": 10.9597414,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319241,
+      "lat": 49.5783575,
+      "lon": 10.9597323,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319243,
+      "lat": 49.5783403,
+      "lon": 10.9595774,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319245,
+      "lat": 49.578303,
+      "lon": 10.9595873,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319269,
+      "lat": 49.5782809,
+      "lon": 10.9593876,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319272,
+      "lat": 49.5783946,
+      "lon": 10.9602715,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319309,
+      "lat": 49.5787464,
+      "lon": 10.9592648,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 581319311,
+      "lat": 49.5788449,
+      "lon": 10.9601527,
+      "timestamp": "2013-03-19T12:57:21Z",
+      "version": 3,
+      "changeset": 15419420,
+      "user": "kukuk",
+      "uid": 346758
+    },
+    {
+      "type": "node",
+      "id": 2201863640,
+      "lat": 49.578425,
+      "lon": 10.9595406,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863645,
+      "lat": 49.5784587,
+      "lon": 10.9599077,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863653,
+      "lat": 49.5786822,
+      "lon": 10.9598563,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863655,
+      "lat": 49.57847,
+      "lon": 10.9595303,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863661,
+      "lat": 49.5784444,
+      "lon": 10.9597598,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863667,
+      "lat": 49.5784912,
+      "lon": 10.9597491,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863669,
+      "lat": 49.5784122,
+      "lon": 10.9594086,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "node",
+      "id": 2201863674,
+      "lat": 49.578634,
+      "lon": 10.9593576,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015
+    },
+    {
+      "type": "way",
+      "id": 45590896,
+      "timestamp": "2017-03-21T18:58:19Z",
+      "version": 4,
+      "changeset": 47048304,
+      "user": "nebulon42",
+      "uid": 461734,
+      "nodes": [
+        581319309, 581319311, 581319272, 581319235, 581319237, 581319238,
+        581319239, 581319240, 581319241, 581319243, 581319245, 581319269,
+        581319309
+      ]
+    },
+    {
+      "type": "way",
+      "id": 210046607,
+      "timestamp": "2013-03-14T16:48:25Z",
+      "version": 1,
+      "changeset": 15364170,
+      "user": "sre_i_a_ker",
+      "uid": 1241015,
+      "nodes": [
+        2201863674, 2201863653, 2201863645, 2201863661, 2201863667, 2201863655,
+        2201863640, 2201863669, 2201863674
+      ]
+    },
+    {
+      "type": "relation",
+      "id": 2819147,
+      "timestamp": "2017-03-21T18:59:41Z",
+      "version": 2,
+      "changeset": 47048304,
+      "user": "nebulon42",
+      "uid": 461734,
+      "members": [
+        { "type": "way", "ref": 45590896, "role": "outer" },
+        { "type": "way", "ref": 210046607, "role": "inner" }
+      ],
+      "tags": { "building": "yes", "name": "Bau 46", "type": "multipolygon" }
+    }
+  ]
+}

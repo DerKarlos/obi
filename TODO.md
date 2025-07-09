@@ -1,11 +1,23 @@
 Next todo:
-* GONE! Bau 46: Relation: 2819'147 with Outer: 45590896 and  Inner: 210046607
-* WASM optimize
-* Relation: 18951273 outer: 814784308 inner none, id/ref: 1375259094
-* parse_colour: light_brown => invalid unknown format
+* Missing parts around St Pauls ... 111354088
+* Big Ben clock half missing
 * one line for   ExtrudeRing { ...  macro?!
+* Not simplyfy but delete if >60% covered by parts. How? Triangluate? is area() in lib?
+  Example: Remaining of rel: cargo run --example m_async -- -w 111355120 -o 1567133
+      use i_overlay::core::overlay::{ContourDirection, IntOverlayOptions, Overlay};
+      use i_overlay::core::solver::Solver;
+          let options = IntOverlayOptions {
+            preserve_input_collinear: false,
+            output_direction: ContourDirection::Clockwise,
+            preserve_output_collinear: false,
+            min_output_area: 1234,
+        };
+        //Overlay::with_contours_custom(&test.subj_paths, &test.clip_paths, options, solver);
+        Overlay::with_contours_custom(&self.polygons, &test.clip_paths, options, Solver::AUTO);
+
 
 More todo:
+* Use tag!: roof:angle=10 (degrees)
 * Use for roof cut: https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay
 * Build of rend3 is so fast. Incremental build? Use it in OBI/OTB!
 * Use OMA Files: https://community.openstreetmap.org/t/a-rust-lib-crate-to-read-oma-files/129593
@@ -28,6 +40,12 @@ More todo:
 * DONT USE?:  https://api.openstreetmap.org/api/0.6/way/121486088/full.json
   https://master.apis.dev.openstreetmap.org/api/0.6/way/121486088/full.json
   The test-server does not have needed objects (like Reifenberg), but they could be PUT into
+
+* bevy_web_asset = { version = "0.11.0", optional = true } # "This is a tiny crate that that adds the ability to load assets from http and https urls. Supports both wasm (web-sys) and native."
+  do?: Using fetch browser API • https://rustwasm.github.io/wasm-bindgen/examples/fetch.html
+  web-sys, js-sys, wasm-bindgen and wasm-bindgen-futures • https://crates.io/crates/ehttp
+
+
 
 F4map thin roofs-trick:
 * https://demo.f4map.com/#lat=50.1694588&lon=8.6372565&zoom=18&camera.theta=58.514&camera.phi=8.021&lat=50.1688086&lon=8.6388286

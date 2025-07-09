@@ -37,7 +37,7 @@ thiserror = "2.0"
 [dependencies]
 
 
-### Bevy as render engine:    TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3   Without XM-Lib: 54
+### Bevy as render engine:    TODO: reduce bevy_wasm.wasm 72.3 MB  Less feature: still 60.3   Without XM-Lib: 54   using wasm-opt: 29.5
 bevy = { version = "0", optional = true, default-features = false, features = [
     "bevy_log",
     "bevy_pbr",
@@ -78,7 +78,8 @@ clap = { version = "4", features = ["derive"] }
 we_clap = { version = "0", features = ["web-alert"] } ## web-alert  web-console
 
 
-## [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
+##
+[target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
 

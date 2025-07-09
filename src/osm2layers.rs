@@ -2,6 +2,7 @@
 // Converting OSM data to "GIS" layers //
 /////////////////////////////////////////
 
+//use bevy::prelude::info;
 use csscolorparser::parse;
 use std::collections::HashMap;
 
@@ -18,6 +19,7 @@ pub static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; //  "red"  = 
 pub static DEFAULT_WALL_HEIGHT: f32 = 6.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
+pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 1.]; // Electric Blue
 
 // Helper functions for the osm to layer processing ///////////////////////////
 
@@ -38,35 +40,56 @@ fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
         return default;
     }
 
-    let color_string = color.unwrap().as_str();
+    let mut color_string = color.unwrap().as_str();
     //println!("colour: {} ", color_string);
-    match parse(color_string) {
-        Ok(color_scc) => {
-            //println!("parse_colour: {:?} => {:?}", color, color_scc); // is f64: color_scc.to_array();
-            [
-                color_scc.r as f32,
-                color_scc.g as f32,
-                color_scc.b as f32,
-                color_scc.a as f32,
-            ]
-        }
 
-        //        let x = Color::to_array(&self)
-        Err(_error) => {
-            match color_string {
-                "stone" => color_to_f32(200, 200, 200),
-                "brick" => color_to_f32(255, 128, 128),
-                "cream" => color_to_f32(255, 253, 208),
-                "roof_tiles" => color_to_f32(186, 86, 37),
-                "glass" => color_to_f32(150, 150, 220), // #light grey wiht a bit blue
-                "wood" => color_to_f32(145, 106, 47),
-                "copper" => color_to_f32(98, 190, 119), // Verdigris (Grünspahn) instead of copper = 183 119 41
+    const LIGHT: &str = "light";
+    const DARK: &str = "dark";
+    let mut enlight: f32 = 1.0;
+    if color_string.starts_with(LIGHT) {
+        color_string = color_string.get(LIGHT.len()..).unwrap();
+        enlight = 1.3;
+    }
+    if color_string.starts_with(DARK) {
+        color_string = color_string.get(DARK.len()..).unwrap();
+        enlight = 1. / 1.3;
+    }
+    if color_string.starts_with('_') {
+        color_string = color_string.get(1..).unwrap();
+    }
 
-                _ => {
-                    println!("parse_colour: {} => {}", color_string, _error);
-                    [98. / 255., 203. / 255., 232. / 255., 1.] // Electric Blue (or default???)
-                }
-            }
+    let color_or_error = parse(color_string); // <<<======= parse color =========
+
+    if color_or_error.is_ok() {
+        let color_scc = color_or_error.unwrap();
+        return [
+            color_scc.r as f32 * enlight,
+            color_scc.g as f32 * enlight,
+            color_scc.b as f32 * enlight,
+            color_scc.a as f32 * enlight,
+        ];
+    }
+
+    match color_string {
+        // yellow-brown
+        "sandstone" => color_to_f32(191, 166, 116),
+        "slate" => color_to_f32(112, 128, 144),
+        "concrete" => color_to_f32(196, 182, 166),
+        "stone" => color_to_f32(200, 200, 200),
+        "brick" => color_to_f32(255, 128, 128),
+        "cream" => color_to_f32(255, 253, 208),
+        "roof_tiles" => color_to_f32(186, 86, 37),
+        "glass" => color_to_f32(150, 150, 220), // #light grey wiht a bit blue
+        "wood" => color_to_f32(145, 106, 47),
+        "copper" => color_to_f32(98, 190, 119), // Verdigris (Grünspahn) instead of copper = 183 119 41
+
+        _ => {
+            println!(
+                "parse_colour: {} => {:?}",
+                color_string,
+                color_or_error.err()
+            );
+            DEFAULT_BAD_COLOR
         }
     }
 }
@@ -257,7 +280,9 @@ impl Osm2Layer {
         }
 
         let tags = tags.unwrap();
-        if tags_get_yes(&tags, "building:part").is_none() {
+        if tags_get_yes(&tags, "building:part").is_none()
+            && tags_get_yes(&tags, "building").is_none()
+        {
             // if show_only = 0
             return;
         }
@@ -282,11 +307,18 @@ impl Osm2Layer {
             if way_from_relation.is_some() {
                 self.ways_map
                     .insert(osm_relation.id, way_from_relation.unwrap());
-                self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part! Even it is a building, it works anyway.
+                let part = tags_get_yes(&osm_relation.tags.unwrap(), "building:part").is_some();
+
+                if part {
+                    self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part
+                } else {
+                    self.buildings.push(osm_relation.id); // If IT is a building, it must be in the building list, to get parts substracted!
+                }
             }
         }
 
         println!("\n**** process {:?} ways", self.buildings.len());
+        // Bevy function does not work here info!("\n**** process {:?} ways", self.buildings.len());
         for building_id in &self.buildings.clone() {
             println!("building: {building_id}");
             let mut building = self.ways_map.remove(building_id).unwrap();
@@ -294,7 +326,7 @@ impl Osm2Layer {
             // substract parts from building
             for part_id in &self.parts {
                 //println!("part: {part_id}");
-                //if *part_id > 464090146 {
+                //if *part_id > 814784299 {
                 //    continue;
                 //}
                 let part = &self.ways_map.get(part_id).unwrap();

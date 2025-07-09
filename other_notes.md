@@ -11,6 +11,7 @@
 
 Most used tests
 * Reifenberg  121486088
+* Relation Bau 46: 45590896
 * Passau Dom 24771505 gabled: 464090146 skilleon south: 136144290  north: 136144289
    todo: split https://www.openstreetmap.org/way/464090137 in gabled and phyramide
 * St Paul's Cathedral 369161987 center gabled: 664642004
@@ -59,6 +60,14 @@ https://lib.rs/crates/bevy-async-runner
 https://docs.rs/crate/bevy-tokio-tasks/latest/source/examples/current_thread_runtime.rs
 
 https://dev.to/sbelzile/making-games-in-rust-deploying-a-bevy-app-to-the-web-1ahn
+
+EURORUST @euro_rust Building BEVY, WASM AND THE BROWSER FRANÇOIS MOCKERS OPTIMISING
+• For size • Smaller file to download • Less code to run • Disable Bevy features you don't need
+• The best code to optimise is the one not even compiled • A step further
+• https://github.com/WebAssembly/binaryen
+, https://rustwasm.github.io/docs/book/reference/code-size.html
+• https://github.com/rustwasm/twiggy
+• https://github.com/rustwasm/wasm-snip
 
 ### Notes on Zed:
 - The term and handling of “project” is not descriptor. I found only a “Find in Project”
