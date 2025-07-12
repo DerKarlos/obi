@@ -43,6 +43,8 @@ Subtract tests
 * Test6: rel 11192041: outer 172664019, inner 814784298
 * Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
+BakerBoy's examples nice: 407995274, 297997038, 417245741,  simple: 48802245, 11018815
+- not working yet: 8035487, 3376015,
 
 ### Notes on WASM:
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update

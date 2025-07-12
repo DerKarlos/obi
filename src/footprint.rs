@@ -7,6 +7,8 @@ use i_overlay::float::single::SingleFloatOverlay;
 
 use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
 
+static O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
+
 pub enum Orientation {
     None,
     Along,
@@ -167,7 +169,44 @@ impl Footprint {
             }
         }
 
-        earcutr::earcut(&vertices, &holes_starts, 2).unwrap()
+        let mut indices = earcutr::earcut(&vertices, &holes_starts, 2).unwrap();
+
+        // cut small remainings - this is just an ugly hack! i_overlay should be able to solve this - todo
+
+        let mut area = 0.0;
+        for index_to_indices in 0..indices.len() / 3 {
+            let vertice_index_0 = indices[index_to_indices * 3 + O];
+            let vertice_index_1 = indices[index_to_indices * 3 + 1];
+            let vertice_index_2 = indices[index_to_indices * 3 + 2];
+
+            let n_0 = vertices[vertice_index_0 * 2 + O];
+            let e_0 = vertices[vertice_index_0 * 2 + 1];
+            let n_1 = vertices[vertice_index_1 * 2 + O];
+            let e_1 = vertices[vertice_index_1 * 2 + 1];
+            let n_2 = vertices[vertice_index_2 * 2 + O];
+            let e_2 = vertices[vertice_index_2 * 2 + 1];
+
+            let a = n_0 - n_1;
+            let b = e_0 - e_1;
+            let distance_a = f32::sqrt(a * a + b * b);
+            let a = n_1 - n_2;
+            let b = e_1 - e_2;
+            let distance_b = f32::sqrt(a * a + b * b);
+            let a = n_2 - n_0;
+            let b = e_2 - e_0;
+            let distance_c = f32::sqrt(a * a + b * b);
+
+            let a = distance_a;
+            let b = distance_b;
+            let c = distance_c;
+            area += 0.25 * f32::sqrt((a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c));
+            //println!("area: {area}");
+        }
+        if area < 0.01 {
+            // self.polygons[polygon_index] = Vec::new();
+            indices = Vec::new();
+        }
+        indices
     }
 
     /// Splits the shape at x=0, returning two new shapes:
@@ -216,9 +255,6 @@ impl Footprint {
 
                 // Add the intersection point to both shapes
                 let intersection_rotated_back = intersection.rotate(angle).add(self.center);
-                //3 println!(
-                //3     "- Test2 i: {i} is_n: {intersection_north} {intersection} {intersection_rotated_back}"
-                //3 );
                 low_vertices.push(intersection_rotated_back);
                 up_vertices.push(intersection_rotated_back);
                 outer_vertices.push(intersection_rotated_back);

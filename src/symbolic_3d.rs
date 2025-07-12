@@ -30,11 +30,13 @@ impl Footprint {
             roof_gpu_positions.push(this_gpu_position_up);
         }
 
-        for hole_index in 1..self.polygons[polygon_index].len() {
-            let hole: &GroundPositions = &self.first_polygon_u()[hole_index];
-            for position in hole {
-                let this_gpu_position_up = position.to_gpu_position(height);
-                roof_gpu_positions.push(this_gpu_position_up);
+        if self.polygons[polygon_index].len() > 1 {
+            for hole_index in 1..self.polygons[polygon_index].len() {
+                let hole: &GroundPositions = &self.first_polygon_u()[hole_index];
+                for position in hole {
+                    let this_gpu_position_up = position.to_gpu_position(height);
+                    roof_gpu_positions.push(this_gpu_position_up);
+                }
             }
         }
 
@@ -244,6 +246,10 @@ impl OsmMesh {
             let roof_index_offset = self.attributes.vertices_positions.len();
             let indices = footprint.get_triangulate_indices(polygon_index);
             // println!("triangles: {:?}", &indices);
+            if indices.is_empty() {
+                footprint.polygons[polygon_index] = Vec::new();
+                continue;
+            }
 
             // ? why .rev()?  see negativ ???
             for index in indices.iter().rev() {
@@ -260,31 +266,9 @@ impl OsmMesh {
                 .vertices_positions
                 .append(&mut roof_gpu_positions);
         }
-
-        /****************** /
-        let mut roof_gpu_positions = footprint.get_gpu_positions(0, height);
-        let roof_index_offset = self.attributes.vertices_positions.len();
-        let indices = footprint.get_triangulate_indices(0);
-        // println!("triangles: {:?}", &indices);
-
-        // ? why .rev()?  see negativ ???
-        for index in indices.iter().rev() {
-            self.attributes
-                .indices_to_vertices
-                .push((roof_index_offset + index) as u32);
-        }
-
-        for _p in &roof_gpu_positions {
-            self.attributes.vertices_colors.push(color);
-        }
-
-        self.attributes
-            .vertices_positions
-            .append(&mut roof_gpu_positions);
-        / ******************/
     }
 
-    fn push_skillion(&mut self, building_or_part: &BuildingOrPart, color: RenderColor) {
+    fn push_skillion(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
         for polygon_index in 0..building_or_part.footprint.polygons.len() {
             let footprint = &building_or_part.footprint;
             let mut roof_gpu_positions: Vec<RenderPosition> = Vec::new();
@@ -296,6 +280,10 @@ impl OsmMesh {
             let roof_index_offset = self.attributes.vertices_positions.len();
             let indices = footprint.get_triangulate_indices(polygon_index);
             // println!("triangles: {:?}", &indices);
+            if indices.is_empty() {
+                building_or_part.footprint.polygons[polygon_index] = Vec::new();
+                continue;
+            }
 
             for index in indices.iter().rev() {
                 self.attributes
@@ -338,6 +326,9 @@ impl OsmMesh {
         let roof_index_offset = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices(0);
         //println!("offset: {roof_index_offset}  indices: {:?}", &indices);
+        if indices.is_empty() {
+            return;
+        }
 
         // ? why .rev() ?  see negativ ???
         for index in indices.iter().rev() {
@@ -601,6 +592,9 @@ impl OsmMesh {
     ) {
         let footprint = &building_or_part.footprint.clone();
         for polygon in &footprint.polygons {
+            if polygon.is_empty() {
+                continue;
+            }
             let outer = &polygon[0].clone();
             self.push_wall_shape(
                 building_or_part,

@@ -72,6 +72,7 @@ fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
 
     match color_string {
         // yellow-brown
+        "metal" => color_to_f32(70, 71, 62),
         "sandstone" => color_to_f32(191, 166, 116),
         "slate" => color_to_f32(112, 128, 144),
         "concrete" => color_to_f32(196, 182, 166),
@@ -246,11 +247,13 @@ impl Osm2Layer {
         }
         footprint.close();
 
+        // When needs a buidling als to be a part? This example is just a building:
+        // https://www.openstreetmap.org/edit#map=22/51.4995203/-0.1290937
+        // So building else if solves it??? Overpass vor beeng both and check
         if let Some(tags) = &tags {
             if tags_get_yes(&tags, "building").is_some() {
                 self.buildings.push(id);
-            }
-            if tags_get_yes(&tags, "building:part").is_some() {
+            } else if tags_get_yes(&tags, "building:part").is_some() {
                 self.parts.push(id);
             }
         }

@@ -1,6 +1,9 @@
 Next todo:
-* Missing parts around St Pauls ... 111354088
-* Big Ben clock half missing
+* Big Ben clock half missing: roof:shape=round
+* crash: way 1149973649
+* Relation with > 1 outer and >1 for one inner: 8035487.    9346128=4outer
+* And also crashes: 3376015
+* Accept relations (auto if nuber < 1000xxx?)
 * one line for   ExtrudeRing { ...  macro?!
 * Not simplyfy but delete if >60% covered by parts. How? Triangluate? is area() in lib?
   Example: Remaining of rel: cargo run --example m_async -- -w 111355120 -o 1567133
@@ -15,8 +18,12 @@ Next todo:
         //Overlay::with_contours_custom(&test.subj_paths, &test.clip_paths, options, solver);
         Overlay::with_contours_custom(&self.polygons, &test.clip_paths, options, Solver::AUTO);
 
+        https://www.omnicalculator.com/math/triangle-area
+        area = 0.25 × √( (a + b + c) × (-a + b + c) × (a - b + c) × (a + b - c) )
+
 
 More todo:
+* When needs a buidling als to be a part? way 1149973649 is just a building. Overpass vor both and check
 * Use tag!: roof:angle=10 (degrees)
 * Use for roof cut: https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay
 * Build of rend3 is so fast. Incremental build? Use it in OBI/OTB!
