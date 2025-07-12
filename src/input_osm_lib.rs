@@ -81,7 +81,7 @@ impl InputOsm {
                 nodes.push(node.node_id);
             }
 
-            let mut tags: HashMap<String, String> = HashMap::new();
+            let mut tags: OsmMap = HashMap::new();
             for tag in &way_.tags {
                 tags.insert(tag.k.clone(), tag.v.clone());
             }
@@ -90,12 +90,12 @@ impl InputOsm {
         }
 
         for relation_ in map.relations {
-            let mut tags: HashMap<String, String> = HashMap::new();
+            let mut tags: OsmMap = HashMap::new();
             for tag in &relation_.tags {
                 tags.insert(tag.k.clone(), tag.v.clone());
             }
 
-            let mut members: Vec<Member> = Vec::new();
+            let mut members: Members = Vec::new();
             for member in relation_.members {
                 let member = Member {
                     relation_type: member.member_type,

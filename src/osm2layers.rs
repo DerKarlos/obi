@@ -8,10 +8,10 @@ use std::collections::HashMap;
 
 use crate::footprint::{Footprint, Orientation};
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsAndParts, GeographicCoordinates, GroundPosition, RenderColor,
-    RoofShape,
+    BuildingOrPart, BuildingsAndParts, GeographicCoordinates, GroundPosition, GroundPositions,
+    OsmMap, RenderColor, RoofShape,
 };
-use crate::kernel_in::{Member, Polygons};
+use crate::kernel_in::{Members, Polygons};
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
@@ -120,7 +120,7 @@ fn parse_height(height_option: Option<&String>) -> f32 {
     }
 }
 
-fn tags_get_yes<'a>(tags: &'a HashMap<String, String>, searched: &str) -> Option<&'a String> {
+fn tags_get_yes<'a>(tags: &'a OsmMap, searched: &str) -> Option<&'a String> {
     if let Some(tag) = tags.get(searched) {
         if tag == "no" { None } else { Some(tag) }
     } else {
@@ -128,11 +128,7 @@ fn tags_get_yes<'a>(tags: &'a HashMap<String, String>, searched: &str) -> Option
     }
 }
 
-fn tags_get2<'a>(
-    tags: &'a HashMap<String, String>,
-    option1: &str,
-    option2: &str,
-) -> Option<&'a String> {
+fn tags_get2<'a>(tags: &'a OsmMap, option1: &str, option2: &str) -> Option<&'a String> {
     if let Some(tag) = tags.get(option1) {
         Some(tag)
     } else {
@@ -141,7 +137,7 @@ fn tags_get2<'a>(
 }
 
 fn tags_get3<'a>(
-    tags: &'a HashMap<String, String>,
+    tags: &'a OsmMap,
     option1: &str,
     option2: &str,
     option3: &str,
@@ -157,6 +153,30 @@ fn tags_get3<'a>(
     }
 }
 
+#[derive(Debug, Clone)]
+
+struct OsmLine {
+    id: u64,
+    positions: GroundPositions,
+    tags: Option<OsmMap>,
+}
+
+impl Default for OsmLine {
+    fn default() -> Self {
+        Self::new(4714)
+    }
+}
+
+impl OsmLine {
+    pub fn new(id: u64) -> Self {
+        Self {
+            id,
+            positions: Vec::new(),
+            tags: None,
+        }
+    }
+}
+
 //////////////////////////////// Osm2Layer (API) //////////////////////////////
 
 pub struct OsmNode {
@@ -164,23 +184,24 @@ pub struct OsmNode {
 }
 
 #[derive(Debug, Clone)]
-pub struct OsmWay {
+pub struct OsmArea {
     pub _id: u64,
     pub footprint: Footprint,
-    pub tags: Option<HashMap<String, String>>,
+    pub tags: Option<OsmMap>,
 }
 
 #[derive(Debug)]
 pub struct OsmRelation {
     pub id: u64,
-    pub members: Vec<Member>,
-    pub tags: Option<HashMap<String, String>>,
+    pub members: Members,
+    pub tags: Option<OsmMap>,
 }
 
 pub struct Osm2Layer {
     gpu_ground_null_coordinates: GeographicCoordinates,
     nodes_map: HashMap<u64, OsmNode>,
-    ways_map: HashMap<u64, OsmWay>,
+    areas_map: HashMap<u64, OsmArea>,
+    lines_map: HashMap<u64, OsmLine>,
     buildings: Vec<u64>,
     parts: Vec<u64>,
     relations: Vec<OsmRelation>,
@@ -193,7 +214,8 @@ impl Osm2Layer {
         Self {
             gpu_ground_null_coordinates,
             nodes_map: HashMap::new(),
-            ways_map: HashMap::new(),
+            areas_map: HashMap::new(),
+            lines_map: HashMap::new(),
             buildings: Vec::new(),
             parts: Vec::new(),
             relations: Vec::new(),
@@ -208,13 +230,7 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    pub fn add_node(
-        &mut self,
-        id: u64,
-        latitude: f64,
-        longitude: f64,
-        _tags: Option<HashMap<String, String>>,
-    ) {
+    pub fn add_node(&mut self, id: u64, latitude: f64, longitude: f64, _tags: Option<OsmMap>) {
         self.nodes_map.insert(
             id,
             OsmNode {
@@ -227,19 +243,38 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<HashMap<String, String>>) {
+    pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<OsmMap>) {
         // Only closed ways (yet)
-        if nodes.first().unwrap() != nodes.last().unwrap() {
-            //println!("Not a closed way id: {}", element.id);
-            return;
-        }
-        if nodes.len() < 3 {
-            println!("Closed way with < 3 corners! id: {}", id);
-            return;
-        } else {
+        if nodes.first().unwrap() == nodes.last().unwrap() {
+            if nodes.len() < 3 {
+                println!("Closed way with < 3 corners! id: {}", id);
+                return;
+            }
             nodes.pop();
+            self.add_area(id, nodes, tags);
+        } else {
+            self.add_line(id, nodes, tags);
         }
+    }
 
+    pub fn add_line(&mut self, id: u64, nodes: Vec<u64>, tags: Option<OsmMap>) {
+        let mut positions = Vec::new();
+        for node_id in nodes {
+            let position = self.nodes_map.get(&node_id).unwrap().position;
+            positions.push(position);
+        }
+        //??? line.close();
+        self.lines_map.insert(
+            id,
+            OsmLine {
+                id,
+                positions,
+                tags,
+            },
+        );
+    }
+
+    pub fn add_area(&mut self, id: u64, nodes: Vec<u64>, tags: Option<OsmMap>) {
         let mut footprint = Footprint::new(id);
         for node_id in nodes {
             let position = self.nodes_map.get(&node_id).unwrap().position;
@@ -259,9 +294,9 @@ impl Osm2Layer {
         }
 
         // Now, as the tags are checked, they may get moved into the map
-        self.ways_map.insert(
+        self.areas_map.insert(
             id,
-            OsmWay {
+            OsmArea {
                 _id: id,
                 footprint,
                 tags,
@@ -271,12 +306,7 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    pub fn add_relation(
-        &mut self,
-        id: u64,
-        members: Vec<Member>,
-        tags: Option<HashMap<String, String>>,
-    ) {
+    pub fn add_relation(&mut self, id: u64, members: Members, tags: Option<OsmMap>) {
         if tags.is_none() {
             println!("Relation without tags: {id}");
             return;
@@ -308,7 +338,7 @@ impl Osm2Layer {
             let osm_relation = self.relations.pop().unwrap();
             let way_from_relation = self.process_relation(osm_relation.id, &osm_relation);
             if way_from_relation.is_some() {
-                self.ways_map
+                self.areas_map
                     .insert(osm_relation.id, way_from_relation.unwrap());
                 let part = tags_get_yes(&osm_relation.tags.unwrap(), "building:part").is_some();
 
@@ -324,7 +354,7 @@ impl Osm2Layer {
         // Bevy function does not work here info!("\n**** process {:?} ways", self.buildings.len());
         for building_id in &self.buildings.clone() {
             println!("building: {building_id}");
-            let mut building = self.ways_map.remove(building_id).unwrap();
+            let mut building = self.areas_map.remove(building_id).unwrap();
 
             // substract parts from building
             for part_id in &self.parts {
@@ -332,7 +362,7 @@ impl Osm2Layer {
                 //if *part_id > 814784299 {
                 //    continue;
                 //}
-                let part = &self.ways_map.get(part_id).unwrap();
+                let part = &self.areas_map.get(part_id).unwrap();
                 //let shape = part.footprint.clone();
                 let part_polygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
                 building.footprint.subtract(&part_polygons);
@@ -349,7 +379,7 @@ impl Osm2Layer {
         println!("\n**** process {:?} parts", self.parts.len());
         for part_id in &self.parts.clone() {
             println!("part: {part_id}");
-            let mut part = self.ways_map.remove(part_id).unwrap();
+            let mut part = self.areas_map.remove(part_id).unwrap();
             self.create_building_or_part(*part_id, &mut part);
         }
     }
@@ -357,7 +387,7 @@ impl Osm2Layer {
     ///////////////////////
 
     // Souldn't we have MORE sub fn's ???
-    fn create_building_or_part(&mut self, id: u64, osm_way: &mut OsmWay) {
+    fn create_building_or_part(&mut self, id: u64, osm_way: &mut OsmArea) {
         //println!("scan: way id = {:?}", id);
         if self.show_only > 0 && id != self.show_only {
             return;
@@ -533,7 +563,7 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    fn process_relation(&mut self, id: u64, osm_relation: &OsmRelation) -> Option<OsmWay> {
+    fn process_relation(&mut self, id: u64, osm_relation: &OsmRelation) -> Option<OsmArea> {
         if self.show_only > 0 && id != self.show_only {
             return None;
         }
@@ -586,14 +616,27 @@ impl Osm2Layer {
             match member.role.as_str() {
                 "outer" => {
                     let outer_ref = member.reference;
-                    let option = self.ways_map.get(&outer_ref);
+                    let option = self.areas_map.get(&outer_ref);
                     if option.is_none() {
-                        println!("outer none, id/ref: {}", outer_ref);
-                        return None;
+                        let line = self.lines_map.get(&outer_ref);
+                        if line.is_some() {
+                            let line = line.unwrap();
+                            println!(
+                                // todo: multi outer/inner
+                                "outer line, id: {} nodes: {} taggs: {}",
+                                line.id,
+                                line.positions.len(),
+                                line.tags.is_some()
+                            );
+                            return None;
+                        } else {
+                            println!("outer none, id/ref: {}", outer_ref);
+                            return None;
+                        }
                     }
                     println!("outer: {}", outer_ref);
                     // Todo: cloning footprint twice can't be the solution
-                    let way_with_outer = self.ways_map.get(&outer_ref).unwrap();
+                    let way_with_outer = self.areas_map.get(&outer_ref).unwrap();
                     outer_id = way_with_outer._id;
                     footprint = way_with_outer.footprint.clone();
                 }
@@ -617,7 +660,7 @@ impl Osm2Layer {
         }
 
         // buildings_and_parts.push...
-        Some(OsmWay {
+        Some(OsmArea {
             _id: outer_id,
             footprint,
             tags: Some(tags.clone()),
@@ -628,7 +671,7 @@ impl Osm2Layer {
 
     fn process_relation_inner(&self, elements_ref: u64, footprint: &mut Footprint) {
         //println!("elements_ref: {:?}", &elements_ref);
-        let option = self.ways_map.get(&elements_ref);
+        let option = self.areas_map.get(&elements_ref);
         if option.is_none() {
             println!("inner none, id/ref: {}", elements_ref);
             return;
@@ -636,7 +679,12 @@ impl Osm2Layer {
         println!("inner: {}", elements_ref);
 
         // todo: what if the hole is has holes? What if the polygon is a multipolygon?
-        let polygons: &Polygons = &self.ways_map.get(&elements_ref).unwrap().footprint.polygons;
+        let polygons: &Polygons = &self
+            .areas_map
+            .get(&elements_ref)
+            .unwrap()
+            .footprint
+            .polygons;
         footprint.subtract(&polygons);
         //println!("inner way; {:?}", &elements_ref);
     }

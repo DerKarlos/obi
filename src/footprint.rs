@@ -5,7 +5,10 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
-use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions, Polygon, Polygons};
+use crate::kernel_in::{
+    BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, POLYGON_OUTER,
+    Polygons,
+};
 
 static O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
 
@@ -58,25 +61,8 @@ impl Footprint {
         }
     }
 
-    pub fn first_polygon<'a>(&'a mut self) -> &'a mut Polygon {
-        &mut self.polygons[0]
-    }
-
-    pub fn first_polygon_u<'a>(&'a self) -> &'a Polygon {
-        &self.polygons[0]
-    }
-
-    pub fn first_outer<'a>(&'a mut self) -> &'a mut GroundPositions {
-        &mut self.polygons[0][0]
-    }
-
-    pub fn first_outer_u<'a>(&'a self) -> &'a GroundPositions {
-        &self.polygons[0][0]
-    }
-
     pub fn push_position(&mut self, position: GroundPosition) {
-        // self.positions.push(position);
-        self.first_outer().push(position);
+        self.polygons[FIRST_POLYGON][POLYGON_OUTER].push(position);
         self.bounding_box.include(&position);
         self.center.north += position.north;
         self.center.east += position.east;
@@ -84,11 +70,11 @@ impl Footprint {
 
     pub fn close(&mut self) {
         // center
-        let count = self.first_outer_u().len() as f32;
+        let count = self.polygons[FIRST_POLYGON][POLYGON_OUTER].len() as f32;
         self.center.north /= count;
         self.center.east /= count;
 
-        let positions = &mut self.polygons[0][0];
+        let positions = &mut self.polygons[FIRST_POLYGON][POLYGON_OUTER];
         let mut clockwise_sum = 0.;
         let mut radius_max: f32 = 0.;
         let mut radius_min: f32 = 1.0e9;
@@ -121,10 +107,10 @@ impl Footprint {
     }
 
     pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
-        //println!("{len} rotate: {:?}", &self.polygons[0][0]);
+        //println!("{len} rotate: {:?}", &self.polygons[FIRST_POLYGON][POLYGON_OUTER]);
         let mut bounding_box_rotated = BoundingBox::new();
         self.rotated_positions = Vec::new();
-        for position in &self.polygons[0][0] {
+        for position in &self.polygons[FIRST_POLYGON][POLYGON_OUTER] {
             // Rotate against the actual angle to got 0 degrees
             let rotated_position = position.sub(self.center.clone()).rotate(-roof_angle);
             self.rotated_positions.push(rotated_position);
@@ -149,17 +135,14 @@ impl Footprint {
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
 
-        //  first_outer_u() {
-        for position in &self.polygons[polygon_index][0] {
+        for position in &self.polygons[polygon_index][POLYGON_OUTER] {
             // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
         }
         //println!("roof_po: {:?}", &vertices);
 
-        // first_polygon_u().len() {
-        for hole_index in 1..self.polygons[polygon_index].len() {
-            // .first_polygon_u()[hole_index];
+        for hole_index in FIRST_HOLE_INDEX..self.polygons[polygon_index].len() {
             let hole: &GroundPositions = &self.polygons[polygon_index][hole_index];
             holes_starts.push(vertices.len() / 2);
             // println!("holes_starts: {:?}", &holes_starts);
@@ -218,7 +201,7 @@ impl Footprint {
         let mut up_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
-        let positions = &self.polygons[0][0];
+        let positions = &self.polygons[FIRST_POLYGON][POLYGON_OUTER];
         let n = self.rotated_positions.len();
         for i in 0..n {
             let current = self.rotated_positions[i];
@@ -261,7 +244,7 @@ impl Footprint {
             }
         }
 
-        self.polygons[0][0] = outer_vertices;
+        self.polygons[FIRST_POLYGON][POLYGON_OUTER] = outer_vertices;
         (low_vertices, up_vertices)
     }
 
@@ -281,7 +264,7 @@ impl Footprint {
             return;
         }
         self.polygons = remaining;
-        if self.first_polygon().is_empty() {
+        if self.polygons[FIRST_POLYGON].is_empty() {
             println!("shape with no outer ...");
             return;
         }

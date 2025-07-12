@@ -1,5 +1,7 @@
 // Internal Interface of the crate/lib between input modules/crates and a renderer
 
+use std::collections::HashMap;
+
 use i_float::float::compatible::FloatPointCompatible;
 use serde::Deserialize;
 
@@ -126,6 +128,12 @@ impl GroundPosition {
 pub type GroundPositions = Vec<GroundPosition>;
 pub type Polygon = Vec<GroundPositions>;
 pub type Polygons = Vec<Polygon>;
+
+pub const FIRST_POLYGON: usize = 0;
+pub const POLYGON_OUTER: usize = 0;
+pub const FIRST_HOLE_INDEX: usize = 1;
+
+pub type OsmMap = HashMap<String, String>;
 
 impl std::fmt::Display for GroundPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -256,3 +264,5 @@ pub struct Member {
     #[serde(rename = "role")]
     pub role: String,
 }
+
+pub type Members = Vec<Member>;

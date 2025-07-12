@@ -68,6 +68,7 @@ impl rend3_framework::App for ObiExample {
         println!("buildings_and_parts len: {:?}", buildings_and_parts.len());
         let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
         println!("meshes len: {:?}", meshes.len());
+        // todo: not only mesh number 0!
         let vertex_positions = &meshes[0].vertices_positions;
         let mut rend_vertex_positions: Vec<Vec3> = Vec::new();
         for vertex_position in vertex_positions {

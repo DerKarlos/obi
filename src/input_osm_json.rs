@@ -1,9 +1,8 @@
 use bytes::*;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 use crate::kernel_in::{
-    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Member,
+    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Members, OsmMap,
 };
 use crate::osm2layers::Osm2Layer;
 
@@ -105,8 +104,8 @@ pub struct JosnElement {
     lat: Option<f64>,
     lon: Option<f64>,
     nodes: Option<Vec<u64>>,
-    members: Option<Vec<Member>>,
-    tags: Option<HashMap<String, String>>,
+    members: Option<Members>,
+    tags: Option<OsmMap>,
 }
 
 #[derive(Deserialize, Debug)]
