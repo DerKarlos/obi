@@ -77,8 +77,6 @@ i_float = "^1.15.0"
 clap = { version = "4", features = ["derive"] }
 we_clap = { version = "0", features = ["web-alert"] } ## web-alert  web-console
 
-
-##
 [target.'cfg(target_arch = "aarch64")'.dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 
@@ -110,5 +108,5 @@ web-sys = { version = "^0.3.77", features = ["Window", "Response"] }
 
 
 [[example]]
-name = "m_async"
-path = "examples/m_async.rs"
+name = "obi"
+path = "examples/obi.rs"

@@ -12,7 +12,7 @@ pub struct UrlClArgs {
     // Passau Dom: 24771505 = Outer
     // Reifenberg: 121486088
     //
-    #[arg(short, long, default_value = "369161987")]
+    #[arg(short, long, default_value = "369161987")] // 234160726  369161987
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,
@@ -37,10 +37,10 @@ use crate::kernel_in::LAT_FAKT;
 use crate::symbolic_3d::scan_elements_from_layer_to_mesh;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Example-Main: "OBI" directly by OSM-API Json ///////////////////////////////////////////////////
-// Example-Main: "OBI" by LIB openstreetmap-api (XML) /////////////////////////////////////////////
+// Example: "OBI" async directly by OSM-API Json ///////////////////////////////////////////////////
+// Example: "OBI" async by LIB openstreetmap-api (XML) /////////////////////////////////////////////
 
-pub async fn main_async() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn obi_async() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "json")]
     let input = "Json";
     #[cfg(feature = "xmllib")]

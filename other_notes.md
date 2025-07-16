@@ -32,6 +32,7 @@ More Examples
 * Vatikan, Saint Peter's Basilica  244159210
 * Taj Mahal 375257537
 * Marienplatz 223907278
+* Krahnhaus bei Köln: 233333793  Todo: 0.45 qm teil muß gelöscht werden?! Und negatives area!
 
 Subtract tests
 * Test1: cargo run --example m_async -- -r 0 -w 239592652

@@ -13,10 +13,13 @@ pub use input_osm_json::*;
 
 #[cfg(feature = "xmllib")]
 mod input_osm_lib;
+// --- #[cfg(feature = "xmllib")]
+// --- mod osm_api_json;
+// --- #[cfg(feature = "xmllib")]
+// --- pub use osm_api_json::OsmApiJson;
+
 #[cfg(feature = "xmllib")]
 pub use input_osm_lib::InputOsm;
-#[cfg(feature = "xmllib")]
-mod test;
 
 // Sort OSM taggign to data layer, used by the input modules
 mod osm2layers;
@@ -56,6 +59,6 @@ mod rend3_ui;
 
 // ASYNC
 #[cfg(feature = "async")]
-mod main_async;
+mod obi_async;
 #[cfg(feature = "async")]
-pub use main_async::main_async;
+pub use obi_async::obi_async;

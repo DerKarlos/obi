@@ -6,7 +6,9 @@ use openstreetmap_api::Openstreetmap;
 use openstreetmap_api::errors::OpenstreetmapError;
 use openstreetmap_api::types::Credentials;
 
-use crate::kernel_in::{BoundingBox, GeographicCoordinates, GroundPosition, Member};
+use crate::kernel_in::{
+    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Member, Members, OsmMap,
+};
 use crate::osm2layers::Osm2Layer;
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +28,7 @@ impl Default for InputOsm {
 
 impl InputOsm {
     pub fn new() -> Self {
-        let api_url = "https://api.openstreetmap.org/api".to_string();
+        let api_url = "https://api.openstreetmap.org/api".into();
         let client = Openstreetmap::new(&api_url, Credentials::None);
         Self { api_url, client }
     }
@@ -108,8 +110,8 @@ impl InputOsm {
             osm2layer.add_relation(relation_.id, members, Some(tags));
         }
 
-        osm2layer.scan();
+        osm2layer.process_elements_from_osm_to_layers(); //   .scan();
 
-        Ok(osm2layer.buildings_and_parts)
+        Ok(osm2layer.get_buildings_and_parts()) //  .buildings_and_parts)
     }
 }

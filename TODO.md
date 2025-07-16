@@ -23,6 +23,7 @@ Next todo:
 
 
 More todo:
+* Make tests. See https://github.com/expobrain/openstreetmap-api-rs/tree/master/tests
 * When needs a buidling als to be a part? way 1149973649 is just a building. Overpass vor both and check
 * Use tag!: roof:angle=10 (degrees)
 * Use for roof cut: https://github.com/iShape-Rust/iOverlay/tree/main/iOverlay

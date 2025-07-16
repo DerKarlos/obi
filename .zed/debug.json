@@ -1,0 +1,14 @@
+[
+  {
+    "label": "OBI example: Build & Debug",
+    "build": {
+      "command": "cargo",
+      "args": ["build --example obi"]
+    },
+    "program": "$ZED_WORKTREE_ROOT/target/debug/examples/obi",
+    // sourceLanguages is required for CodeLLDB (not GDB) when using Rust
+    //"sourceLanguages": ["rust"],
+    "request": "launch",
+    "adapter": "CodeLLDB"
+  }
+]

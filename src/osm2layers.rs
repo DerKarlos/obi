@@ -107,7 +107,7 @@ fn parse_height(height_option: Option<&String>) -> f32 {
     let mut height = height_option.unwrap().clone();
 
     if height.ends_with("m") {
-        height = height.strip_suffix("m").unwrap().to_string();
+        height = height.strip_suffix("m").unwrap().into();
     }
 
     match height.as_str().trim().parse() {
@@ -583,9 +583,9 @@ impl Osm2Layer {
         let members = osm_relation.members.clone();
 
         let tags = osm_relation.tags.as_ref().unwrap();
-        // thread 'main' panicked at src/osm2layers.rs:376:42:    cargo run --example m_async -- -r 1000   member with type ""
+        // panicked at src/osm2layers.rs:376:42:    cargo run --example m_async -- -r 1000   member with type ""
         let mut relation_type_option = tags.get("type");
-        let multipolygon = "multipolygon".to_string();
+        let multipolygon = "multipolygon".into();
         if relation_type_option.is_none() {
             println!("relation {id} has no type (and a member without type?).");
             // asume multipolygon (without inner)  todo: code is merde!

@@ -25,7 +25,7 @@ impl Default for InputOsm {
 
 impl InputOsm {
     pub fn new() -> Self {
-        let api_url = "https://api.openstreetmap.org/api/0.6/".to_string();
+        let api_url = "https://api.openstreetmap.org/api/0.6/".into();
         Self { api_url }
     }
 
@@ -45,7 +45,7 @@ impl InputOsm {
     ) -> Result<BoundingBox, Box<dyn std::error::Error>> {
         let mut url = format!("{}way/{}/full.json", self.api_url, way_id);
         if LOCAL_TEST {
-            url = "bbox.json".to_string();
+            url = "bbox.json".into();
         }
         println!("= Way_URL: {url}");
         let bytes = reqwest::get(url).await?.bytes().await?;
@@ -65,7 +65,7 @@ impl InputOsm {
     ) -> Result<BuildingsAndParts, Box<dyn std::error::Error>> {
         let mut url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
         if LOCAL_TEST {
-            url = "way.json".to_string();
+            url = "way.json".into();
         }
         println!("= BBox_URL: {url}");
         let bytes = reqwest::get(url).await?.bytes().await?;

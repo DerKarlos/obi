@@ -26,11 +26,14 @@ Test: https://beakerboy.github.io/OSMBuilding/index.html?id=1567699&type=rel
 https://wiki.openstreetmap.org/wiki/Rust
 https://crates.io/keywords/osm or openstreetmap
 https://crates.io/search?q=osm or openstreetmap
+
 #### OSM-API:
-https://crates.io/crates/osm-api
-https://crates.io/crates/openstreetmap-api
-https://crates.io/crates/osm-cli
-https://crates.io/crates/geogetter
+* https://crates.io/crates/osm-api
+* https://crates.io/crates/osm-cli
+* https://crates.io/crates/geogetter
+* https://crates.io/crates/openstreetmap-api
+  https://github.com/expobrain/openstreetmap-api-rs
+
 #### Other Crates:
 Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_vr_map_with_osm_and_aframe/
 

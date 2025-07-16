@@ -142,7 +142,7 @@ fn on_load(
         info!("**** bbox_url: {url}");
 
         if LOCAL_TEST {
-            url = "bbox.json".to_string();
+            url = "bbox.json".into();
         }
 
         state.bytes = asset_server.load(url);
@@ -168,7 +168,7 @@ fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     info!("= Way_URL: {url}");
 
     if LOCAL_TEST {
-        url = "way.json".to_string();
+        url = "way.json".into();
     }
 
     state.bytes = asset_server.load(url);

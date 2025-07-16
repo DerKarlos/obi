@@ -182,10 +182,16 @@ impl Footprint {
             let a = distance_a;
             let b = distance_b;
             let c = distance_c;
-            area += 0.25 * f32::sqrt((a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c));
-            //println!("area: {area}");
+            area += 0.25
+                * f32::sqrt(f32::abs(
+                    (a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c),
+                ));
+            // println!("    area: {area}");
         }
-        if area < 0.01 {
+        // println!("{} {polygon_index} area: {area}", self._id);
+        //println!("{:?}", self.polygons[polygon_index]);
+        if area < 0.5 {
+            // todo: this is to much, but 233333793 needs it?
             // self.polygons[polygon_index] = Vec::new();
             indices = Vec::new();
         }

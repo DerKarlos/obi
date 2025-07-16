@@ -33,13 +33,13 @@ impl Footprint {
             roof_gpu_positions.push(this_gpu_position_up);
         }
 
-        if self.polygons[polygon_index].len() > 1 {
-            for hole_index in FIRST_HOLE_INDEX..self.polygons[polygon_index].len() {
-                let hole: &GroundPositions = &self.polygons[FIRST_POLYGON][hole_index];
-                for position in hole {
-                    let this_gpu_position_up = position.to_gpu_position(height);
-                    roof_gpu_positions.push(this_gpu_position_up);
-                }
+        // println!(            "--- hole_index: {FIRST_HOLE_INDEX} len:{}",            self.polygons[polygon_index].len()        );
+        for hole_index in FIRST_HOLE_INDEX..self.polygons[polygon_index].len() {
+            // println!(                "    hole_index: {hole_index} len:{}",                self.polygons[polygon_index].len()            );
+            let hole: &GroundPositions = &self.polygons[polygon_index][hole_index];
+            for position in hole {
+                let this_gpu_position_up = position.to_gpu_position(height);
+                roof_gpu_positions.push(this_gpu_position_up);
             }
         }
 
@@ -628,7 +628,7 @@ impl OsmMesh {
         min_height: f32,
         color: RenderColor,
     ) {
-        // todo: thread 'main' panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
+        // todo: panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
         if hole.is_empty() {
             // empty by purpose. replaced by parts
             // println!("footprint.positions.is_empty {}", building_or_part.id);
