@@ -23,6 +23,14 @@ Next todo:
 
 
 More todo:
+* Kölner Dom: part 1233649406 has only building:material=stone, but F4 shows the same color as
+   691226039 with no color or material. Does it get it from the relation?
+   relation 4532022 has building:colour=#726555, building:material=stone ?
+   https://demo.f4map.com/#lat=50.9413230&lon=6.9581705&zoom=20&camera.theta=58.801&camera.phi=-6.016
+   https://www.openstreetmap.org/#map=19/50.941272/6.958028
+* Kölner Dom: with range>=271, there is a strange L-shape-spike
+  https://osmgo.org/bevy.html?way=1233649406&range=271&only=4532022
+
 * Make tests. See https://github.com/expobrain/openstreetmap-api-rs/tree/master/tests
 * When needs a buidling als to be a part? way 1149973649 is just a building. Overpass vor both and check
 * Use tag!: roof:angle=10 (degrees)
@@ -53,12 +61,13 @@ More todo:
   do?: Using fetch browser API • https://rustwasm.github.io/wasm-bindgen/examples/fetch.html
   web-sys, js-sys, wasm-bindgen and wasm-bindgen-futures • https://crates.io/crates/ehttp
 
-
-
-F4map thin roofs-trick:
-* https://demo.f4map.com/#lat=50.1694588&lon=8.6372565&zoom=18&camera.theta=58.514&camera.phi=8.021&lat=50.1688086&lon=8.6388286
-* S-GL: https://streets.gl/#50.1688086,8.6388286,45.00,0.00,2000.00
-* https://osmgo.org/go.html?lat=50.1688086&lon=8.6388286238025&dir=0&view=-45&ele=555
+F4map
+* building:colour = roof:colour? part: 207377042?
+  But 206020152 below with roof:material=stone looks the same
+* Thin roofs-trick:
+  https://demo.f4map.com/#lat=50.1694588&lon=8.6372565&zoom=18&camera.theta=58.514&camera.phi=8.021&lat=50.1688086&lon=8.6388286
+  S-GL: https://streets.gl/#50.1688086,8.6388286,45.00,0.00,2000.00
+  https://osmgo.org/go.html?lat=50.1688086&lon=8.6388286238025&dir=0&view=-45&ele=555
 
 The API:Lib  Info: XML doesn't have arrays, just multible lines with the same "ids" for node or tag
 * Contakt the creator (by an issue in repo) Tell what you did and what deltas (element sort) to json and problems and wishes (HashMap)

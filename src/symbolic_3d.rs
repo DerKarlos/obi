@@ -323,7 +323,7 @@ impl OsmMesh {
             // todo: gabled for cutted buildings
         }
 
-        let mut footprint = Footprint::new(4712); // &building_or_part.footprint;
+        let mut footprint = Footprint::new(); // &building_or_part.footprint;
         footprint.polygons[FIRST_POLYGON][POLYGON_OUTER] = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();

@@ -177,7 +177,7 @@ pub fn scan_json_to_osm(
         }
     }
 
-    osm2layer.process_elements_from_osm_to_layers();
+    osm2layer.process_elements();
 
     osm2layer.get_buildings_and_parts()
 }

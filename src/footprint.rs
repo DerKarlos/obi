@@ -23,8 +23,6 @@ pub enum Orientation {
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
-    _id: u64,
-    // pub positions: GroundPositions,
     rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
     pub shift: f32,
@@ -32,22 +30,18 @@ pub struct Footprint {
     longest_distance: f32,
     pub longest_angle: f32,
     pub is_circular: bool,
-    // is_clockwise: bool,
     pub polygons: Polygons,
-    //pub holes: Vec<Footprint>,
 }
 
 impl Default for Footprint {
     fn default() -> Self {
-        Self::new(4711)
+        Self::new()
     }
 }
 
 impl Footprint {
-    pub fn new(_id: u64) -> Self {
+    pub fn new() -> Self {
         Self {
-            _id,
-            // positions: Vec::new(),
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
             shift: 0.0,
@@ -55,10 +49,18 @@ impl Footprint {
             longest_distance: 0.,
             longest_angle: 0.,
             is_circular: false,
-            //is_clockwise: false,
             polygons: vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
                                               //holes: Vec::new(),
         }
+    }
+
+    pub fn set(&mut self, other: &Footprint) {
+        self.is_circular = other.is_circular;
+        self.polygons = other.polygons.clone();
+        self.bounding_box = other.bounding_box;
+        self.center = other.center;
+        self.longest_angle = other.longest_angle;
+        self.shift = other.shift;
     }
 
     pub fn push_position(&mut self, position: GroundPosition) {
@@ -265,14 +267,13 @@ impl Footprint {
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
 
         if remaining.is_empty() {
-            println!("outer is gone {}", self._id);
+            println!("outer is gone");
             self.polygons = remaining;
             return;
         }
         self.polygons = remaining;
         if self.polygons[FIRST_POLYGON].is_empty() {
             println!("shape with no outer ...");
-            return;
         }
     }
 }

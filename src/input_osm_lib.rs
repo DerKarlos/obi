@@ -110,7 +110,7 @@ impl InputOsm {
             osm2layer.add_relation(relation_.id, members, Some(tags));
         }
 
-        osm2layer.process_elements_from_osm_to_layers(); //   .scan();
+        osm2layer.process_elements();
 
         Ok(osm2layer.get_buildings_and_parts()) //  .buildings_and_parts)
     }

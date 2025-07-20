@@ -241,8 +241,6 @@ impl Osm2Layer {
         );
     }
 
-    ///////////////////////
-
     pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<OsmMap>) {
         // Only closed ways (yet)
         if nodes.first().unwrap() == nodes.last().unwrap() {
@@ -275,7 +273,7 @@ impl Osm2Layer {
     }
 
     pub fn add_area(&mut self, id: u64, nodes: Vec<u64>, tags: Option<OsmMap>) {
-        let mut footprint = Footprint::new(id);
+        let mut footprint = Footprint::new();
         for node_id in nodes {
             let position = self.nodes_map.get(&node_id).unwrap().position;
             footprint.push_position(position);
@@ -304,8 +302,6 @@ impl Osm2Layer {
         );
     }
 
-    ///////////////////////
-
     pub fn add_relation(&mut self, id: u64, members: Members, tags: Option<OsmMap>) {
         if tags.is_none() {
             println!("Relation without tags: {id}");
@@ -329,25 +325,14 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    pub fn process_elements_from_osm_to_layers(&mut self) {
+    pub fn process_elements(&mut self) {
         // Subtract parts from ways - code is slow? Todo!
 
         println!("\n**** process: {:?} relations", self.relations.len());
         while !self.relations.is_empty() {
             //for osm_relation in self.relations.iter() {
-            let osm_relation = self.relations.pop().unwrap();
-            let way_from_relation = self.process_relation(osm_relation.id, &osm_relation);
-            if way_from_relation.is_some() {
-                self.areas_map
-                    .insert(osm_relation.id, way_from_relation.unwrap());
-                let part = tags_get_yes(&osm_relation.tags.unwrap(), "building:part").is_some();
-
-                if part {
-                    self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part
-                } else {
-                    self.buildings.push(osm_relation.id); // If IT is a building, it must be in the building list, to get parts substracted!
-                }
-            }
+            let mut osm_relation = self.relations.pop().unwrap();
+            self.process_relation(osm_relation.id, &mut osm_relation);
         }
 
         println!("\n**** process {:?} ways", self.buildings.len());
@@ -492,13 +477,23 @@ impl Osm2Layer {
             match direction.as_str() {
                 "N" => roof_angle = f32::to_radians(0.),
                 "E" => roof_angle = f32::to_radians(90.),
-                "S" => roof_angle = f32::to_radians(180.), // todo: skilleon direction 90 different?!
+                "S" => roof_angle = f32::to_radians(180.),
                 "W" => roof_angle = f32::to_radians(270.),
 
                 "NE" => roof_angle = f32::to_radians(45.),
-                "NW" => roof_angle = f32::to_radians(315.),
                 "SE" => roof_angle = f32::to_radians(135.),
                 "SW" => roof_angle = f32::to_radians(225.),
+                "NW" => roof_angle = f32::to_radians(315.),
+
+                "NNE" => roof_angle = f32::to_radians(22.),
+                "ENE" => roof_angle = f32::to_radians(67.),
+                "ESE" => roof_angle = f32::to_radians(112.),
+                "SSE" => roof_angle = f32::to_radians(157.),
+
+                "SSW" => roof_angle = f32::to_radians(202.),
+                "WSW" => roof_angle = f32::to_radians(247.),
+                "WNW" => roof_angle = f32::to_radians(292.),
+                "NNW" => roof_angle = f32::to_radians(337.),
                 _ => {
                     let value = direction.parse();
                     if let Ok(value) = value {
@@ -563,9 +558,9 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    fn process_relation(&mut self, id: u64, osm_relation: &OsmRelation) -> Option<OsmArea> {
+    fn process_relation(&mut self, id: u64, osm_relation: &mut OsmRelation) {
         if self.show_only > 0 && id != self.show_only {
-            return None;
+            return;
         }
 
         // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
@@ -577,7 +572,7 @@ impl Osm2Layer {
 
         if osm_relation.members.is_empty() {
             println!("Relation without members! id: {:?}", id);
-            return None;
+            return;
         }
 
         let members = osm_relation.members.clone();
@@ -594,51 +589,27 @@ impl Osm2Layer {
         let relation_type = relation_type_option.unwrap();
         if relation_type != "multipolygon" {
             //println!("Unprocessed relation type: {relation_type}");
-            return None;
+            return;
         }
 
         //println!("rel tags: {:?}", tags);
         let part_option = tags_get2(tags, "building:part", "building");
         if part_option.is_none() && self.show_only == 0 {
-            //println!("Unprocessed relation non-part tag {}", element.id);
-            return None;
+            //println!("Unprocessed relation non-part tag {}", id);
+            return;
         }
 
-        let mut footprint = Footprint::new(id);
-        let mut outer_id: u64 = 0;
+        let mut footprint = Footprint::new();
 
         // first scann for outer, later vo inner
         for member in &members {
             // println!("mem: {:?}", &member);
             if member.relation_type != "way" {
-                return None;
+                return;
             }
             match member.role.as_str() {
                 "outer" => {
-                    let outer_ref = member.reference;
-                    let option = self.areas_map.get(&outer_ref);
-                    if option.is_none() {
-                        let line = self.lines_map.get(&outer_ref);
-                        if line.is_some() {
-                            let line = line.unwrap();
-                            println!(
-                                // todo: multi outer/inner
-                                "outer line, id: {} nodes: {} taggs: {}",
-                                line.id,
-                                line.positions.len(),
-                                line.tags.is_some()
-                            );
-                            return None;
-                        } else {
-                            println!("outer none, id/ref: {}", outer_ref);
-                            return None;
-                        }
-                    }
-                    println!("outer: {}", outer_ref);
-                    // Todo: cloning footprint twice can't be the solution
-                    let way_with_outer = self.areas_map.get(&outer_ref).unwrap();
-                    outer_id = way_with_outer._id;
-                    footprint = way_with_outer.footprint.clone();
+                    self.process_relation_outer(member.reference, &mut footprint);
                 }
                 _ => (),
             }
@@ -656,20 +627,54 @@ impl Osm2Layer {
 
         if footprint.polygons.is_empty() {
             println!("relation 1");
-            return None;
+            return;
         }
 
         // buildings_and_parts.push...
-        Some(OsmArea {
-            _id: outer_id,
+        let v = OsmArea {
+            _id: id,
             footprint,
             tags: Some(tags.clone()),
-        })
+        };
+
+        self.areas_map.insert(id, v);
+        let part = tags_get_yes(&osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
+
+        if part {
+            self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part
+        } else {
+            self.buildings.push(osm_relation.id); // If IT is a building, it must be in the building list, to get parts substracted!
+        }
     }
 
     ///////////////////////
 
-    fn process_relation_inner(&self, elements_ref: u64, footprint: &mut Footprint) {
+    fn process_relation_outer(&self, outer_ref: u64, new_footprint: &mut Footprint) {
+        let option = self.areas_map.get(&outer_ref);
+        if option.is_none() {
+            let line = self.lines_map.get(&outer_ref);
+            if line.is_some() {
+                let line = line.unwrap();
+                println!(
+                    // todo: multi outer/inner
+                    "outer line, id: {} nodes: {} taggs: {}",
+                    line.id,
+                    line.positions.len(),
+                    line.tags.is_some()
+                );
+                return;
+            } else {
+                println!("outer none, id/ref: {}", outer_ref);
+                return;
+            }
+        }
+        println!("outer: {}", outer_ref);
+        // Todo: cloning footprint twice can't be the solution
+        let way_with_outer = self.areas_map.get(&outer_ref).unwrap();
+        new_footprint.set(&way_with_outer.footprint);
+    }
+
+    fn process_relation_inner(&self, elements_ref: u64, new_footprint: &mut Footprint) {
         //println!("elements_ref: {:?}", &elements_ref);
         let option = self.areas_map.get(&elements_ref);
         if option.is_none() {
@@ -685,7 +690,7 @@ impl Osm2Layer {
             .unwrap()
             .footprint
             .polygons;
-        footprint.subtract(&polygons);
+        new_footprint.subtract(&polygons);
         //println!("inner way; {:?}", &elements_ref);
     }
 }
