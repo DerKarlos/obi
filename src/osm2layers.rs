@@ -21,6 +21,13 @@ pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
 pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 1.]; // Electric Blue
 
+#[derive(PartialEq)]
+enum OuterState {
+    NEW,
+    PARTLY,
+    READY,
+}
+
 // Helper functions for the osm to layer processing ///////////////////////////
 
 fn circle_limit(angle: f32) -> f32 {
@@ -205,6 +212,7 @@ pub struct Osm2Layer {
     buildings: Vec<u64>,
     parts: Vec<u64>,
     relations: Vec<OsmRelation>,
+    outer_state: OuterState,
     buildings_or_parts: BuildingsAndParts,
     show_only: u64,
 }
@@ -218,6 +226,7 @@ impl Osm2Layer {
             lines_map: HashMap::new(),
             buildings: Vec::new(),
             parts: Vec::new(),
+            outer_state: OuterState::NEW,
             relations: Vec::new(),
             buildings_or_parts: Vec::new(),
             show_only,
@@ -566,8 +575,6 @@ impl Osm2Layer {
         // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
         // except the outer has no tags!
 
-        /******* self.relation(*id, osm_relation); //  ****/
-
         println!("Relation: {:?}", id);
 
         if osm_relation.members.is_empty() {
@@ -600,6 +607,7 @@ impl Osm2Layer {
         }
 
         let mut footprint = Footprint::new();
+        self.outer_state = OuterState::NEW;
 
         // first scann for outer, later vo inner
         for member in &members {
@@ -630,6 +638,10 @@ impl Osm2Layer {
             return;
         }
 
+        if self.outer_state == OuterState::PARTLY {
+            footprint.close();
+        }
+
         // buildings_and_parts.push...
         let v = OsmArea {
             _id: id,
@@ -649,29 +661,34 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    fn process_relation_outer(&self, outer_ref: u64, new_footprint: &mut Footprint) {
-        let option = self.areas_map.get(&outer_ref);
-        if option.is_none() {
-            let line = self.lines_map.get(&outer_ref);
-            if line.is_some() {
-                let line = line.unwrap();
-                println!(
-                    // todo: multi outer/inner
-                    "outer line, id: {} nodes: {} taggs: {}",
-                    line.id,
-                    line.positions.len(),
-                    line.tags.is_some()
-                );
-                return;
-            } else {
-                println!("outer none, id/ref: {}", outer_ref);
+    fn process_relation_outer(&mut self, outer_ref: u64, new_footprint: &mut Footprint) {
+        println!("outer: {}", outer_ref);
+        if let Some(area) = self.areas_map.get(&outer_ref) {
+            // Todo: cloning footprint twice can't be the solution
+            if self.outer_state != OuterState::NEW {
+                println!("outer_state: not NEW {}", outer_ref);
                 return;
             }
+            new_footprint.set(&area.footprint);
+            self.outer_state = OuterState::READY;
+            return;
         }
-        println!("outer: {}", outer_ref);
-        // Todo: cloning footprint twice can't be the solution
-        let way_with_outer = self.areas_map.get(&outer_ref).unwrap();
-        new_footprint.set(&way_with_outer.footprint);
+
+        if let Some(line) = self.lines_map.get(&outer_ref) {
+            self.outer_state = OuterState::PARTLY;
+            println!(
+                // todo: multi outer/inner
+                "outer line, id: {} nodes: {} taggs: {}",
+                line.id,
+                line.positions.len(),
+                line.tags.is_some()
+            );
+            for position in &line.positions {
+                new_footprint.push_position(*position);
+            }
+            return;
+        }
+        println!("outer none, id/ref: {}", outer_ref);
     }
 
     fn process_relation_inner(&self, elements_ref: u64, new_footprint: &mut Footprint) {

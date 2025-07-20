@@ -18,7 +18,6 @@ Most used tests
    todo: spilt https://www.openstreetmap.org/way/664642004 in gabled and phyramide
 * Westminster  367642719 / Abbey 364313092
 
-Todo
 * gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
           angled: 45402141 is correkt but we expect and agle gabled, hm?
           komplex: 37616289, 45697037 ok with "across-backup-code": 45402130  bad_bow:45696973 do parts!
@@ -45,8 +44,17 @@ Subtract tests
 * Test6: rel 11192041: outer 172664019, inner 814784298
 * Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
 
-BakerBoy's examples nice: 407995274, 297997038, 417245741,  simple: 48802245, 11018815
-- not working yet: 8035487, 3376015,
+BakerBoy's examples
+- nice: 407995274, 297997038, 417245741, 8035487, 251621058  simple: 48802245, 11018815
+
+seule
+https://beakerboy.github.io/OSMBuilding/index.html?type=relation&id=3376015
+https://osmgo.org/bevy.html?way=251621058
+burg
+https://beakerboy.github.io/OSMBuilding/index.html?id=8035487
+https://osmgo.org/bevy.html?way=8035487
+Moskau
+http://osmgo.org/bevy.html?way=228697049&range=100
 
 ### Notes on WASM:
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update
@@ -134,3 +142,8 @@ Decades ago, [www.OSMgo.org](https://www.osmgo.org) was started and went from a 
 As one asked vor materials support, this redoing of OSMgo in **Rust** was started,
 
  using a new IDE **Zed**. Firstly only alike *OSMBuilding*, later more.
+
+
+
+## Notes about wrong tagging. Changing it in the OSM database?
+* Rel 6137280 has a member  410265429 as type outline instead of outer  How to use Overpass?
