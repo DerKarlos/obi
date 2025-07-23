@@ -5,6 +5,7 @@ Next todo:
 * And also crashes: 3376015
 * Accept relations (auto if nuber < 1000xxx?)
 * one line for   ExtrudeRing { ...  macro?!
+* building:part inherits every building* tags from their parent
 * Not simplyfy but delete if >60% covered by parts. How? Triangluate? is area() in lib?
   Example: Remaining of rel: cargo run --example m_async -- -w 111355120 -o 1567133
       use i_overlay::core::overlay::{ContourDirection, IntOverlayOptions, Overlay};
@@ -23,6 +24,7 @@ Next todo:
 
 
 More todo:
+* https://wiki.f4map.com/render
 * Kölner Dom: part 1233649406 has only building:material=stone, but F4 shows the same color as
    691226039 with no color or material. Does it get it from the relation?
    relation 4532022 has building:colour=#726555, building:material=stone ?

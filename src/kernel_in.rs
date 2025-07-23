@@ -193,8 +193,8 @@ impl BoundingBox {
         }
     }
 
-    pub fn max_radius(&self) -> f64 {
-        (self.east as f64 - self.west as f64).max(self.north as f64 - self.south as f64)
+    pub fn max_radius(&self) -> f32 {
+        (self.east - self.west).max(self.north - self.south)
     }
 
     pub fn center_as_geographic_coordinates(&self) -> GeographicCoordinates {

@@ -71,8 +71,8 @@ pub async fn obi_async() -> Result<(), Box<dyn std::error::Error>> {
     // println!("buildings_and_parts: {:?}", buildings_and_parts);
 
     let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
-    let scale = bounding_box.max_radius() / 10. * LAT_FAKT;
-    render_init(meshes, scale);
+    let range = bounding_box.max_radius() * LAT_FAKT as f32;
+    render_init(meshes, range);
 
     Ok(())
 }

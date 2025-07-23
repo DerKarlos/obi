@@ -229,7 +229,7 @@ impl rend3_framework::App for ObiApp {
 }
 
 // was main_rend3
-pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, _scale: f64) {
+pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, _range: f64) {
     let app = ObiApp {
         osm_meshes,
         ground_handle: None,

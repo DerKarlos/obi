@@ -62,3 +62,7 @@ mod rend3_ui;
 mod obi_async;
 #[cfg(feature = "async")]
 pub use obi_async::obi_async;
+
+// F4 CONTROL
+#[cfg(feature = "f4control")]
+mod control;

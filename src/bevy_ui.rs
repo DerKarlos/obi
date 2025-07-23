@@ -1,3 +1,5 @@
+#[cfg(feature = "f4control")]
+use crate::control::PlayerPlugin;
 use crate::kernel_in::PI;
 use crate::kernel_out::OsmMeshAttributes;
 
@@ -13,9 +15,9 @@ use bevy::render::{
 };
 
 #[derive(Resource)]
-pub struct OsmMeshes {
+pub struct StartingValues {
     pub vec: Vec<OsmMeshAttributes>,
-    pub scale: f64,
+    pub range: f32,
 }
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
@@ -119,18 +121,19 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    osm_meshes: Res<OsmMeshes>,
+    osm_meshes: Res<StartingValues>,
 ) {
     for mesh in &osm_meshes.vec {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let scale = osm_meshes.scale as f32 / 1.;
+    let range = osm_meshes.range;
+
     // circular base
     const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
 
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(15.0 * scale))),
+        Mesh3d(meshes.add(Rectangle::new(range * 2.0, range * 2.0))),
         MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
         Transform {
             translation: Vec3::new(0., SLIGHTLY_BELOW_GROUND_0, 0.),
@@ -139,65 +142,78 @@ fn setup(
         },
     ));
 
-    light_and_camera(commands, scale);
+    light_and_camera(commands, range);
 }
 
-fn light_and_camera(mut commands: Commands, scale: f32) {
+fn light_and_camera(mut commands: Commands, range: f32) {
     // light
 
     if false {
         commands.spawn((
             PointLight {
                 shadows_enabled: true,
-                intensity: (100000000. * scale),
-                range: 100. * scale,
+                intensity: (1000000. * range),
+                //range: 100. * range,
                 ..default()
             },
-            Transform::from_xyz(10.0 * scale, 20.0 * scale, 10.0 * scale),
+            Transform::from_xyz(10.0 * range, 20.0 * range, 10.0 * range),
         ));
     } else {
         commands.spawn((
             DirectionalLight {
-                illuminance: 150. * scale,
+                illuminance: 2000., // * range,
                 shadows_enabled: true,
                 ..default()
             },
             Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
             CascadeShadowConfigBuilder {
                 first_cascade_far_bound: 7.0, // What's that ???
-                maximum_distance: 100. * scale,
+                maximum_distance: range * 2.0,
                 ..default()
             }
             .build(),
         ));
     }
 
-    // camera
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-2.5 * scale, 4.5 * scale, 9.0 * scale)
-            .looking_at(Vec3::new(0., 2. * scale, 0.), Vec3::Y),
-    ));
+    #[cfg(not(feature = "f4control"))]
+    {
+        // camera
+        commands.spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-0.25 * range, 0.35 * range, 0.90 * range)
+                .looking_at(Vec3::new(0., range * 0.2, 0.), Vec3::Y),
+        ));
+    }
 }
 
-// native-main.rs inits bevy
-pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, scale: f64) {
+// examples like obi.rs have no Bevy code. They init Bevy herer:
+pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, range: f32) {
     println!(" "); // distance between test outputs and Bevy outputs
 
+    let starting_values = StartingValues {
+        vec: osm_meshes,
+        range,
+    };
+
     // BEVY-App
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
-        .insert_resource(OsmMeshes {
-            vec: osm_meshes,
-            scale,
-        })
-        .add_systems(Startup, setup)
-        .add_systems(Update, input_control)
-        .run();
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins);
+
+    #[cfg(feature = "f4control")]
+    app.add_plugins(PlayerPlugin);
+
+    app.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
+        .insert_resource(starting_values)
+        .add_systems(Startup, setup);
+
+    #[cfg(not(feature = "f4control"))]
+    app.add_systems(Update, input_control);
+
+    app.run();
 }
 
-// bevy-main.rs adds psm
+// Only used from example bevy-main.rs: Adds osm parts, light and camera.
+// Bevy Main and asset loading is already done in the example code
 pub fn bevy_osm(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
