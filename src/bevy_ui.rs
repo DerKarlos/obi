@@ -1,5 +1,4 @@
-#[cfg(feature = "f4control")]
-use crate::control::PlayerPlugin;
+use crate::control::{ControlValues, ControlWithCamera};
 use crate::kernel_in::PI;
 use crate::kernel_out::OsmMeshAttributes;
 
@@ -15,15 +14,10 @@ use bevy::render::{
 };
 
 #[derive(Resource)]
-pub struct StartingValues {
-    pub vec: Vec<OsmMeshAttributes>,
+struct StartingValues {
+    pub osm_meshes: Vec<OsmMeshAttributes>,
     pub range: f32,
 }
-
-// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
-#[derive(Component)]
-pub struct Controled;
 
 fn spawn_osm_mesh(
     osm_mesh: &OsmMeshAttributes,
@@ -54,98 +48,30 @@ fn spawn_osm_mesh(
     commands.spawn((
         Mesh3d(meshes.add(mesh)),
         MeshMaterial3d(materials.add(Color::srgb(1., 1., 1.))),
-        Controled,
     ));
-}
-
-// System to receive input from the user,
-// check out examples/input/ for more examples about user input.
-pub fn input_control(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut Transform, With<Controled>>,
-    time: Res<Time>,
-) {
-    if keyboard_input.pressed(KeyCode::ArrowDown) {
-        for mut transform in &mut query {
-            transform.translation.z -= time.delta_secs() * 50.;
-        }
-    }
-    if keyboard_input.pressed(KeyCode::ArrowUp) {
-        for mut transform in &mut query {
-            transform.translation.z += time.delta_secs() * 50.;
-        }
-    }
-
-    if keyboard_input.pressed(KeyCode::KeyS) {
-        for mut transform in &mut query {
-            transform.rotate_x(time.delta_secs() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyX) {
-        for mut transform in &mut query {
-            transform.rotate_x(-time.delta_secs() / 1.2);
-        }
-    }
-
-    if keyboard_input.pressed(KeyCode::ArrowLeft /* KeyY Z in German */) {
-        for mut transform in &mut query {
-            transform.rotate_y(time.delta_secs() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::ArrowRight) {
-        // KeyU
-        for mut transform in &mut query {
-            transform.rotate_y(-time.delta_secs() / 1.2);
-        }
-    }
-
-    if keyboard_input.pressed(KeyCode::KeyZ /*  Y in German */) {
-        for mut transform in &mut query {
-            transform.rotate_z(time.delta_secs() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyA) {
-        for mut transform in &mut query {
-            transform.rotate_z(-time.delta_secs() / 1.2);
-        }
-    }
-
-    if keyboard_input.pressed(KeyCode::KeyR) {
-        for mut transform in &mut query {
-            transform.look_to(Vec3::NEG_Z, Vec3::Y);
-        }
-    }
 }
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    osm_meshes: Res<StartingValues>,
+    starting_values: Res<StartingValues>,
 ) {
-    for mesh in &osm_meshes.vec {
+    for mesh in &starting_values.osm_meshes {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let range = osm_meshes.range;
+    let range = starting_values.range;
 
-    // circular base
-    const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
-
-    commands.spawn((
-        Mesh3d(meshes.add(Rectangle::new(range * 2.0, range * 2.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
-        Transform {
-            translation: Vec3::new(0., SLIGHTLY_BELOW_GROUND_0, 0.),
-            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
-            ..default()
-        },
-    ));
-
-    light_and_camera(commands, range);
+    environment(commands, meshes, materials, range);
 }
 
-fn light_and_camera(mut commands: Commands, range: f32) {
+fn environment(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    range: f32,
+) {
     // light
 
     if false {
@@ -175,41 +101,40 @@ fn light_and_camera(mut commands: Commands, range: f32) {
         ));
     }
 
-    #[cfg(not(feature = "f4control"))]
-    {
-        // camera
-        commands.spawn((
-            Camera3d::default(),
-            Transform::from_xyz(-0.25 * range, 0.35 * range, 0.90 * range)
-                .looking_at(Vec3::new(0., range * 0.2, 0.), Vec3::Y),
-        ));
-    }
+    // circular base
+    const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
+
+    commands.spawn((
+        Mesh3d(meshes.add(Rectangle::new(range * 2.0, range * 2.0))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
+        Transform {
+            translation: Vec3::new(0., SLIGHTLY_BELOW_GROUND_0, 0.),
+            rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2),
+            ..default()
+        },
+    ));
 }
 
 // examples like obi.rs have no Bevy code. They init Bevy herer:
 pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, range: f32) {
     println!(" "); // distance between test outputs and Bevy outputs
 
-    let starting_values = StartingValues {
-        vec: osm_meshes,
-        range,
+    let starting_values = StartingValues { osm_meshes, range };
+
+    let control_values = ControlValues {
+        distance: range * 1.0,
+        ..default()
     };
 
     // BEVY-App
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
-
-    #[cfg(feature = "f4control")]
-    app.add_plugins(PlayerPlugin);
-
-    app.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
+    app.add_plugins(DefaultPlugins)
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
         .insert_resource(starting_values)
-        .add_systems(Startup, setup);
-
-    #[cfg(not(feature = "f4control"))]
-    app.add_systems(Update, input_control);
-
-    app.run();
+        .add_systems(Startup, setup)
+        .insert_resource(control_values)
+        .add_plugins(ControlWithCamera)
+        .run();
 }
 
 // Only used from example bevy-main.rs: Adds osm parts, light and camera.
@@ -219,22 +144,16 @@ pub fn bevy_osm(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     osm_meshes: Vec<OsmMeshAttributes>,
-    scale: f32,
+    range: f32,
 ) {
+    // OSM meshes
     for mesh in &osm_meshes {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    // circular base
-    commands.spawn((
-        Mesh3d(meshes.add(Circle::new(scale * 15.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(150, 255, 150))),
-        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
-    ));
-
-    println!(" "); // distance between test outputs and Bevy outputs
+    println!(" "); // console output distance between test outputs and Bevy
 
     commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
 
-    light_and_camera(commands, scale);
+    environment(commands, meshes, materials, range);
 }

@@ -75,7 +75,7 @@ impl AssetLoader for BytesAssetLoader {
 
 #[derive(Default, Debug, Resource, Serialize, Deserialize, Parser)]
 #[command(about = "a minimal example of bevy_args", version, long_about = None)]
-pub struct UrlClArgs {
+pub struct UrlCommandLineArgs {
     // passau_dom_id: 24771505 reifenberg_id: 121486088 westminster_id: 367642719 - St Paul's Cathedral: 369161987
     #[arg(short, long, default_value = "369161987")]
     pub way: u64,
@@ -88,7 +88,7 @@ pub struct UrlClArgs {
 // RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029  // Error! in bevy_web_asset (html-lib)
 // http://localhost:8080/?way=24771505
 
-fn read_and_use_args(args: Res<UrlClArgs>, mut state: ResMut<State>) {
+fn read_and_use_args(args: Res<UrlCommandLineArgs>, mut state: ResMut<State>) {
     info!(" {:?}", *args);
     state.way_id = args.way as u64;
     state.show_only = args.only as u64;
@@ -115,6 +115,7 @@ fn on_load(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     mut state: ResMut<State>,
+    mut control_value: ResMut<osm_tb::ControlValues>,
     bytes_assets: Res<Assets<BytesVec>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -129,14 +130,20 @@ fn on_load(
         return;
     }
 
-    info!("Bytes Size: {} Bytes", bytes.unwrap().bytes.len());
     if !state.step1 {
+        info!(
+            "Bytes Size: {} Bytes, range: {}",
+            bytes.unwrap().bytes.len(),
+            state.range
+        );
         // info!("Bytes asset loaded: {:?}", bytes.unwrap());
 
         let mut bounding_box = state.api.geo_bbox_of_way_vec(&bytes.unwrap().bytes);
-        if state.range > 0. {
-            bounding_box.min_range(state.range);
-        }
+        bounding_box.min_range(state.range);
+        state.range = bounding_box.max_radius() * osm_tb::LAT_FAKT as f32;
+        control_value.distance = state.range * 1.0;
+
+        // load building
         state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
         let mut url = state.api.bbox_url(&bounding_box);
         info!("**** bbox_url: {url}");
@@ -148,23 +155,26 @@ fn on_load(
         state.bytes = asset_server.load(url);
         state.step1 = true;
     } else {
+        // step2
         let buildings_and_parts = state.api.scan_json_to_osm_vec(
             &bytes.unwrap().bytes,
             &state.gpu_ground_null_coordinates,
             state.show_only,
         );
-        info!("scan done, buildings: {:?} ", buildings_and_parts.len());
+        info!(
+            "json scan done, buildings: {:?} ",
+            buildings_and_parts.len()
+        );
         let osm_meshes = osm_tb::scan_elements_from_layer_to_mesh(buildings_and_parts);
-        osm_tb::bevy_osm(commands, meshes, materials, osm_meshes, 25.);
+        osm_tb::bevy_osm(commands, meshes, materials, osm_meshes, state.range);
 
         state.step2 = true;
     }
 }
 
 fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
-    // Get the center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
+    // Get the geographic center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
     let mut url = state.api.way_url(state.way_id);
-    // info!("(((((( State: {:?} ))))))", &state);
     info!("= Way_URL: {url}");
 
     if LOCAL_TEST {
@@ -183,14 +193,15 @@ fn main() {
             meta_check: AssetMetaCheck::Never,
             ..default()
         }))
-        .add_plugins(BevyArgsPlugin::<UrlClArgs>::default())
+        .add_plugins(BevyArgsPlugin::<UrlCommandLineArgs>::default())
         .init_resource::<State>()
+        .init_resource::<osm_tb::ControlValues>()
         .init_asset::<BytesVec>()
         .init_asset_loader::<BytesAssetLoader>()
         .add_systems(Startup, read_and_use_args)
         .add_systems(Startup, setup)
+        .add_plugins(osm_tb::ControlWithCamera)
         .add_systems(Update, on_load)
-        .add_systems(Update, osm_tb::input_control)
         .run();
 
     info!("### OSM-BI ###");

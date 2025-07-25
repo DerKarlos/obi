@@ -49,7 +49,13 @@ pub use kernel_out::*;
 mod bevy_ui;
 #[cfg(feature = "bevy")]
 pub use bevy_ui::*;
-//mod f4control;
+// F4-like CONTROL
+#[cfg(feature = "bevy")]
+mod control;
+#[cfg(feature = "bevy")]
+pub use control::ControlValues;
+#[cfg(feature = "bevy")]
+pub use control::ControlWithCamera;
 
 // REND3
 #[cfg(feature = "rend3")]
@@ -62,7 +68,3 @@ mod rend3_ui;
 mod obi_async;
 #[cfg(feature = "async")]
 pub use obi_async::obi_async;
-
-// F4 CONTROL
-#[cfg(feature = "f4control")]
-mod control;

@@ -58,10 +58,8 @@ pub async fn obi_async() -> Result<(), Box<dyn std::error::Error>> {
     let api = InputOsm::new();
 
     let mut bounding_box = api.geo_bbox_of_way(args.way).await?;
-    if args.range > 0. {
-        bounding_box.min_range(args.range);
-    }
-
+    bounding_box.min_range(args.range);
+    let range = bounding_box.max_radius() * LAT_FAKT as f32;
     println!("bounding_box: {:?}", &bounding_box);
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
@@ -71,7 +69,6 @@ pub async fn obi_async() -> Result<(), Box<dyn std::error::Error>> {
     // println!("buildings_and_parts: {:?}", buildings_and_parts);
 
     let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
-    let range = bounding_box.max_radius() * LAT_FAKT as f32;
     render_init(meshes, range);
 
     Ok(())
