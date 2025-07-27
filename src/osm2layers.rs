@@ -295,6 +295,7 @@ impl Osm2Layer {
         if let Some(tags) = &tags {
             if tags_get_yes(&tags, "building").is_some() {
                 self.buildings.push(id);
+                footprint.is_part = false;
             } else if tags_get_yes(&tags, "building:part").is_some() {
                 self.parts.push(id);
             }

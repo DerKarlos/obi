@@ -23,6 +23,7 @@ pub enum Orientation {
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
+    pub is_part: bool,
     rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
     pub shift: f32,
@@ -42,6 +43,7 @@ impl Default for Footprint {
 impl Footprint {
     pub fn new() -> Self {
         Self {
+            is_part: true,
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
             shift: 0.0,
@@ -158,6 +160,9 @@ impl Footprint {
 
         // cut small remainings - this is just an ugly hack! i_overlay should be able to solve this - todo
 
+        if self.is_part {
+            return indices;
+        }
         let mut area = 0.0;
         for index_to_indices in 0..indices.len() / 3 {
             let vertice_index_0 = indices[index_to_indices * 3 + O];
@@ -197,6 +202,7 @@ impl Footprint {
             // self.polygons[polygon_index] = Vec::new();
             indices = Vec::new();
         }
+
         indices
     }
 

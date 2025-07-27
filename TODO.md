@@ -1,11 +1,12 @@
 Next todo:
-* Big Ben clock half missing: roof:shape=round
+* St Pauls Cross 369161987 partly visible: Way: 664534351 not visible: Way: 664613338
 * crash: way 1149973649
 * Relation with > 1 outer and >1 for one inner: 8035487.    9346128=4outer
 * And also crashes: 3376015
 * Accept relations (auto if nuber < 1000xxx?)
 * one line for   ExtrudeRing { ...  macro?!
 * building:part inherits every building* tags from their parent
+* Big Ben clock half missing: roof:shape=round
 * Not simplyfy but delete if >60% covered by parts. How? Triangluate? is area() in lib?
   Example: Remaining of rel: cargo run --example m_async -- -w 111355120 -o 1567133
       use i_overlay::core::overlay::{ContourDirection, IntOverlayOptions, Overlay};

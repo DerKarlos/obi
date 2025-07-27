@@ -49,6 +49,7 @@ Mouse wheel: zoom
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+//use winit::event::Touch;
 
 /// Mouse sensitivity and movement speed
 #[derive(Resource)]
@@ -57,6 +58,10 @@ pub struct ControlValues {
     pub speed: f32,
     pub target: Vec3,
     pub distance: f32,
+    pub touch_count: i8,
+    pub last_position_delta: f32,
+    pub last_angle: f32,
+    pub first_finger_id: u64,
 }
 
 impl Default for ControlValues {
@@ -66,6 +71,10 @@ impl Default for ControlValues {
             speed: 50.,
             target: Vec3::ZERO,
             distance: 500.0,
+            touch_count: 0,
+            last_position_delta: 0.,
+            last_angle: 0.,
+            first_finger_id: 0,
         }
     }
 }
@@ -147,11 +156,11 @@ fn setup(mut commands: Commands, control_values: ResMut<ControlValues>) {
 
 /// Handles keyboard input and movement
 fn camera_keys(
+    mut camera: Single<&mut Transform, With<Camera>>,
+    mut control_values: ResMut<ControlValues>,
+    key_bindings: Res<KeyBindings>,
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    key_bindings: Res<KeyBindings>,
-    mut control_values: ResMut<ControlValues>,
-    mut camera: Single<&mut Transform, With<Camera>>,
 ) {
     let mut velocity = Vec3::ZERO;
     let elevation_fakt: f32 = 1. + time.delta_secs() * 2.0;
@@ -218,20 +227,135 @@ fn camera_keys(
     camera.translation = control_values.target - camera.forward() * control_values.distance;
 }
 
+/// Handles looking around and target shift if screeb us touched
+/// https://bevy-cheatbook.github.io/input/gesture.html
+fn camera_touch(
+    mut camera: Single<&mut Transform, With<Camera>>,
+    mut control_values: ResMut<ControlValues>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    touches: Res<Touches>,
+    mut _touch_events: EventReader<TouchInput>,
+) {
+    if let Ok(window) = primary_window.single() {
+        let window_scale = window.height().min(window.width());
+
+        let local_z = camera.local_z();
+        let forward = -Vec3::new(local_z.x, 0., local_z.z);
+        let right = Vec3::new(local_z.z, 0., -local_z.x);
+        let upward = Vec3::new(0., 1., 0.);
+        let speed = control_values.speed.clone() / 15.;
+        let mut velocity = Vec3::ZERO;
+
+        let (mut yaw_direction, mut pitch_up, _roll) = camera.rotation.to_euler(EulerRot::YXZ);
+
+        for finger in touches.iter_just_pressed() {
+            //info!("A new touch with ID {} just began.", finger.id());
+            control_values.touch_count += 1;
+            if control_values.touch_count == 1 {
+                control_values.first_finger_id = finger.id();
+            }
+        }
+        for _finger in touches.iter_just_released() {
+            //info!("Touch with ID {} just ended.", _finger.id());
+            control_values.touch_count -= 1;
+            control_values.last_position_delta = 0.;
+            control_values.last_angle = 0.;
+        }
+        for _finger in touches.iter_just_canceled() {
+            //info!("Touch with ID {} was canceled.", _finger.id());
+            control_values.touch_count -= 1;
+        }
+
+        if control_values.touch_count < 0 {
+            control_values.touch_count = 0
+        }
+
+        let mut delta1: Option<Vec2> = None;
+        let mut position1: Vec2 = Vec2::ZERO;
+        for finger in touches.iter() {
+            let delta = finger.delta();
+
+            if control_values.touch_count == 1 {
+                velocity += forward * delta.y * window_scale;
+                velocity -= right * delta.x * window_scale;
+            }
+
+            if control_values.touch_count == 2 {
+                pitch_up -= (control_values.sensitivity * delta.y * window_scale).to_radians();
+                yaw_direction -= (control_values.sensitivity * delta.x * window_scale).to_radians();
+
+                if delta1.is_some() {
+                    let positon_delta = finger.position().distance(position1).abs();
+                    let angle = if finger.id() == control_values.first_finger_id {
+                        finger.position().angle_to(position1)
+                    } else {
+                        position1.angle_to(finger.position())
+                    };
+                    if control_values.last_position_delta == 0. {
+                        control_values.last_position_delta = positon_delta;
+                    }
+                    if control_values.last_angle == 0. {
+                        control_values.last_angle = angle;
+                    }
+                    let pinch = control_values.last_position_delta - positon_delta;
+                    let twist = control_values.last_angle - angle;
+                    info!(
+                        "angle: {} last: {} twist: {}",
+                        angle.to_degrees(),
+                        control_values.last_angle.to_degrees(),
+                        twist.to_degrees()
+                    );
+                    // yaw_direction += twist * 10.0;
+
+                    control_values.last_position_delta = positon_delta;
+                    control_values.last_angle = angle;
+                    let elevation_fakt: f32 = 1. + pinch * 0.002;
+                    control_values.distance *= elevation_fakt;
+                    //info!(
+                    //    "touch count: {} delta: {:?} pinch: {pinch} delta: {positon_delta}",
+                    //    control_values.touch_count, delta
+                    //);
+                } else {
+                    delta1 = Some(delta);
+                    position1 = finger.position();
+                }
+            }
+
+            if control_values.touch_count == 3 {
+                velocity += upward * delta.y * window_scale;
+                velocity -= right * delta.x * window_scale;
+            }
+        }
+        if control_values.touch_count == 1 || control_values.touch_count == 3 {
+            velocity = velocity.normalize_or_zero();
+            control_values.target += velocity * speed;
+        }
+        if control_values.touch_count == 2 {
+            pitch_up = pitch_up.clamp(-1.54, 1.54);
+            // Order is important to prevent unintended roll
+            camera.rotation = Quat::from_axis_angle(Vec3::Y, yaw_direction)
+                * Quat::from_axis_angle(Vec3::X, pitch_up);
+        }
+        if control_values.touch_count > 0 {
+            camera.translation = control_values.target - camera.forward() * control_values.distance;
+        }
+    }
+}
+
 /// Handles looking around and target shift if mouse key is pressed
 fn camera_mouse(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    time: Res<Time>,
+    mut camera: Single<&mut Transform, With<Camera>>,
+    mut control_values: ResMut<ControlValues>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mut mouse_state: EventReader<MouseMotion>,
-    mut control_values: ResMut<ControlValues>,
-    mut camera: Single<&mut Transform, With<Camera>>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
+    time: Res<Time>,
 ) {
     if let Ok(window) = primary_window.single() {
         // mouse_wheel: EventReader { reader: Local(EventCursor { last_event_count: 0, _marker: PhantomData<bevy_input::mouse::MouseWheel> }), events: Res(Events { events_a: EventSequence { events: [], start_event_count: 2 }, events_b: EventSequence { events: [], start_event_count: 2 }, event_count: 2 }) }
         for event in mouse_wheel.read() {
-            //println!("mouse_wheel event: {:?} ", event);
+            //info!("mouse_wheel event: {:?} ", event);
             // mouse_wheel event: MouseWheel { unit: Pixel, x: 0.0, y: 0.0, window: 0v1#4294967296 }
             let elevation_fakt: f32 = 1. + event.y * 0.0005;
             control_values.distance /= elevation_fakt;
@@ -261,7 +385,7 @@ fn camera_mouse(
 
                 {
                     pitch_up -=
-                        (control_values.sensitivity * event.delta.y * window_scale).to_radians();
+                        (control_values.sensitivity * event.delta.y * window_scale).to_radians(); // tadiants ???
                     yaw_direction -=
                         (control_values.sensitivity * event.delta.x * window_scale).to_radians();
                 }
@@ -288,7 +412,8 @@ impl Plugin for ControlWithCamera {
         app.init_resource::<KeyBindings>()
             .add_systems(Startup, setup)
             .add_systems(Update, camera_keys)
-            .add_systems(Update, camera_mouse);
+            .add_systems(Update, camera_mouse)
+            .add_systems(Update, camera_touch);
     }
 }
 
@@ -298,7 +423,8 @@ impl Plugin for ControlNoCamera {
     fn build(&self, app: &mut App) {
         app.init_resource::<KeyBindings>()
             .add_systems(Update, camera_keys)
-            .add_systems(Update, camera_mouse);
+            .add_systems(Update, camera_mouse)
+            .add_systems(Update, camera_touch);
     }
 }
 
