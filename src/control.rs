@@ -54,6 +54,7 @@ use bevy::window::PrimaryWindow;
 /// Mouse sensitivity and movement speed
 #[derive(Resource)]
 pub struct ControlValues {
+    pub use_first_mouse_key_for_orientation: bool,
     pub sensitivity: f32,
     pub speed: f32,
     pub target: Vec3,
@@ -67,6 +68,8 @@ pub struct ControlValues {
 impl Default for ControlValues {
     fn default() -> Self {
         Self {
+            // default is like F4: first key for panning
+            use_first_mouse_key_for_orientation: false,
             sensitivity: 0.0005,
             speed: 50.,
             target: Vec3::ZERO,
@@ -218,7 +221,9 @@ fn camera_keys(
     velocity = velocity.normalize_or_zero();
 
     let speed = control_values.speed.clone();
-    control_values.target += velocity * time.delta_secs() * speed;
+    let height_fact = camera.translation.y.max(3.) / 20.;
+    // info!("{height_fact} {}", camera.translation.y);
+    control_values.target += velocity * time.delta_secs() * speed * height_fact;
 
     pitch_up = pitch_up.clamp(-1.54, 1.54);
 
@@ -353,6 +358,17 @@ fn camera_mouse(
     time: Res<Time>,
 ) {
     if let Ok(window) = primary_window.single() {
+        let mouse_key_rotate = if control_values.use_first_mouse_key_for_orientation {
+            MouseButton::Left // First
+        } else {
+            MouseButton::Right // Second
+        };
+        let mouse_key_translate = if control_values.use_first_mouse_key_for_orientation {
+            MouseButton::Right // Second
+        } else {
+            MouseButton::Left // First
+        };
+
         // mouse_wheel: EventReader { reader: Local(EventCursor { last_event_count: 0, _marker: PhantomData<bevy_input::mouse::MouseWheel> }), events: Res(Events { events_a: EventSequence { events: [], start_event_count: 2 }, events_b: EventSequence { events: [], start_event_count: 2 }, event_count: 2 }) }
         for event in mouse_wheel.read() {
             //info!("mouse_wheel event: {:?} ", event);
@@ -366,7 +382,7 @@ fn camera_mouse(
             // Using smallest of height or width ensures equal vertical and horizontal sensitivity
             let window_scale = window.height().min(window.width());
 
-            if mouse_buttons.pressed(MouseButton::Right) {
+            if mouse_buttons.pressed(mouse_key_translate) {
                 let local_z = camera.local_z();
                 let forward = -Vec3::new(local_z.x, 0., local_z.z);
                 let right = Vec3::new(local_z.z, 0., -local_z.x);
@@ -376,10 +392,11 @@ fn camera_mouse(
                     forward * (control_values.speed * event.delta.y * window_scale).to_radians();
                 velocity -=
                     right * (control_values.speed * event.delta.x * window_scale).to_radians();
-                control_values.target += velocity * time.delta_secs() * speed;
+                let height_fact = camera.translation.y.max(3.) / 70.;
+                control_values.target += velocity * time.delta_secs() * speed * height_fact;
             }
 
-            if mouse_buttons.pressed(MouseButton::Left) {
+            if mouse_buttons.pressed(mouse_key_rotate) {
                 let (mut yaw_direction, mut pitch_up, _roll) =
                     camera.rotation.to_euler(EulerRot::YXZ);
 

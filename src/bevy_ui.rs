@@ -73,33 +73,20 @@ fn environment(
     range: f32,
 ) {
     // light
-
-    if false {
-        commands.spawn((
-            PointLight {
-                shadows_enabled: true,
-                intensity: (1000000. * range),
-                //range: 100. * range,
-                ..default()
-            },
-            Transform::from_xyz(10.0 * range, 20.0 * range, 10.0 * range),
-        ));
-    } else {
-        commands.spawn((
-            DirectionalLight {
-                illuminance: 2000., // * range,
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
-            CascadeShadowConfigBuilder {
-                first_cascade_far_bound: 7.0, // What's that ???
-                maximum_distance: range * 2.0,
-                ..default()
-            }
-            .build(),
-        ));
-    }
+    commands.spawn((
+        DirectionalLight {
+            illuminance: 2000., // * range,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 4., -PI / 4.)),
+        CascadeShadowConfigBuilder {
+            first_cascade_far_bound: 7.0, // What's that ???
+            maximum_distance: range * 2.,
+            ..default()
+        }
+        .build(),
+    ));
 
     // circular base
     const SLIGHTLY_BELOW_GROUND_0: f32 = -0.01;
@@ -116,12 +103,17 @@ fn environment(
 }
 
 // examples like obi.rs have no Bevy code. They init Bevy herer:
-pub fn render_init(osm_meshes: Vec<OsmMeshAttributes>, range: f32) {
+pub fn render_init(
+    osm_meshes: Vec<OsmMeshAttributes>,
+    range: f32,
+    use_first_mouse_key_for_orientation: bool,
+) {
     println!(" "); // distance between test outputs and Bevy outputs
 
     let starting_values = StartingValues { osm_meshes, range };
 
     let control_values = ControlValues {
+        use_first_mouse_key_for_orientation,
         distance: range * 1.0,
         ..default()
     };

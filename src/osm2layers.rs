@@ -8,14 +8,14 @@ use std::collections::HashMap;
 
 use crate::footprint::{Footprint, Orientation};
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsAndParts, GeographicCoordinates, GroundPosition, GroundPositions,
-    OsmMap, RenderColor, RoofShape,
+    BuildingOrPart, BuildingsAndParts, FIRST_POLYGON, GeographicCoordinates, GroundPosition,
+    GroundPositions, OsmMap, POLYGON_OUTER, RenderColor, RoofShape,
 };
 use crate::kernel_in::{Members, Polygons};
 
 // This constands may come from a (3D-)render shema
-pub static DEFAULT_WALL_COLOR: RenderColor = [0.5, 0.5, 0.5, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
-pub static DEFAULT_ROOF_COLOR: RenderColor = [1.0, 0.0, 0.0, 1.0]; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
+pub static DEFAULT_WALL_COLOR: RenderColor = [0.7, 0.7, 0.7, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
+pub static DEFAULT_ROOF_RED: RenderColor = [0.56, 0.0, 0.0, 1.0]; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
 pub static DEFAULT_WALL_HEIGHT: f32 = 6.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
@@ -295,7 +295,6 @@ impl Osm2Layer {
         if let Some(tags) = &tags {
             if tags_get_yes(&tags, "building").is_some() {
                 self.buildings.push(id);
-                footprint.is_part = false;
             } else if tags_get_yes(&tags, "building:part").is_some() {
                 self.parts.push(id);
             }
@@ -348,8 +347,8 @@ impl Osm2Layer {
         println!("\n**** process {:?} ways", self.buildings.len());
         // Bevy function does not work here info!("\n**** process {:?} ways", self.buildings.len());
         for building_id in &self.buildings.clone() {
-            println!("building: {building_id}");
             let mut building = self.areas_map.remove(building_id).unwrap();
+            let initial_area_size = building.footprint.get_area_size();
 
             // substract parts from building
             for part_id in &self.parts {
@@ -366,7 +365,12 @@ impl Osm2Layer {
                 }
             }
 
-            if !building.footprint.polygons.is_empty() {
+            let remaining_area_size = building.footprint.get_area_size();
+            let percent_left = (remaining_area_size / initial_area_size * 100.) as i32;
+
+            println!("building: {building_id} left: {percent_left}%");
+
+            if !building.footprint.polygons.is_empty() && percent_left >= 40 {
                 self.create_building_or_part(*building_id, &mut building);
             }
         }
@@ -398,6 +402,8 @@ impl Osm2Layer {
         // // // // // // // // //
 
         let part = tags.get("building:part").is_some();
+        let simple_footprint = osm_way.footprint.polygons.len() == 1
+            && osm_way.footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].len() <= 6;
 
         // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
         let roof_shape: RoofShape = match tags.get("roof:shape") {
@@ -410,7 +416,11 @@ impl Osm2Layer {
                 "onion" => RoofShape::Onion,
                 _ => {
                     // println!("Warning: roof_shape Unknown: {}", roof_shape);
-                    RoofShape::Flat // todo: gabled and geographic dependend
+                    if simple_footprint {
+                        RoofShape::Gabled // todo: geographic dependend ggg
+                    } else {
+                        RoofShape::Flat
+                    }
                 }
             },
             None => RoofShape::Flat,
@@ -427,7 +437,12 @@ impl Osm2Layer {
             if part {
                 building_color
             } else {
-                DEFAULT_ROOF_COLOR
+                // if it is a simple building with only a view corners: Red roof (and gabled???)
+                if simple_footprint {
+                    DEFAULT_ROOF_RED
+                } else {
+                    DEFAULT_WALL_COLOR
+                }
             },
         );
 
@@ -540,7 +555,7 @@ impl Osm2Layer {
         let is_across = bounding_box_rotated.north - bounding_box_rotated.south
             > bounding_box_rotated.east - bounding_box_rotated.west;
 
-        // mitte 1174306435    schmal 1174306436
+        // In Bakerboys longestSideAngle is this across-correction too
         if check_across {
             //println!(    "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle} - bboxr: {:?}", bounding_box_rotated);
             if is_across != set_across {
@@ -608,6 +623,7 @@ impl Osm2Layer {
         }
 
         let mut footprint = Footprint::new();
+
         self.outer_state = OuterState::NEW;
 
         // first scann for outer, later vo inner

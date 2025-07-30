@@ -1,3 +1,5 @@
+// outer SHAPE of the building/part
+
 use std::ops::{Add, Sub};
 extern crate earcutr; // not supported vor WASM?
 
@@ -23,7 +25,6 @@ pub enum Orientation {
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
-    pub is_part: bool,
     rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
     pub shift: f32,
@@ -43,7 +44,6 @@ impl Default for Footprint {
 impl Footprint {
     pub fn new() -> Self {
         Self {
-            is_part: true,
             rotated_positions: Vec::new(),
             bounding_box: BoundingBox::new(),
             shift: 0.0,
@@ -133,7 +133,58 @@ impl Footprint {
         bounding_box_rotated
     }
 
-    pub fn get_triangulate_indices(&self, polygon_index: usize) -> Vec<usize> {
+    // This is just an ugly hack! i_overlay should be able to solve this - todo
+    pub fn get_area_size(&mut self) -> f32 {
+        let mut area_size = 0.0;
+        let mut index = 0;
+        while index < self.polygons.len() {
+            //for (index, _polygon) in self.polygons.iter().enumerate() {
+            let (indices, vertices) = self.get_triangulate_indices(index);
+            let mut area_spliter_size = 0.0;
+            for index_to_indices in 0..indices.len() / 3 {
+                let vertice_index_0 = indices[index_to_indices * 3 + O];
+                let vertice_index_1 = indices[index_to_indices * 3 + 1];
+                let vertice_index_2 = indices[index_to_indices * 3 + 2];
+
+                let n_0 = vertices[vertice_index_0 * 2 + O];
+                let e_0 = vertices[vertice_index_0 * 2 + 1];
+                let n_1 = vertices[vertice_index_1 * 2 + O];
+                let e_1 = vertices[vertice_index_1 * 2 + 1];
+                let n_2 = vertices[vertice_index_2 * 2 + O];
+                let e_2 = vertices[vertice_index_2 * 2 + 1];
+
+                let a = n_0 - n_1;
+                let b = e_0 - e_1;
+                let distance_a = f32::sqrt(a * a + b * b);
+                let a = n_1 - n_2;
+                let b = e_1 - e_2;
+                let distance_b = f32::sqrt(a * a + b * b);
+                let a = n_2 - n_0;
+                let b = e_2 - e_0;
+                let distance_c = f32::sqrt(a * a + b * b);
+
+                let a = distance_a;
+                let b = distance_b;
+                let c = distance_c;
+                area_spliter_size += 0.25
+                    * f32::sqrt(f32::abs(
+                        (a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c),
+                    ));
+                // println!("    area: {area}");
+            }
+            // compendate error of subtract-crate
+            if area_spliter_size < 0.1 && self.polygons.len() > 1 {
+                self.polygons.remove(index);
+            } else {
+                area_size += area_spliter_size;
+                index += 1;
+            }
+        }
+
+        area_size
+    }
+
+    pub fn get_triangulate_indices(&self, polygon_index: usize) -> (Vec<usize>, Vec<f32>) {
         //
 
         let mut vertices = Vec::<f32>::new();
@@ -156,54 +207,9 @@ impl Footprint {
             }
         }
 
-        let mut indices = earcutr::earcut(&vertices, &holes_starts, 2).unwrap();
+        let indices = earcutr::earcut(&vertices, &holes_starts, 2).unwrap();
 
-        // cut small remainings - this is just an ugly hack! i_overlay should be able to solve this - todo
-
-        if self.is_part {
-            return indices;
-        }
-        let mut area = 0.0;
-        for index_to_indices in 0..indices.len() / 3 {
-            let vertice_index_0 = indices[index_to_indices * 3 + O];
-            let vertice_index_1 = indices[index_to_indices * 3 + 1];
-            let vertice_index_2 = indices[index_to_indices * 3 + 2];
-
-            let n_0 = vertices[vertice_index_0 * 2 + O];
-            let e_0 = vertices[vertice_index_0 * 2 + 1];
-            let n_1 = vertices[vertice_index_1 * 2 + O];
-            let e_1 = vertices[vertice_index_1 * 2 + 1];
-            let n_2 = vertices[vertice_index_2 * 2 + O];
-            let e_2 = vertices[vertice_index_2 * 2 + 1];
-
-            let a = n_0 - n_1;
-            let b = e_0 - e_1;
-            let distance_a = f32::sqrt(a * a + b * b);
-            let a = n_1 - n_2;
-            let b = e_1 - e_2;
-            let distance_b = f32::sqrt(a * a + b * b);
-            let a = n_2 - n_0;
-            let b = e_2 - e_0;
-            let distance_c = f32::sqrt(a * a + b * b);
-
-            let a = distance_a;
-            let b = distance_b;
-            let c = distance_c;
-            area += 0.25
-                * f32::sqrt(f32::abs(
-                    (a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c),
-                ));
-            // println!("    area: {area}");
-        }
-        // println!("{} {polygon_index} area: {area}", self._id);
-        //println!("{:?}", self.polygons[polygon_index]);
-        if area < 0.5 {
-            // todo: this is to much, but 233333793 needs it?
-            // self.polygons[polygon_index] = Vec::new();
-            indices = Vec::new();
-        }
-
-        indices
+        (indices, vertices)
     }
 
     /// Splits the shape at x=0, returning two new shapes:

@@ -1,12 +1,21 @@
+Ideas from https://github.com/Beakerboy/OSMBuilding/tree/main
+* errorBox: für ipad / noch mal das text ui probieren! Example
+* surrounds(shape, point) & partIsInside für Part in Building! Interessant!
+     Nicht langsam, aber auch kein grobcheck
+
 Next todo:
-* St Pauls Cross 369161987 partly visible: Way: 664534351 not visible: Way: 664613338
 * crash: way 1149973649
 * Relation with > 1 outer and >1 for one inner: 8035487.    9346128=4outer
+* Contributing hat gute punkte und meine hilfsbedürfte dazu
 * And also crashes: 3376015
 * Accept relations (auto if nuber < 1000xxx?)
+* Overtures als datenquelle:
+  https://docs.overturemaps.org/guides/buildings/#14/32.58453/-117.05154/0/60
+  https://github.com/andersborgabiro/overture2stl
 * one line for   ExtrudeRing { ...  macro?!
 * building:part inherits every building* tags from their parent
 * Big Ben clock half missing: roof:shape=round
+* Gute Tests, wenigstens absturztests!
 * Not simplyfy but delete if >60% covered by parts. How? Triangluate? is area() in lib?
   Example: Remaining of rel: cargo run --example m_async -- -w 111355120 -o 1567133
       use i_overlay::core::overlay::{ContourDirection, IntOverlayOptions, Overlay};
@@ -25,6 +34,7 @@ Next todo:
 
 
 More todo:
+* Historymap ist nur andere url
 * https://wiki.f4map.com/render
 * Kölner Dom: part 1233649406 has only building:material=stone, but F4 shows the same color as
    691226039 with no color or material. Does it get it from the relation?

@@ -21,7 +21,50 @@ pub struct GeographicCoordinates {
 }
 
 impl GeographicCoordinates {
+    /**
+     * Rotate lat/lon to reposition the home point onto 0,0.
+     *
+     * @param {[number, number]} lonLat - The longitute and latitude of a point.
+     *
+     * @return {[number, number]} x, y in meters
+     * /
+    static repositionPoint(lonLat, home) {
+      const R = 6371 * 1000;   // Earth radius in m
+      const circ = 2 * Math.PI * R;  // Circumference
+      const phi = 90 - lonLat[1];
+      const theta = lonLat[0] - home[0];
+      const thetaPrime = home[1] / 180 * Math.PI;
+      const x = R * Math.sin(theta / 180 * Math.PI) * Math.sin(phi / 180 * Math.PI);
+      const y = R * Math.cos(phi / 180 * Math.PI);
+      const z = R * Math.sin(phi / 180 * Math.PI) * Math.cos(theta / 180 * Math.PI);
+      const abs = Math.sqrt(z**2 + y**2);
+      const arg = Math.atan(y / z) - thetaPrime;
+
+      return [x, Math.sin(arg) * abs];
+    }
+    *****/
+
+    // Version from bakerboy. The result doasn't look different. But may be it helps somewere
     pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
+        const PI: f64 = std::f64::consts::PI;
+        const R: f64 = 6371. * 1000.; // Earth radius in m
+        //nst CIRC: f64 = 2. * PI * R; // Circumference
+        let phi: f64 = 90. - latitude; //lonLat[1];
+        let theta: f64 = longitude - self.longitude;
+        let theta_prime: f64 = self.latitude / 180. * PI;
+        let x: f64 = R * (theta / 180. * PI).sin() * (phi / 180. * PI).sin();
+        let y: f64 = R * (phi / 180. * PI).cos();
+        let z: f64 = R * (phi / 180. * PI).sin() * (theta / 180. * PI).cos();
+        let abs: f64 = (z * z + y * y).sqrt();
+        let arg: f64 = (y / z).atan() - theta_prime;
+
+        GroundPosition {
+            east: x as f32,
+            north: ((arg).sin() * abs) as f32,
+        }
+    }
+
+    pub fn _karlos_coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
         // What s that vor ???
         if self.latitude == 0. {
             return GroundPosition {

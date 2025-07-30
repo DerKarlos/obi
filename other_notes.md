@@ -25,13 +25,8 @@ Most used tests
 More Examples
 * domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,
 * Saint Basil's Cathedral Relation 3030568
-* Hagia Sophia Mosque (Holy Wisdom) 109862851
-* Oriental Pearl Tower  40778038
-* Cathedral of Notre Dame  201611261
 * Vatikan, Saint Peter's Basilica  244159210
-* Taj Mahal 375257537
 * Marienplatz 223907278
-* Krahnhaus bei Köln: 233333793  Todo: 0.45 qm teil muß gelöscht werden?! Und negatives area!
 * Cologne Cathedral: 1233649406
 
 Subtract tests
@@ -43,9 +38,6 @@ Subtract tests
 * Test5: way 111354081 parts: 814784273 + 814784274 + 814784275
 * Test6: rel 11192041: outer 172664019, inner 814784298
 * Test7: building: 440100162 - parts: 107643530, 440100141 = empty  Todo: tunnel=building_passage
-
-BakerBoy's examples
-- nice: 407995274, 297997038, 417245741, 8035487, 251621058  simple: 48802245, 11018815
 
 seule
 https://beakerboy.github.io/OSMBuilding/index.html?type=relation&id=3376015
@@ -147,3 +139,11 @@ As one asked vor materials support, this redoing of OSMgo in **Rust** was starte
 
 ## Notes about wrong tagging. Changing it in the OSM database?
 * Rel 6137280 has a member  410265429 as type outline instead of outer  How to use Overpass?
+
+
+Notes on Bakerboy code:
+* isSelfIntersecting geht nur, wenn node an Kreuzung ist
+* Center is bbox-center
+* getWidth ist getMaxExtend
+* vertexAngle wozu? Nur für test
+* Test the three lights ... no: Ambient does not exist, 1 blocks control

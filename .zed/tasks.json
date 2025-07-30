@@ -1,41 +1,41 @@
 [
   {
-    "label": "build OSM-TB (bin)",
+    "label": "OSM-TB build bin",
     "use_new_terminal": false,
     "command": "cargo build",
     "tags": ["cargo"]
   },
 
   {
-    "label": "build OSM-TB (wasm)",
+    "label": "OSM-TB build wasm",
     "use_new_terminal": false,
     "command": "cargo build --release --target wasm32-unknown-unknown",
     "tags": ["cargo"]
   },
 
   {
-    "label": "clippy OSM-TB",
+    "label": "OSM-TB clippy",
     "use_new_terminal": false,
     "command": "cargo clippy",
     "tags": ["cargo"]
   },
 
   {
-    "label": "example: obi",
+    "label": "example: OBI arm",
     "use_new_terminal": false,
     "command": "RUST_BACKTRACE=1 cargo run --example obi",
     "tags": ["example"]
   },
 
   {
-    "label": "example: bevy_wasm wasm",
+    "label": "example: OBI wasm (sh)",
     "use_new_terminal": false,
     "command": "sh bevy_wasm.sh",
     "tags": ["example"]
   },
 
   {
-    "label": "rend3",
+    "label": "example: OBI arm - rend3",
     "cwd": "/Users/karlos/projects/OBI/examples/rend3",
     "use_new_terminal": false,
     "command": "cargo run",

@@ -136,6 +136,10 @@ impl OsmMesh {
         }
 
         self.push_walls(building_or_part, min_height, color);
+
+        if min_height > 0.0 {
+            self.push_flat(&mut building_or_part.footprint, -min_height, roof_color);
+        }
     }
 
     fn prepare_roof(&mut self, _: &BuildingOrPart) {
@@ -184,52 +188,6 @@ impl OsmMesh {
         building_or_part.wall_height + building_or_part.roof_height - f32::abs(east) * inclination
     }
 
-    fn _calc_skillion_position_height(
-        &mut self,
-        position: &GroundPosition,
-        building_or_part: &BuildingOrPart,
-    ) -> f32 {
-        //println!("ph: position: {:?}", position);
-        //        let roof_slope = circle_limit(building_or_part.roof_angle + f32::to_radians(90.));
-        let east = position
-            .sub(building_or_part.footprint.center)
-            .rotate(-building_or_part.roof_angle) // skillion
-            .east;
-        // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
-        let inclination = building_or_part.roof_height
-            / (building_or_part.bounding_box_rotated.east
-                - building_or_part.bounding_box_rotated.west); // Höhen/Tiefe der Nodes/Ecken berechenen
-
-        building_or_part.wall_height + building_or_part.roof_height
-            - f32::abs(east - building_or_part.bounding_box_rotated.west) * inclination
-    }
-
-    fn _calc_gabled_position_height(
-        &mut self,
-        position: &GroundPosition,
-        building_or_part: &BuildingOrPart,
-    ) -> f32 {
-        let east = position
-            .sub(building_or_part.footprint.center)
-            .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
-            .east
-            + building_or_part.footprint.shift;
-
-        let width =
-            building_or_part.bounding_box_rotated.east - building_or_part.bounding_box_rotated.west;
-        let inclination = building_or_part.roof_height * 2. / width;
-
-        // let height =
-        building_or_part.wall_height + building_or_part.roof_height - f32::abs(east) * inclination
-
-        //3 let rh = building_or_part.roof_height;
-        //3 println!(
-        //3     "gabled - East: {east} width: {width} roof_height: {rh} width: {width} Inc: {inclination} height: {height}"
-        //3 );
-
-        //height
-    }
-
     fn calc_roof_position_height(
         &mut self,
         position: &GroundPosition,
@@ -245,20 +203,31 @@ impl OsmMesh {
 
     fn push_flat(&mut self, footprint: &mut Footprint, height: f32, color: RenderColor) {
         for polygon_index in 0..footprint.polygons.len() {
-            let mut roof_gpu_positions = footprint.get_gpu_positions(polygon_index, height);
+            // if footprint.polygons[polygon_index].is_empty() {
+            //     continue;
+            // }
+            let mut roof_gpu_positions = footprint.get_gpu_positions(polygon_index, height.abs());
             let roof_index_offset = self.attributes.vertices_positions.len();
-            let indices = footprint.get_triangulate_indices(polygon_index);
+            let (indices, _) = footprint.get_triangulate_indices(polygon_index);
             // println!("triangles: {:?}", &indices);
             if indices.is_empty() {
                 footprint.polygons[polygon_index] = Vec::new();
                 continue;
             }
 
-            // ? why .rev()?  see negativ ???
-            for index in indices.iter().rev() {
-                self.attributes
-                    .indices_to_vertices
-                    .push((roof_index_offset + index) as u32);
+            if height < 0.0 {
+                for index in indices.iter() {
+                    self.attributes
+                        .indices_to_vertices
+                        .push((roof_index_offset + index) as u32);
+                }
+            } else {
+                // ? why .rev() for upper?  see negativ ???
+                for index in indices.iter().rev() {
+                    self.attributes
+                        .indices_to_vertices
+                        .push((roof_index_offset + index) as u32);
+                }
             }
 
             for _ in &roof_gpu_positions {
@@ -281,7 +250,7 @@ impl OsmMesh {
             }
 
             let roof_index_offset = self.attributes.vertices_positions.len();
-            let indices = footprint.get_triangulate_indices(polygon_index);
+            let (indices, _) = footprint.get_triangulate_indices(polygon_index);
             // println!("triangles: {:?}", &indices);
             if indices.is_empty() {
                 building_or_part.footprint.polygons[polygon_index] = Vec::new();
@@ -327,7 +296,7 @@ impl OsmMesh {
         footprint.polygons[FIRST_POLYGON][POLYGON_OUTER] = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
-        let indices = footprint.get_triangulate_indices(0);
+        let (indices, _) = footprint.get_triangulate_indices(0);
         //println!("offset: {roof_index_offset}  indices: {:?}", &indices);
         if indices.is_empty() {
             return;

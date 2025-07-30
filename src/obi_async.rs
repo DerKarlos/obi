@@ -69,7 +69,9 @@ pub async fn obi_async() -> Result<(), Box<dyn std::error::Error>> {
     // println!("buildings_and_parts: {:?}", buildings_and_parts);
 
     let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
-    render_init(meshes, range);
+    render_init(
+        meshes, range, true, /* use first mouse key for orientation */
+    );
 
     Ok(())
 }
