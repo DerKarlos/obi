@@ -30,7 +30,7 @@
   {
     "label": "example: OBI wasm (sh)",
     "use_new_terminal": false,
-    "command": "sh bevy_wasm.sh",
+    "command": "sh obi_wasm.sh",
     "tags": ["example"]
   },
 
@@ -40,5 +40,12 @@
     "use_new_terminal": false,
     "command": "cargo run",
     "tags": ["workspace", "member"]
+  },
+
+  {
+    "label": "example: test",
+    "use_new_terminal": false,
+    "command": "RUST_BACKTRACE=1 cargo run --example test",
+    "tags": ["example"]
   }
 ]

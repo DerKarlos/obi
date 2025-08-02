@@ -1,7 +1,7 @@
 use crate::footprint::Footprint;
 use crate::kernel_in::{
     BuildingOrPart, BuildingsAndParts, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition,
-    GroundPositions, POLYGON_OUTER, RoofShape,
+    GroundPositions, OUTER_POLYGON, RoofShape,
 };
 use crate::kernel_out::{
     GpuPositions, OsmMeshAttributes, RenderColor, RenderPosition, RenderPositions,
@@ -28,7 +28,7 @@ impl GroundPosition {
 impl Footprint {
     fn get_gpu_positions(&self, polygon_index: usize, height: f32) -> RenderPositions {
         let mut roof_gpu_positions: RenderPositions = Vec::new();
-        for position in &self.polygons[polygon_index][POLYGON_OUTER] {
+        for position in &self.polygons[polygon_index][OUTER_POLYGON] {
             let this_gpu_position_up = position.to_gpu_position(height);
             roof_gpu_positions.push(this_gpu_position_up);
         }
@@ -96,7 +96,7 @@ impl OsmMesh {
         let color = building_or_part.building_color;
         let roof_color = building_or_part.roof_color;
 
-        if building_or_part.footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].is_empty() {
+        if building_or_part.footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].is_empty() {
             //println!("footprint.positions.is_empty: {}", building_or_part.id);
             return; // after parts subtractions, nothing is left
         }
@@ -244,7 +244,7 @@ impl OsmMesh {
         for polygon_index in 0..building_or_part.footprint.polygons.len() {
             let footprint = &building_or_part.footprint;
             let mut roof_gpu_positions: RenderPositions = Vec::new();
-            for position in footprint.polygons[polygon_index][POLYGON_OUTER].iter() {
+            for position in footprint.polygons[polygon_index][OUTER_POLYGON].iter() {
                 let height = self.calc_roof_position_height(position, building_or_part);
                 roof_gpu_positions.push(position.to_gpu_position(height))
             }
@@ -293,7 +293,7 @@ impl OsmMesh {
         }
 
         let mut footprint = Footprint::new(); // &building_or_part.footprint;
-        footprint.polygons[FIRST_POLYGON][POLYGON_OUTER] = side;
+        footprint.polygons[FIRST_POLYGON][OUTER_POLYGON] = side;
 
         let roof_index_offset = self.attributes.vertices_positions.len();
         let (indices, _) = footprint.get_triangulate_indices(0);
@@ -309,14 +309,14 @@ impl OsmMesh {
                 .push((roof_index_offset + index) as u32);
         }
 
-        for position in footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].iter() {
+        for position in footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].iter() {
             let height = self.calc_roof_position_height(position, building_or_part);
             self.attributes
                 .vertices_positions
                 .push(position.to_gpu_position(height))
         }
 
-        for _position in &footprint.polygons[FIRST_POLYGON][POLYGON_OUTER] {
+        for _position in &footprint.polygons[FIRST_POLYGON][OUTER_POLYGON] {
             self.attributes.vertices_colors.push(color);
         }
     }
@@ -387,11 +387,11 @@ impl OsmMesh {
         roof_height: f32,
         color: RenderColor,
     ) {
-        let soft_edges = footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].len() > 8;
+        let soft_edges = footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].len() > 8;
         let mut gpu_positions: GpuPositions = Vec::new();
         for (ring_index, ring) in silhouette.ring_edges.iter().enumerate() {
             gpu_positions.push(Vec::new());
-            for edge in footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].iter() {
+            for edge in footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].iter() {
                 gpu_positions[ring_index].push(self.calc_extrude_position(
                     ring,
                     edge,
@@ -403,7 +403,7 @@ impl OsmMesh {
         }
 
         const ONE_LESS_RING_FACES_BUT_RING_EDGES: usize = 1;
-        let edges = footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].len();
+        let edges = footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].len();
         let rings = silhouette.ring_edges.len() - ONE_LESS_RING_FACES_BUT_RING_EDGES;
 
         let start_index = self.attributes.vertices_positions.len();
@@ -433,7 +433,7 @@ impl OsmMesh {
         if soft_edges {
             //println!("gpu_positions: {:?}", gpu_positions);
             //println!("attributes: {:?}", self.attributes);
-            let pike = gpu_positions[rings][POLYGON_OUTER];
+            let pike = gpu_positions[rings][OUTER_POLYGON];
             self.attributes.vertices_positions.push(pike);
             self.attributes.vertices_colors.push(color);
         }
@@ -567,7 +567,7 @@ impl OsmMesh {
             if polygon.is_empty() {
                 continue;
             }
-            let outer = &polygon[POLYGON_OUTER].clone();
+            let outer = &polygon[OUTER_POLYGON].clone();
             self.push_wall_shape(
                 building_or_part,
                 outer,
@@ -576,8 +576,7 @@ impl OsmMesh {
                 color,
             );
 
-            for hole_index in FIRST_HOLE_INDEX..polygon.len() {
-                let hole: &GroundPositions = &polygon[hole_index];
+            for hole in polygon.iter().skip(FIRST_HOLE_INDEX) {
                 self.push_wall_shape(
                     building_or_part,
                     hole,

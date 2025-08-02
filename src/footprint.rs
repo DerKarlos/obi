@@ -8,7 +8,7 @@ use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
 use crate::kernel_in::{
-    BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, POLYGON_OUTER,
+    BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, OUTER_POLYGON,
     Polygons,
 };
 
@@ -67,6 +67,7 @@ impl Footprint {
 
     pub fn push_position(&mut self, position: GroundPosition) {
         self.polygons[FIRST_POLYGON][POLYGON_OUTER].push(position);
+        self.polygons[FIRST_POLYGON][OUTER_POLYGON].push(position);
         self.bounding_box.include(&position);
         self.center.north += position.north;
         self.center.east += position.east;
@@ -74,11 +75,11 @@ impl Footprint {
 
     pub fn close(&mut self) {
         // center
-        let count = self.polygons[FIRST_POLYGON][POLYGON_OUTER].len() as f32;
+        let count = self.polygons[FIRST_POLYGON][OUTER_POLYGON].len() as f32;
         self.center.north /= count;
         self.center.east /= count;
 
-        let positions = &mut self.polygons[FIRST_POLYGON][POLYGON_OUTER];
+        let positions = &mut self.polygons[FIRST_POLYGON][OUTER_POLYGON];
         let mut clockwise_sum = 0.;
         let mut radius_max: f32 = 0.;
         let mut radius_min: f32 = 1.0e9;
@@ -114,9 +115,9 @@ impl Footprint {
         //println!("{len} rotate: {:?}", &self.polygons[FIRST_POLYGON][POLYGON_OUTER]);
         let mut bounding_box_rotated = BoundingBox::new();
         self.rotated_positions = Vec::new();
-        for position in &self.polygons[FIRST_POLYGON][POLYGON_OUTER] {
+        for position in &self.polygons[FIRST_POLYGON][OUTER_POLYGON] {
             // Rotate against the actual angle to got 0 degrees
-            let rotated_position = position.sub(self.center.clone()).rotate(-roof_angle);
+            let rotated_position = position.sub(self.center).rotate(-roof_angle);
             self.rotated_positions.push(rotated_position);
             bounding_box_rotated.include(&rotated_position);
         }
@@ -190,7 +191,7 @@ impl Footprint {
         let mut vertices = Vec::<f32>::new();
         let mut holes_starts = Vec::<usize>::new();
 
-        for position in &self.polygons[polygon_index][POLYGON_OUTER] {
+        for position in &self.polygons[polygon_index][OUTER_POLYGON] {
             // Hey earcut, why y before x ???
             vertices.push(position.north);
             vertices.push(position.east);
@@ -221,10 +222,9 @@ impl Footprint {
         let mut up_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
-        let positions = &self.polygons[FIRST_POLYGON][POLYGON_OUTER];
+        let positions = &self.polygons[FIRST_POLYGON][OUTER_POLYGON];
         let n = self.rotated_positions.len();
-        for i in 0..n {
-            let current = self.rotated_positions[i];
+        for (i, current) in self.rotated_positions.iter().enumerate().take(n) {
             let next = self.rotated_positions[(i + 1) % n];
             outer_vertices.push(positions[i]);
 
@@ -264,12 +264,18 @@ impl Footprint {
             }
         }
 
-        self.polygons[FIRST_POLYGON][POLYGON_OUTER] = outer_vertices;
+        self.polygons[FIRST_POLYGON][OUTER_POLYGON] = outer_vertices;
         (low_vertices, up_vertices)
     }
 
     // subttacting a hole of a polygon or a part inside a building
-    pub fn subtract(&mut self, hole_positions: &Polygons) {
+    pub fn subtract(&mut self, other: &Footprint) {
+        let hole_positions = &other.polygons;
+
+        if self.bounding_box.outside(other.bounding_box) {
+            return;
+        };
+
         let remaining =
             self.polygons
                 .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
@@ -279,6 +285,7 @@ impl Footprint {
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
 
         if remaining.is_empty() {
+            #[cfg(debug_assertions)]
             println!("outer is gone");
             self.polygons = remaining;
             return;

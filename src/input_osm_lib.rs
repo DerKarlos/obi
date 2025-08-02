@@ -71,7 +71,7 @@ impl InputOsm {
         };
         let map = self.client.map(&bounding_box).await?;
 
-        let mut osm2layer = Osm2Layer::create(*gpu_ground_null_coordinates, show_only);
+        let mut osm2layer = Osm2Layer::create(*gpu_ground_null_coordinates, show_only, self.debug);
 
         for node_ in map.nodes {
             osm2layer.add_node(node_.id, node_.lat.unwrap(), node_.lon.unwrap(), None);

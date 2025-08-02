@@ -8,7 +8,7 @@ The control cursor keys to rotate/zoom and R for reset, more will come.
 
 The building must be given as a OSM way ID, either by URL or native:
 * http://www.OSMgo.org/bevy.html?way=24771505
-* cargo run --example bevy_wasm -- --way 139890029
+* cargo run --example wasm -- --way 139890029
 * Try it: [default: St.Pauls](http://www.OSMgo.org/bevy.html), [Westminster](https://www.osmgo.org/bevy.html?way=367642719&range=140)-[Aby](https://www.osmgo.org/bevy.html?way=364313092), [London-City](https://osmgo.org/bevy.html?way=166431070&range=444), [Hagia Sophia](https://osmgo.org/bevy.html?way=109862851), [Krahnhäuser](https://osmgo.org/bevy.html?way=233333793&range=333)
 * BakerBoy's examples: [Ryugyong Hotel ](https://osmgo.org/bevy.html?way=407995274), [The Bandstand](https://osmgo.org/bevy.html?way=297997038) [Nidaros Cathedral](https://osmgo.org/bevy.html?way=417245741) [Castle of the Holy Angel](https://osmgo.org/bevy.html?way=8035487), [](), [](), [](), [](), []()
 

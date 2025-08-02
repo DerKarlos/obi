@@ -34,6 +34,7 @@ Next todo:
 
 
 More todo:
+* Solve this DOUBLE outer https://www.openstreetmap.org/relation/14548261#map=19/51.517498/-0.102085
 * Historymap ist nur andere url
 * https://wiki.f4map.com/render
 * Kölner Dom: part 1233649406 has only building:material=stone, but F4 shows the same color as

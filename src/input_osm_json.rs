@@ -14,7 +14,6 @@ const LOCAL_TEST: bool = false;
 #[derive(Debug)]
 pub struct InputOsm {
     api_url: String,
-    //
 }
 
 impl Default for InputOsm {
@@ -47,9 +46,48 @@ impl InputOsm {
         if LOCAL_TEST {
             url = "bbox.json".into();
         }
+
+        #[cfg(debug_assertions)]
         println!("= Way_URL: {url}");
-        let bytes = reqwest::get(url).await?.bytes().await?;
-        Ok(geo_bbox_of_way_bytes(&bytes))
+
+        let response = reqwest::get(url).await?;
+        // println!("response.status: {:?}", response.status());
+        match response.status().as_u16() {
+            200 => (),
+            404 => println!("Way {} does not exist (404)", way_id),
+            410 => println!("Way {} is deleted (410)", way_id),
+            _ => panic!("Way read error {:?}", response.status().as_u16()),
+        }
+        let bytes = response.bytes().await; //e?;
+        //println!("bytes1: {:?}", bytes);
+
+        match bytes {
+            // this code is messy, sint it ???
+            Ok(bytes) => {
+                let option = geo_bbox_of_way_bytes(&bytes);
+                if option.is_some() {
+                    Ok(option.unwrap())
+                } else {
+                    Ok(BoundingBox {
+                        north: 0.0,
+                        south: 0.0,
+                        east: 0.0,
+                        west: 0.0,
+                    })
+                }
+            }
+            Err(e) => {
+                println!("Way bytes Loading Error: {}", e);
+                Ok(BoundingBox {
+                    north: 0.0,
+                    south: 0.0,
+                    east: 0.0,
+                    west: 0.0,
+                })
+            }
+        }
+
+        // Ok(geo_bbox_of_way_bytes(&bytes))
     }
 
     pub fn geo_bbox_of_way_vec(&self, bytes: &[u8]) -> BoundingBox {
@@ -67,13 +105,32 @@ impl InputOsm {
         if LOCAL_TEST {
             url = "way.json".into();
         }
+
+        #[cfg(debug_assertions)]
         println!("= BBox_URL: {url}");
-        let bytes = reqwest::get(url).await?.bytes().await?;
-        Ok(scan_json_bytes_to_osm(
-            bytes,
-            gpu_ground_null_coordinates,
-            show_only,
-        ))
+
+        // let bytes = reqwest::get(url).await?.bytes().await?;
+        let response = reqwest::get(url).await?;
+        match response.status().as_u16() {
+            200 => (),
+            400 => println!("Bad Request: Map limits are exceeded (400)"),
+            509 => println!("Bandwidth Limit Exceeded: too much data downloaded (509)"),
+            _ => panic!("Load Map Error: {:?}", response.status().as_u16()),
+        }
+        let bytes = response.bytes().await;
+
+        match bytes {
+            Ok(bytes) => Ok(scan_json_bytes_to_osm(
+                bytes,
+                gpu_ground_null_coordinates,
+                show_only,
+            )),
+            Err(e) => {
+                println!("Area bytes Loading Error: {}", e);
+                panic!("Area bytes Loading Error: {:?}", e);
+                //Error(e)
+            }
+        }
     }
 
     pub fn scan_json_to_osm_vec(
@@ -118,9 +175,12 @@ pub fn geo_bbox_of_way_string(bytes: &&str) -> BoundingBox {
     geo_bbox_of_way_json(json_way_data)
 }
 
-pub fn geo_bbox_of_way_bytes(bytes: &Bytes) -> BoundingBox {
-    let json_way_data: JsonData = serde_json::from_slice(bytes).unwrap();
-    geo_bbox_of_way_json(json_way_data)
+pub fn geo_bbox_of_way_bytes(bytes: &Bytes) -> Option<BoundingBox> {
+    let result = serde_json::from_slice(bytes);
+    match result {
+        Ok(json_way_data) => Some(geo_bbox_of_way_json(json_way_data)),
+        Err(_e) => None,
+    }
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
@@ -147,7 +207,12 @@ pub fn scan_json_bytes_to_osm(
     gpu_ground_null_coordinates: &GeographicCoordinates,
     show_only: u64,
 ) -> BuildingsAndParts {
-    let json_bbox_data: JsonData = serde_json::from_slice(&bytes).unwrap();
+    let result = serde_json::from_slice(&bytes);
+    //println!("result: {:?}", result);
+    if !result.is_ok() {
+        return Vec::new();
+    }
+    let json_bbox_data: JsonData = result.unwrap();
     scan_json_to_osm(json_bbox_data, gpu_ground_null_coordinates, show_only)
 }
 

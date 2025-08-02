@@ -139,7 +139,7 @@ impl Default for KeyBindings {
 }
 
 /// Used in queries when you want flycams and not other cameras
-/// A marker component used in queries when you want flycams and not other cameras
+/// A marker component used in queries when you want the OTB cammera and not other cameras
 #[derive(Component)]
 pub struct F4plusCam;
 
@@ -220,7 +220,7 @@ fn camera_keys(
 
     velocity = velocity.normalize_or_zero();
 
-    let speed = control_values.speed.clone();
+    let speed = control_values.speed;
     let height_fact = camera.translation.y.max(3.) / 20.;
     // info!("{height_fact} {}", camera.translation.y);
     control_values.target += velocity * time.delta_secs() * speed * height_fact;
@@ -248,7 +248,7 @@ fn camera_touch(
         let forward = -Vec3::new(local_z.x, 0., local_z.z);
         let right = Vec3::new(local_z.z, 0., -local_z.x);
         let upward = Vec3::new(0., 1., 0.);
-        let speed = control_values.speed.clone() / 15.;
+        let speed = control_values.speed / 15.;
         let mut velocity = Vec3::ZERO;
 
         let (mut yaw_direction, mut pitch_up, _roll) = camera.rotation.to_euler(EulerRot::YXZ);
@@ -387,7 +387,7 @@ fn camera_mouse(
                 let forward = -Vec3::new(local_z.x, 0., local_z.z);
                 let right = Vec3::new(local_z.z, 0., -local_z.x);
                 let mut velocity = Vec3::ZERO;
-                let speed = control_values.speed.clone() / 500.;
+                let speed = control_values.speed / 500.;
                 velocity +=
                     forward * (control_values.speed * event.delta.y * window_scale).to_radians();
                 velocity -=

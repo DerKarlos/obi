@@ -21,28 +21,11 @@ pub struct GeographicCoordinates {
 }
 
 impl GeographicCoordinates {
-    /**
+    /*
      * Rotate lat/lon to reposition the home point onto 0,0.
-     *
      * @param {[number, number]} lonLat - The longitute and latitude of a point.
-     *
      * @return {[number, number]} x, y in meters
-     * /
-    static repositionPoint(lonLat, home) {
-      const R = 6371 * 1000;   // Earth radius in m
-      const circ = 2 * Math.PI * R;  // Circumference
-      const phi = 90 - lonLat[1];
-      const theta = lonLat[0] - home[0];
-      const thetaPrime = home[1] / 180 * Math.PI;
-      const x = R * Math.sin(theta / 180 * Math.PI) * Math.sin(phi / 180 * Math.PI);
-      const y = R * Math.cos(phi / 180 * Math.PI);
-      const z = R * Math.sin(phi / 180 * Math.PI) * Math.cos(theta / 180 * Math.PI);
-      const abs = Math.sqrt(z**2 + y**2);
-      const arg = Math.atan(y / z) - thetaPrime;
-
-      return [x, Math.sin(arg) * abs];
-    }
-    *****/
+     */
 
     // Version from bakerboy. The result doasn't look different. But may be it helps somewere
     pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
@@ -173,7 +156,7 @@ pub type Polygon = Vec<GroundPositions>;
 pub type Polygons = Vec<Polygon>;
 
 pub const FIRST_POLYGON: usize = 0;
-pub const POLYGON_OUTER: usize = 0;
+pub const OUTER_POLYGON: usize = 0;
 pub const FIRST_HOLE_INDEX: usize = 1;
 
 pub type OsmMap = HashMap<String, String>;
@@ -258,17 +241,17 @@ impl BoundingBox {
     }
 
     pub fn min_range(&mut self, range: f32) {
-        println!("{self}");
+        //println!("{self}");
         // range in meter to degres
         let range = range / LAT_FAKT as f32;
         let center_north = (self.north - self.south) / 2. + self.south;
         let center_east = (self.east - self.west) / 2. + self.west;
-        println!("{range} {center_north} {center_east}");
+        //println!("{range} {center_north} {center_east}");
         self.north = self.north.max(center_north + range);
         self.south = self.south.min(center_north - range);
         self.east = self.east.max(center_east + range);
         self.west = self.west.min(center_east - range);
-        println!("{self}");
+        //println!("{self}");
     }
 
     pub fn shift(&mut self, shift: f32) {
@@ -276,6 +259,13 @@ impl BoundingBox {
         self.south += shift;
         self.east += shift;
         self.west += shift;
+    }
+
+    pub fn outside(&self, other: BoundingBox) -> bool {
+        self.east < other.west
+            || self.west > other.east
+            || self.north < other.south
+            || self.south > other.north
     }
 }
 
@@ -301,7 +291,7 @@ pub type BuildingsAndParts = Vec<BuildingOrPart>;
 #[derive(Deserialize, Debug, Clone)]
 pub struct Member {
     #[serde(rename = "type")]
-    pub relation_type: String,
+    pub member_type: String,
     #[serde(rename = "ref")]
     pub reference: u64,
     #[serde(rename = "role")]

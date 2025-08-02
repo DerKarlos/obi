@@ -10,8 +10,9 @@ const LOCAL_TEST: bool = false;
 use bevy::{
     asset::{AssetLoader, AssetMetaCheck, LoadContext, io::Reader},
     prelude::{
-        App, Asset, AssetApp, AssetPlugin, AssetServer, Assets, Commands, DefaultPlugins, Handle,
-        Mesh, PluginGroup, Res, ResMut, Resource, StandardMaterial, Startup, Update, default, info,
+        App, Asset, AssetApp, AssetPlugin, AssetServer, Assets, Commands, Component,
+        DefaultPlugins, Handle, Mesh, PluginGroup, Query, Res, ResMut, Resource, StandardMaterial,
+        Startup, Text, Update, With, default, info,
     },
     reflect::TypePath,
 };
@@ -46,6 +47,9 @@ struct BytesVec {
 #[derive(Default)]
 struct BytesAssetLoader;
 
+#[derive(Component)]
+struct TextUI;
+
 /// Possible errors that can be produced by [`BytesAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
@@ -68,8 +72,17 @@ impl AssetLoader for BytesAssetLoader {
     ) -> Result<Self::Asset, Self::Error> {
         info!("Loading Bytes...");
         let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-        Ok(BytesVec { bytes })
+        let result = reader.read_to_end(&mut bytes).await;
+        // https://github.com/bevyengine/bevy/discussions/20371   discussion !!!
+        match result {
+            Ok(_) => Ok(BytesVec { bytes }),
+            Err(e) => {
+                info!("Loading Error: {}", e);
+                // panic!("Problem loading the way: {e:?}");
+                Ok(BytesVec { bytes })
+            }
+        }
+        // Ok(BytesVec { bytes })
     }
 }
 
@@ -85,11 +98,11 @@ pub struct UrlCommandLineArgs {
     pub range: i32,
 }
 // How to run:
-// RUST_BACKTRACE=1 cargo run --example bevy_wasm -- --way 139890029  // Error! in bevy_web_asset (html-lib)
+// RUST_BACKTRACE=1 cargo run --example obi_wasm -- --way 139890029  // Error! in bevy_web_asset (html-lib)
 // http://localhost:8080/?way=24771505
 
 fn read_and_use_args(args: Res<UrlCommandLineArgs>, mut state: ResMut<State>) {
-    info!(" {:?}", *args);
+    info!("args: {:?}", *args);
     state.way_id = args.way as u64;
     state.show_only = args.only as u64;
     state.range = args.range as f32;
@@ -116,12 +129,14 @@ fn on_load(
     materials: ResMut<Assets<StandardMaterial>>,
     mut state: ResMut<State>,
     mut control_value: ResMut<osm_tb::ControlValues>,
+    mut text_query: Query<&mut Text, With<TextUI>>,
     bytes_assets: Res<Assets<BytesVec>>,
     asset_server: Res<AssetServer>,
 ) {
     let bytes = bytes_assets.get(&state.bytes);
 
     if bytes.is_none() {
+        //bytes_assets.
         // info!("Bytes Not Ready");
         return;
     }
@@ -137,11 +152,18 @@ fn on_load(
             state.range
         );
         // info!("Bytes asset loaded: {:?}", bytes.unwrap());
+        for mut text in text_query.iter_mut() {
+            text.0 = format!(
+                "OBI - OSM Building Inspector\nWay {:?}, loading OSM tagging",
+                state.way_id
+            );
+        }
 
         let mut bounding_box = state.api.geo_bbox_of_way_vec(&bytes.unwrap().bytes);
         bounding_box.min_range(state.range);
         state.range = bounding_box.max_radius() * osm_tb::LAT_FAKT as f32;
         control_value.distance = state.range * 1.0;
+        control_value.use_first_mouse_key_for_orientation = true;
 
         // load building
         state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
@@ -156,6 +178,12 @@ fn on_load(
         state.step1 = true;
     } else {
         // step2
+        for mut text in text_query.iter_mut() {
+            text.0 = format!(
+                "OBI - OSM Building Inspector\nWay {:?}, calucating 3D",
+                state.way_id
+            );
+        }
         let buildings_and_parts = state.api.scan_json_to_osm_vec(
             &bytes.unwrap().bytes,
             &state.gpu_ground_null_coordinates,
@@ -166,14 +194,23 @@ fn on_load(
             buildings_and_parts.len()
         );
         let osm_meshes = osm_tb::scan_elements_from_layer_to_mesh(buildings_and_parts);
-        osm_tb::bevy_osm(commands, meshes, materials, osm_meshes, state.range);
+        osm_tb::bevy_osm_load(commands, meshes, materials, osm_meshes, state.range);
+        for mut text in text_query.iter_mut() {
+            text.0 = "".into();
+        }
 
         state.step2 = true;
     }
 }
 
-fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, mut state: ResMut<State>, asset_server: Res<AssetServer>) {
     // Get the geographic center of the GPU scene. Example: https://api.openstreetmap.org/api/0.6/way/121486088/full.json
+
+    // Text-UI  (https://bevy.org/examples/ui-user-interface/text/)
+    let text = format!("OBI - OSM Building Inspector\nWay {:?}", state.way_id);
+
+    commands.spawn((Text::new(text), TextUI));
+
     let mut url = state.api.way_url(state.way_id);
     info!("= Way_URL: {url}");
 

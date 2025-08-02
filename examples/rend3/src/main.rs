@@ -53,6 +53,7 @@ impl rend3_framework::App for ObiExample {
         res.read_to_end(&mut bytes).unwrap();
         println!("body.len: {:?}", bytes.len());
         let bounding_box = api.geo_bbox_of_way_vec(&bytes);
+        #[cfg(debug_assertions)]
         println!("bounding_box: {:?}", &bounding_box);
         let url = api.bbox_url(&bounding_box);
 

@@ -7,11 +7,11 @@ use csscolorparser::parse;
 use std::collections::HashMap;
 
 use crate::footprint::{Footprint, Orientation};
+use crate::kernel_in::Members;
 use crate::kernel_in::{
     BuildingOrPart, BuildingsAndParts, FIRST_POLYGON, GeographicCoordinates, GroundPosition,
-    GroundPositions, OsmMap, POLYGON_OUTER, RenderColor, RoofShape,
+    GroundPositions, OUTER_POLYGON, OsmMap, RenderColor, RoofShape,
 };
-use crate::kernel_in::{Members, Polygons};
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.7, 0.7, 0.7, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
@@ -23,9 +23,9 @@ pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 
 
 #[derive(PartialEq)]
 enum OuterState {
-    NEW,
-    PARTLY,
-    READY,
+    New,
+    Partly,
+    Ready,
 }
 
 // Helper functions for the osm to layer processing ///////////////////////////
@@ -40,7 +40,7 @@ fn circle_limit(angle: f32) -> f32 {
     }
 }
 
-fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
+fn parse_color(color: Option<&String>, default: RenderColor, id: u64) -> RenderColor {
     // https://docs.rs/csscolorparser/latest/csscolorparser/
     // Bevy pbr color needs f32, The parse has no .as_f32}
     if color.is_none() {
@@ -93,9 +93,9 @@ fn parse_color(color: Option<&String>, default: RenderColor) -> RenderColor {
 
         _ => {
             println!(
-                "parse_colour: {} => {:?}",
+                "OSM id {id}: Bad color: {}",
                 color_string,
-                color_or_error.err()
+                //color_or_error.err()
             );
             DEFAULT_BAD_COLOR
         }
@@ -151,12 +151,10 @@ fn tags_get3<'a>(
 ) -> Option<&'a String> {
     if let Some(tag) = tags.get(option1) {
         Some(tag)
+    } else if let Some(tag) = tags.get(option2) {
+        Some(tag)
     } else {
-        if let Some(tag) = tags.get(option2) {
-            Some(tag)
-        } else {
-            tags.get(option3)
-        }
+        tags.get(option3)
     }
 }
 
@@ -226,7 +224,7 @@ impl Osm2Layer {
             lines_map: HashMap::new(),
             buildings: Vec::new(),
             parts: Vec::new(),
-            outer_state: OuterState::NEW,
+            outer_state: OuterState::New,
             relations: Vec::new(),
             buildings_or_parts: Vec::new(),
             show_only,
@@ -293,9 +291,9 @@ impl Osm2Layer {
         // https://www.openstreetmap.org/edit#map=22/51.4995203/-0.1290937
         // So building else if solves it??? Overpass vor beeng both and check
         if let Some(tags) = &tags {
-            if tags_get_yes(&tags, "building").is_some() {
+            if tags_get_yes(tags, "building").is_some() {
                 self.buildings.push(id);
-            } else if tags_get_yes(&tags, "building:part").is_some() {
+            } else if tags_get_yes(tags, "building:part").is_some() {
                 self.parts.push(id);
             }
         }
@@ -335,31 +333,30 @@ impl Osm2Layer {
     ///////////////////////
 
     pub fn process_elements(&mut self) {
-        // Subtract parts from ways - code is slow? Todo!
-
+        //
+        #[cfg(debug_assertions)]
         println!("\n**** process: {:?} relations", self.relations.len());
-        while !self.relations.is_empty() {
-            //for osm_relation in self.relations.iter() {
-            let mut osm_relation = self.relations.pop().unwrap();
+        while let Some(mut osm_relation) = self.relations.pop() {
             self.process_relation(osm_relation.id, &mut osm_relation);
         }
 
+        #[cfg(debug_assertions)]
         println!("\n**** process {:?} ways", self.buildings.len());
         // Bevy function does not work here info!("\n**** process {:?} ways", self.buildings.len());
-        for building_id in &self.buildings.clone() {
-            let mut building = self.areas_map.remove(building_id).unwrap();
+        while let Some(building_id) = self.buildings.pop() {
+            // while !self.buildings.is_empty() {
+            //let building_id = self.buildings.pop().unwrap();
+            let mut building = self.areas_map.remove(&building_id).unwrap();
             let initial_area_size = building.footprint.get_area_size();
 
-            // substract parts from building
+            // Subtract parts from building outer ways - code is slow? Todo!
             for part_id in &self.parts {
                 //println!("part: {part_id}");
                 //if *part_id > 814784299 {
                 //    continue;
                 //}
                 let part = &self.areas_map.get(part_id).unwrap();
-                //let shape = part.footprint.clone();
-                let part_polygons = part.footprint.polygons.clone(); // todo: avoid clone! how? by ref clashes with ownership
-                building.footprint.subtract(&part_polygons);
+                building.footprint.subtract(&part.footprint);
                 if building.footprint.polygons.is_empty() {
                     break;
                 }
@@ -368,15 +365,18 @@ impl Osm2Layer {
             let remaining_area_size = building.footprint.get_area_size();
             let percent_left = (remaining_area_size / initial_area_size * 100.) as i32;
 
+            #[cfg(debug_assertions)]
             println!("building: {building_id} left: {percent_left}%");
 
             if !building.footprint.polygons.is_empty() && percent_left >= 40 {
-                self.create_building_or_part(*building_id, &mut building);
+                self.create_building_or_part(building_id, &mut building);
             }
         }
 
+        #[cfg(debug_assertions)]
         println!("\n**** process {:?} parts", self.parts.len());
         for part_id in &self.parts.clone() {
+            #[cfg(debug_assertions)]
             println!("part: {part_id}");
             let mut part = self.areas_map.remove(part_id).unwrap();
             self.create_building_or_part(*part_id, &mut part);
@@ -403,7 +403,7 @@ impl Osm2Layer {
 
         let part = tags.get("building:part").is_some();
         let simple_footprint = osm_way.footprint.polygons.len() == 1
-            && osm_way.footprint.polygons[FIRST_POLYGON][POLYGON_OUTER].len() <= 6;
+            && osm_way.footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].len() <= 6;
 
         // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
         let roof_shape: RoofShape = match tags.get("roof:shape") {
@@ -430,6 +430,7 @@ impl Osm2Layer {
         let building_color = parse_color(
             tags_get3(tags, "building:colour", "colour", "building:material"),
             DEFAULT_WALL_COLOR,
+            id,
         );
         // Should parts for default get the red DEFAULT_ROOF_COLOR or DEFAULT_WALL_COLOR or the given wall color?
         let roof_color = parse_color(
@@ -444,6 +445,7 @@ impl Osm2Layer {
                     DEFAULT_WALL_COLOR
                 }
             },
+            id,
         );
 
         let default_roof_heigt = match roof_shape {
@@ -591,6 +593,7 @@ impl Osm2Layer {
         // todo: process relation type building? The outer and parts are processed by the normal code anyway, are they?
         // except the outer has no tags!
 
+        #[cfg(debug_assertions)]
         println!("Relation: {:?}", id);
 
         if osm_relation.members.is_empty() {
@@ -624,29 +627,24 @@ impl Osm2Layer {
 
         let mut footprint = Footprint::new();
 
-        self.outer_state = OuterState::NEW;
+        self.outer_state = OuterState::New;
 
         // first scann for outer, later vo inner
         for member in &members {
             // println!("mem: {:?}", &member);
-            if member.relation_type != "way" {
+            if member.member_type != "way" {
                 return;
             }
-            match member.role.as_str() {
-                "outer" => {
-                    self.process_relation_outer(member.reference, &mut footprint);
-                }
-                _ => (),
+
+            if member.role.as_str() == "outer" {
+                self.process_relation_outer(member.reference, &mut footprint, id);
             }
         }
 
         for member in &members {
             //println!("mem: {:?}", &member);
-            match member.role.as_str() {
-                "inner" => {
-                    self.process_relation_inner(member.reference, &mut footprint);
-                }
-                _ => (),
+            if member.role.as_str() == "inner" {
+                self.process_relation_inner(member.reference, &mut footprint, id);
             }
         }
 
@@ -655,7 +653,7 @@ impl Osm2Layer {
             return;
         }
 
-        if self.outer_state == OuterState::PARTLY {
+        if self.outer_state == OuterState::Partly {
             footprint.close();
         }
 
@@ -667,7 +665,7 @@ impl Osm2Layer {
         };
 
         self.areas_map.insert(id, v);
-        let part = tags_get_yes(&osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
+        let part = tags_get_yes(osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
 
         if part {
             self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part
@@ -678,21 +676,22 @@ impl Osm2Layer {
 
     ///////////////////////
 
-    fn process_relation_outer(&mut self, outer_ref: u64, new_footprint: &mut Footprint) {
+    fn process_relation_outer(&mut self, outer_ref: u64, new_footprint: &mut Footprint, id: u64) {
+        #[cfg(debug_assertions)]
         println!("outer: {}", outer_ref);
         if let Some(area) = self.areas_map.get(&outer_ref) {
             // Todo: cloning footprint twice can't be the solution
-            if self.outer_state != OuterState::NEW {
-                println!("outer_state: not NEW {}", outer_ref);
+            if self.outer_state != OuterState::New {
+                println!("Relation {id}: Odd outer way: {}", outer_ref);
                 return;
             }
             new_footprint.set(&area.footprint);
-            self.outer_state = OuterState::READY;
+            self.outer_state = OuterState::Ready;
             return;
         }
 
         if let Some(line) = self.lines_map.get(&outer_ref) {
-            self.outer_state = OuterState::PARTLY;
+            self.outer_state = OuterState::Partly;
             println!(
                 // todo: multi outer/inner
                 "outer line, id: {} nodes: {} taggs: {}",
@@ -708,23 +707,19 @@ impl Osm2Layer {
         println!("outer none, id/ref: {}", outer_ref);
     }
 
-    fn process_relation_inner(&self, elements_ref: u64, new_footprint: &mut Footprint) {
+    fn process_relation_inner(&self, elements_ref: u64, new_footprint: &mut Footprint, id: u64) {
         //println!("elements_ref: {:?}", &elements_ref);
         let option = self.areas_map.get(&elements_ref);
         if option.is_none() {
-            println!("inner none, id/ref: {}", elements_ref);
+            println!("Relaton {id}: Inner way {} not loaded!", elements_ref);
             return;
         }
+        #[cfg(debug_assertions)]
         println!("inner: {}", elements_ref);
 
         // todo: what if the hole is has holes? What if the polygon is a multipolygon?
-        let polygons: &Polygons = &self
-            .areas_map
-            .get(&elements_ref)
-            .unwrap()
-            .footprint
-            .polygons;
-        new_footprint.subtract(&polygons);
+        let footprint: &Footprint = &self.areas_map.get(&elements_ref).unwrap().footprint;
+        new_footprint.subtract(footprint);
         //println!("inner way; {:?}", &elements_ref);
     }
 }

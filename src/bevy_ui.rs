@@ -17,6 +17,7 @@ use bevy::render::{
 struct StartingValues {
     pub osm_meshes: Vec<OsmMeshAttributes>,
     pub range: f32,
+    //pub ui: Option<EntityCommands>,
 }
 
 fn spawn_osm_mesh(
@@ -51,27 +52,32 @@ fn spawn_osm_mesh(
     ));
 }
 
+// examples like obi.rs have no Bevy code. They setup Bevy here:
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    starting_values: Res<StartingValues>,
+    starting_values: ResMut<StartingValues>,
 ) {
     for mesh in &starting_values.osm_meshes {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    let range = starting_values.range;
-
-    environment(commands, meshes, materials, range);
+    environment(commands, meshes, materials, starting_values.range);
 }
+
+#[derive(Component)]
+struct TextUI;
 
 fn environment(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     range: f32,
+    // starting_values: &mut StartingValues,
 ) {
+    //let range = starting_values.range;
+
     // light
     commands.spawn((
         DirectionalLight {
@@ -102,14 +108,13 @@ fn environment(
     ));
 }
 
-// examples like obi.rs have no Bevy code. They init Bevy herer:
+// BEVY-APP ///////////////
+// examples like obi.rs have no Bevy code. They init Bevy here:
 pub fn render_init(
     osm_meshes: Vec<OsmMeshAttributes>,
     range: f32,
     use_first_mouse_key_for_orientation: bool,
 ) {
-    println!(" "); // distance between test outputs and Bevy outputs
-
     let starting_values = StartingValues { osm_meshes, range };
 
     let control_values = ControlValues {
@@ -118,7 +123,6 @@ pub fn render_init(
         ..default()
     };
 
-    // BEVY-App
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
@@ -129,9 +133,10 @@ pub fn render_init(
         .run();
 }
 
-// Only used from example bevy-main.rs: Adds osm parts, light and camera.
-// Bevy Main and asset loading is already done in the example code
-pub fn bevy_osm(
+// BEVY-OSM mesh load //////////
+// Only used from example obi_main.rs: Adds osm parts, light and camera.
+// Bevy-App and asset loading is already done in the example code
+pub fn bevy_osm_load(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -142,9 +147,6 @@ pub fn bevy_osm(
     for mesh in &osm_meshes {
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
-
-    println!(" "); // console output distance between test outputs and Bevy
-
     commands.insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)));
 
     environment(commands, meshes, materials, range);
