@@ -66,7 +66,6 @@ impl Footprint {
     }
 
     pub fn push_position(&mut self, position: GroundPosition) {
-        self.polygons[FIRST_POLYGON][POLYGON_OUTER].push(position);
         self.polygons[FIRST_POLYGON][OUTER_POLYGON].push(position);
         self.bounding_box.include(&position);
         self.center.north += position.north;
