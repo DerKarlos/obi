@@ -1,14 +1,21 @@
-Ideas from https://github.com/Beakerboy/OSMBuilding/tree/main
-* errorBox: für ipad / noch mal das text ui probieren! Example
-* surrounds(shape, point) & partIsInside für Part in Building! Interessant!
-     Nicht langsam, aber auch kein grobcheck
+Beitrag:
+bakerbox bads: 440257472 and 440257471
+Inside Hilton building 107643543
+* Is much but not fully (65%) replaced by parts and has color. With 65% it sould be gone by the rool of Tornadic, but it is visible! And optically, not all parts (440123083,440123080,815659587) are subtracted!
+is a restaurante 440257457 ALSO as a building(!) with two parts 440123082,440123083 (for different colours only) By the way: light_brown is not a valid colour!
 
 Next todo:
+* errorBox/ui: für ipad
+* A paramter rel=9593239 sould help with the outer
+* If one inspects an existing building, edited for the F4map renderer, it will look "wrong".
+   (I need to analyse, how F4Map logic is here)
+* part 1373331436 not inside building 172649356 !?
 * crash: way 1149973649
 * Relation with > 1 outer and >1 for one inner: 8035487.    9346128=4outer
 * Contributing hat gute punkte und meine hilfsbedürfte dazu
 * And also crashes: 3376015
 * Accept relations (auto if nuber < 1000xxx?)
+* 440100148 is NOT inside 107643502 as other_is_inside tells! Gets not subtracted from (107643498) !!!
 * Overtures als datenquelle:
   https://docs.overturemaps.org/guides/buildings/#14/32.58453/-117.05154/0/60
   https://github.com/andersborgabiro/overture2stl
@@ -34,6 +41,8 @@ Next todo:
 
 
 More todo:
+* 316556318: Dach-rel:4166727 geht one -r 1 nicht? The inverted Bakerboy-fn gives a node outside!
+* building:part=steps - https://www.openstreetmap.org/way/311294175#map=18/52.239348/21.046624
 * Solve this DOUBLE outer https://www.openstreetmap.org/relation/14548261#map=19/51.517498/-0.102085
 * Historymap ist nur andere url
 * https://wiki.f4map.com/render
@@ -75,7 +84,14 @@ More todo:
   do?: Using fetch browser API • https://rustwasm.github.io/wasm-bindgen/examples/fetch.html
   web-sys, js-sys, wasm-bindgen and wasm-bindgen-futures • https://crates.io/crates/ehttp
 
+* Get this warings away:
+  GPU preprocessing is not supported on this device. Falling back to CPU preprocessing.
+  ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.
+  AtmospherePlugin not loaded. GPU lacks support for compute shaders.
+
 F4map
+
+* https://wiki.f4map.com/render
 * building:colour = roof:colour? part: 207377042?
   But 206020152 below with roof:material=stone looks the same
 * Thin roofs-trick:

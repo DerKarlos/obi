@@ -11,13 +11,13 @@ use osm_tb::*;
 pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
     // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726
-    // St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
+    // Default St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
     #[arg(short, long, default_value = "369161987")] //
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,
     #[arg(short, long, default_value = "0")]
-    pub range: f32,
+    pub range: u32,
 }
 
 // Implement web enabled parser for your struct
@@ -42,7 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // use web enabled parse and it works on native or web.
     let args: UrlClArgs = UrlClArgs::we_parse(); // Type annotations needed
-    let range_string = if args.way > 0 {
+    let way_only = if args.range > 0 { 0 } else { args.way };
+
+    let range_string = if args.range > 0 {
         format!("(range {})", args.range)
     } else {
         "".into()
@@ -63,15 +65,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    bounding_box.min_range(args.range);
+    bounding_box.min_range(args.range as f32);
     let range = bounding_box.max_radius() * LAT_FAKT as f32;
     #[cfg(debug_assertions)]
-    println!("bounding_box: {:?}", &bounding_box);
+    println!("= {:?}", &bounding_box);
     println!("Loading data");
 
     let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
     let buildings_and_parts = api
-        .scan_osm(&bounding_box, &gpu_ground_null_coordinates, args.only)
+        .scan_osm(
+            &bounding_box,
+            &gpu_ground_null_coordinates,
+            args.only,
+            way_only,
+        )
         .await?;
     // println!("buildings_and_parts: {:?}", buildings_and_parts);
 

@@ -127,7 +127,7 @@ fn parse_height(height_option: Option<&String>) -> f32 {
     }
 }
 
-fn tags_get_yes<'a>(tags: &'a OsmMap, searched: &str) -> Option<&'a String> {
+pub fn tags_get_yes<'a>(tags: &'a OsmMap, searched: &str) -> Option<&'a String> {
     if let Some(tag) = tags.get(searched) {
         if tag == "no" { None } else { Some(tag) }
     } else {
@@ -211,12 +211,18 @@ pub struct Osm2Layer {
     parts: Vec<u64>,
     relations: Vec<OsmRelation>,
     outer_state: OuterState,
+    first_outer_id: u64,
     buildings_or_parts: BuildingsAndParts,
     show_only: u64,
+    way_only: u64,
 }
 
 impl Osm2Layer {
-    pub fn create(gpu_ground_null_coordinates: GeographicCoordinates, show_only: u64) -> Self {
+    pub fn create(
+        gpu_ground_null_coordinates: GeographicCoordinates,
+        show_only: u64,
+        way_only: u64,
+    ) -> Self {
         Self {
             gpu_ground_null_coordinates,
             nodes_map: HashMap::new(),
@@ -225,9 +231,11 @@ impl Osm2Layer {
             buildings: Vec::new(),
             parts: Vec::new(),
             outer_state: OuterState::New,
+            first_outer_id: 0,
             relations: Vec::new(),
             buildings_or_parts: Vec::new(),
             show_only,
+            way_only,
         }
     }
 
@@ -238,14 +246,16 @@ impl Osm2Layer {
     ///////////////////////
 
     pub fn add_node(&mut self, id: u64, latitude: f64, longitude: f64, _tags: Option<OsmMap>) {
-        self.nodes_map.insert(
-            id,
-            OsmNode {
-                position: self
-                    .gpu_ground_null_coordinates
-                    .coordinates_to_position(latitude, longitude),
-            },
-        );
+        let position = if self.gpu_ground_null_coordinates.latitude == 0.0 {
+            GroundPosition {
+                north: latitude as f32,
+                east: longitude as f32,
+            }
+        } else {
+            self.gpu_ground_null_coordinates
+                .coordinates_to_position(latitude, longitude)
+        };
+        self.nodes_map.insert(id, OsmNode { position });
     }
 
     pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<OsmMap>) {
@@ -342,28 +352,59 @@ impl Osm2Layer {
 
         #[cfg(debug_assertions)]
         println!("\n**** process {:?} ways", self.buildings.len());
-        // Bevy function does not work here info!("\n**** process {:?} ways", self.buildings.len());
         while let Some(building_id) = self.buildings.pop() {
-            // while !self.buildings.is_empty() {
-            //let building_id = self.buildings.pop().unwrap();
+            if self.show_only > 0 && self.show_only != building_id {
+                continue;
+            }
+            if self.way_only > 0 && self.way_only != building_id {
+                continue;
+            }
+            println!("building: {building_id} ...");
             let mut building = self.areas_map.remove(&building_id).unwrap();
-            let initial_area_size = building.footprint.get_area_size();
+            let outer_area_size = building.footprint.get_area_size();
+
+            let outer_area = building.footprint.clone(); // clone only the outer!  ???
 
             // Subtract parts from building outer ways - code is slow? Todo!
-            for part_id in &self.parts {
-                //println!("part: {part_id}");
-                //if *part_id > 814784299 {
-                //    continue;
-                //}
-                let part = &self.areas_map.get(part_id).unwrap();
-                building.footprint.subtract(&part.footprint);
-                if building.footprint.polygons.is_empty() {
-                    break;
+            // is parts cloned or part_id???
+            let mut part_index: i32 = -1;
+            for part_id in self.parts.clone() {
+                part_index += 1;
+                println!("part: {part_id}");
+
+                if part_id == 664613340 {
+                    println!("tttpart");
+                } else {
+                    continue;
                 }
+
+                if part_id == 0 {
+                    continue;
+                }
+
+                let part = &self.areas_map.get(&part_id).unwrap();
+
+                if outer_area.bounding_box.outside(part.footprint.bounding_box) {
+                    continue;
+                };
+                // merge the two fn ???
+                if !outer_area.other_is_inside(&part.footprint) {
+                    continue;
+                };
+
+                #[cfg(debug_assertions)]
+                println!("part: {part_id}");
+                building.footprint.subtract(&part.footprint);
+                let mut part = self.areas_map.remove(&part_id).unwrap();
+                self.create_building_or_part(part_id, &mut part);
+
+                self.parts[part_index as usize] = 0;
+
+                // if outer empty: continue to render more parts
             }
 
             let remaining_area_size = building.footprint.get_area_size();
-            let percent_left = (remaining_area_size / initial_area_size * 100.) as i32;
+            let percent_left = (remaining_area_size / outer_area_size * 100.) as i32;
 
             #[cfg(debug_assertions)]
             println!("building: {building_id} left: {percent_left}%");
@@ -374,12 +415,10 @@ impl Osm2Layer {
         }
 
         #[cfg(debug_assertions)]
-        println!("\n**** process {:?} parts", self.parts.len());
-        for part_id in &self.parts.clone() {
-            #[cfg(debug_assertions)]
-            println!("part: {part_id}");
-            let mut part = self.areas_map.remove(part_id).unwrap();
-            self.create_building_or_part(*part_id, &mut part);
+        for part_id in &self.parts {
+            if *part_id > 0 {
+                println!("LEFT part: {part_id}");
+            }
         }
     }
 
@@ -392,6 +431,7 @@ impl Osm2Layer {
             return;
         }
 
+        // println!("tags_opiton: {:?}", osm_way.tags);
         let tags = osm_way.tags.as_ref().unwrap();
 
         if osm_way.footprint.polygons.is_empty() {
@@ -658,19 +698,23 @@ impl Osm2Layer {
         }
 
         // buildings_and_parts.push...
-        let v = OsmArea {
-            _id: id,
+        println!("tags: {:?}", tags.clone());
+        let new_osm_area = OsmArea {
+            _id: self.first_outer_id,
             footprint,
             tags: Some(tags.clone()),
         };
 
-        self.areas_map.insert(id, v);
-        let part = tags_get_yes(osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
+        self.areas_map.insert(self.first_outer_id, new_osm_area);
+        let is_part = tags_get_yes(osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
 
-        if part {
-            self.parts.push(osm_relation.id); // To subtract it from a building, it must be a part
+        if is_part {
+            if self.first_outer_id == self.way_only {
+                println!("The Relation of the inspected Outer-Way is not a building but a part!");
+            }
+            self.parts.push(self.first_outer_id); // To subtract it from a building, it must be a part
         } else {
-            self.buildings.push(osm_relation.id); // If IT is a building, it must be in the building list, to get parts substracted!
+            self.buildings.push(self.first_outer_id); // If IT is a building, it must be in the building list, to get parts substracted!
         }
     }
 
@@ -687,6 +731,7 @@ impl Osm2Layer {
             }
             new_footprint.set(&area.footprint);
             self.outer_state = OuterState::Ready;
+            self.first_outer_id = outer_ref;
             return;
         }
 

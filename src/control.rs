@@ -375,6 +375,7 @@ fn camera_mouse(
             // mouse_wheel event: MouseWheel { unit: Pixel, x: 0.0, y: 0.0, window: 0v1#4294967296 }
             let elevation_fakt: f32 = 1. + event.y * 0.0005;
             control_values.distance /= elevation_fakt;
+            control_values.distance = control_values.distance.max(0.3);
             camera.translation = control_values.target - camera.forward() * control_values.distance;
         }
 

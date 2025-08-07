@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use i_float::float::compatible::FloatPointCompatible;
 use serde::Deserialize;
 
-pub static LAT_FAKT: f64 = 111100.0; // 111285; // exactly enough  111120 = 1.852 * 1000.0 * 60  // 1 NM je Bogenminute: 1 Grad Lat = 60 NM = 111 km, 0.001 Grad = 111 m
 pub static PI: f32 = std::f32::consts::PI;
+pub static LAT_FAKT: f64 = 111120.0; // 111100.0  111285; // exactly enough  111120 = 1.852 * 1000.0 * 60 - It is in the OSM wiki: 1′ = 1.852 km * 60s/min * 1000m/km = 111120m
 
 //use std::fmt::Display;
 use std::fmt;
@@ -28,7 +28,12 @@ impl GeographicCoordinates {
      */
 
     // Version from bakerboy. The result doasn't look different. But may be it helps somewere
-    pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
+    // could be for large distances on a sphere. Drop it ???
+    pub fn _bakerboy_coordinates_to_position(
+        &self,
+        latitude: f64,
+        longitude: f64,
+    ) -> GroundPosition {
         const PI: f64 = std::f64::consts::PI;
         const R: f64 = 6371. * 1000.; // Earth radius in m
         //nst CIRC: f64 = 2. * PI * R; // Circumference
@@ -47,8 +52,8 @@ impl GeographicCoordinates {
         }
     }
 
-    pub fn _karlos_coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
-        // What s that vor ???
+    pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
+        // If no GPU 0 position is set, return just the GPS position. Used to find the GPU 0 position
         if self.latitude == 0. {
             return GroundPosition {
                 north: latitude as f32,
@@ -56,10 +61,9 @@ impl GeographicCoordinates {
             };
         }
 
-        // the closer to the pole, the smaller the tiles size in meters get
+        // The closer to a pole, the smaller the tiles size in meters get
         let lon_fakt = LAT_FAKT * ((latitude / 180. * PI as f64).abs()).cos();
         // Longitude(Längengrad) West/East factor
-        // actual coor - other coor = relative grad/meter ground position
 
         GroundPosition {
             north: ((latitude - self.latitude) * LAT_FAKT) as f32,
@@ -219,6 +223,13 @@ impl BoundingBox {
         }
     }
 
+    pub const ZERO: Self = Self {
+        north: 0.0,
+        south: 0.0,
+        east: 0.0,
+        west: 0.0,
+    };
+
     pub fn max_radius(&self) -> f32 {
         (self.east - self.west).max(self.north - self.south)
     }
@@ -240,10 +251,14 @@ impl BoundingBox {
         self.west = self.west.min(position.east);
     }
 
+    /*
+     * Extend the area of the OSM object to the given range at last
+     * @param {f32} range in meters - the minimum range of the bounding box
+     */
     pub fn min_range(&mut self, range: f32) {
         //println!("{self}");
         // range in meter to degres
-        let range = range / LAT_FAKT as f32;
+        let range = range as f32 / LAT_FAKT as f32;
         let center_north = (self.north - self.south) / 2. + self.south;
         let center_east = (self.east - self.west) / 2. + self.west;
         //println!("{range} {center_north} {center_east}");

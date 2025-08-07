@@ -43,7 +43,8 @@ Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_v
 
 
 ### Projects may be interresting:
-*  maps.stadt-salzburg.at/3d/
+* https://github.com/Zkir/UrbanEye3D/issues/4#issuecomment-3160105970
+* maps.stadt-salzburg.at/3d/
 * Data-source and renderer?:
   https://www.bkg.bund.de/SharedDocs/Produktinformationen/BKG/DE/P-2025/250703_basemap-de-Vektor.html
 * Overture file format Rust crate https://github.com/apache/arrow-rs/tree/main/parquet

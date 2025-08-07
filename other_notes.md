@@ -27,7 +27,8 @@ More Examples
 * Saint Basil's Cathedral Relation 3030568
 * Vatikan, Saint Peter's Basilica  244159210
 * Marienplatz 223907278
-* Cologne Cathedral: 1233649406
+* Cologne Cathedral: 1233649406, Krahnhaus:234160726
+* https://osmgo.org/bevy.html?way=398036478 one more Ernest Pohl Stadium  Polen
 
 Subtract tests
 * Test1: cargo run --example m_async -- -r 0 -w 239592652

@@ -271,10 +271,6 @@ impl Footprint {
     pub fn subtract(&mut self, other: &Footprint) {
         let hole_positions = &other.polygons;
 
-        if self.bounding_box.outside(other.bounding_box) {
-            return;
-        };
-
         let remaining =
             self.polygons
                 .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
@@ -294,4 +290,122 @@ impl Footprint {
             println!("shape with no outer ...");
         }
     }
+
+    /**
+     * Check if any point in a part is within this building's outline.
+     * It only checknof points are inside, not if crossing events occur, or
+     * if the part completly surrounds the building.
+     * @param {BuildingPart} part - the part to be tested
+     * @returns {bool} is it?
+     */
+    pub fn other_is_inside(&self, other: &Footprint) -> bool {
+        println!("tttother: {:?}", other.polygons);
+        println!("tttself: {:?}", self.polygons);
+        let outer = &other.polygons[FIRST_POLYGON][OUTER_POLYGON];
+        for (index, position) in outer.iter().enumerate() {
+            if index == 2 {
+                println!("....");
+            }
+            if !surrounds(&self.polygons[FIRST_POLYGON][OUTER_POLYGON], position) {
+                println!("ttt3 index: {index} p: {:?}", position);
+                return false;
+            }
+        }
+        return true;
+    }
+}
+
+/// Checks if a point is inside or on the border of a polygon.
+/// `shape`: list of polygon vertices (must be a closed polygon, first and last point don't need to be the same)
+/// `point`: the (x, y) point to check
+pub fn surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
+    let mut count = 0;
+    let n = positions.len();
+
+    for (i, position) in positions.iter().enumerate() {
+        //for i in 0..n {
+        //let vec = positions[i];
+        let next_pos = positions[(i + 1) % n];
+
+        if position.east == point.east && position.north == point.north {
+            return true; // Point is exactly on a vertex
+        }
+
+        if next_pos.east == position.east {
+            // Vertical line
+            if point.east == position.east {
+                return true; // Point is on a vertical line
+            }
+            if position.east > point.east
+                // West of vertical line and not abowe or below
+                && (position.north > point.north || next_pos.north > point.north)
+                && !(position.north > point.north && next_pos.north > point.north)
+            {
+                // went into or out of area
+                count += 1;
+            }
+        } else if next_pos.north == position.north {
+            // Horizontal line
+            if position.north == point.north
+                && (position.east > point.east || next_pos.east > point.east)
+                && !(position.east > point.east && next_pos.east > point.east)
+            {
+                return true; // Point is on a horizontal edge
+            }
+        } else {
+            // slopy line
+            let slope = (next_pos.north - position.north) / (next_pos.east - position.east);
+            let intercept = position.north - slope * position.east;
+            let intersection = (point.north - intercept) / slope;
+
+            if intersection > point.east
+                && intersection < f32::max(next_pos.east, position.east)
+                && intersection > f32::min(next_pos.east, position.east)
+            {
+                count += 1;
+            } else if (intersection - point.east).abs() < f32::EPSILON {
+                return true; // Point lies exactly on the edge
+            }
+        }
+    }
+
+    count % 2 == 1
+}
+
+/// Checks if a point is inside a polygon using the ray casting algorithm.
+/// ChatGPT generated code - does not work
+///
+/// # Arguments
+/// * `point` - The point to test.
+/// * `polygon` - A slice of points representing the polygon vertices, ordered clockwise or counterclockwise.
+///
+/// # Returns
+/// * `true` if the point is inside the polygon, `false` otherwise.
+fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
+    let mut inside = false;
+    let n = positions.len();
+
+    if n < 3 {
+        return false; // Not a valid polygon
+    }
+
+    let mut j = n - 1;
+    for i in 0..n {
+        let pi = positions[i];
+        let pj = positions[j];
+
+        let intersect = ((pi.north > point.north) != (pj.north > point.north))
+            && (point.east
+                < (pj.east - pi.east) * (point.north - pi.north)
+                    / (pj.north - pi.north + f32::EPSILON)
+                    + pi.east);
+
+        if intersect {
+            inside = !inside;
+        }
+
+        j = i;
+    }
+
+    inside
 }

@@ -47,12 +47,13 @@ impl rend3_framework::App for ObiExample {
 
     fn setup(&mut self, context: rend3_framework::SetupContext<'_>) {
         let api = InputOsm::new(); // InputJson or InputLib
-        let url = api.way_url(369161987);
+        let way_id = 369161987;
+        let url = api.way_url(way_id);
         let mut res = reqwest::blocking::get(url).unwrap();
         let mut bytes: Vec<u8> = Vec::new();
         res.read_to_end(&mut bytes).unwrap();
         println!("body.len: {:?}", bytes.len());
-        let bounding_box = api.geo_bbox_of_way_vec(&bytes);
+        let bounding_box = api.geo_bbox_of_way_vec(&bytes, way_id);
         #[cfg(debug_assertions)]
         println!("bounding_box: {:?}", &bounding_box);
         let url = api.bbox_url(&bounding_box);
@@ -64,8 +65,12 @@ impl rend3_framework::App for ObiExample {
         let mut bytes: Vec<u8> = Vec::new();
         res.read_to_end(&mut bytes).unwrap();
         println!("json.len: {:?}", bytes.len());
-        let buildings_and_parts =
-            api.scan_json_to_osm_vec(&bytes, &bounding_box.center_as_geographic_coordinates(), 0);
+        let buildings_and_parts = api.scan_json_to_osm_vec(
+            &bytes,
+            &bounding_box.center_as_geographic_coordinates(),
+            0,
+            0,
+        );
         println!("buildings_and_parts len: {:?}", buildings_and_parts.len());
         let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
         println!("meshes len: {:?}", meshes.len());
