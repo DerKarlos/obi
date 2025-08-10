@@ -370,13 +370,13 @@ impl Osm2Layer {
             let mut part_index: i32 = -1;
             for part_id in self.parts.clone() {
                 part_index += 1;
-                println!("part: {part_id}");
+                //ttt                println!("part: {part_id}");
 
-                if part_id == 664613340 {
-                    println!("tttpart");
-                } else {
-                    continue;
-                }
+                //if part_id == 664613340 {
+                //    println!("tttpart");
+                //} else {
+                //    continue;
+                //}
 
                 if part_id == 0 {
                     continue;
@@ -389,11 +389,13 @@ impl Osm2Layer {
                 };
                 // merge the two fn ???
                 if !outer_area.other_is_inside(&part.footprint) {
+                    println!("- part: {part_id}");
                     continue;
                 };
+                println!("+ part: {part_id}");
 
                 #[cfg(debug_assertions)]
-                println!("part: {part_id}");
+                //tttprintln!("part: {part_id}");
                 building.footprint.subtract(&part.footprint);
                 let mut part = self.areas_map.remove(&part_id).unwrap();
                 self.create_building_or_part(part_id, &mut part);
@@ -698,7 +700,7 @@ impl Osm2Layer {
         }
 
         // buildings_and_parts.push...
-        println!("tags: {:?}", tags.clone());
+        // println!("tags: {:?}", tags.clone());
         let new_osm_area = OsmArea {
             _id: self.first_outer_id,
             footprint,

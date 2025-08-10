@@ -7,6 +7,9 @@ use i_overlay::core::fill_rule::FillRule;
 use i_overlay::core::overlay_rule::OverlayRule;
 use i_overlay::float::single::SingleFloatOverlay;
 
+// primitives
+use geo::{Area, BooleanOps, Coord, Intersects, LineString, MultiPolygon, Polygon};
+
 use crate::kernel_in::{
     BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, OUTER_POLYGON,
     Polygons,
@@ -271,10 +274,19 @@ impl Footprint {
     pub fn subtract(&mut self, other: &Footprint) {
         let hole_positions = &other.polygons;
 
-        let remaining =
-            self.polygons
-                .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
-        //  .                                                  not working::Negative
+        let this = self.to_geo_multi_polygon();
+        let othr = other.to_geo_multi_polygon();
+        let rema = this.difference(&othr);
+        let ta = this.signed_area();
+        let oa = othr.signed_area();
+        let ra = rema.signed_area();
+        println!("ta: {ta} oa: {oa} ra: {ra} 0: {:?}", ta - oa - ra);
+        let remaining = self.from_geo_c(rema);
+
+        //let remaining =
+        //    self.polygons
+        //        .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
+        ////  .                                                  not working::Negative
 
         // simplify did not realy work, just cut it always away
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
@@ -291,6 +303,68 @@ impl Footprint {
         }
     }
 
+    //ääää
+    fn line_string_to_positions(&self, line_string: LineString) -> GroundPositions {
+        let mut positions: Vec<GroundPosition> = Vec::new();
+        for point in line_string {
+            positions.push(GroundPosition {
+                north: point.y as f32,
+                east: point.x as f32,
+            })
+        }
+        positions
+    }
+
+    fn from_geo_c(&mut self, multi_polygon: MultiPolygon) -> Polygons {
+        let mut polygons = Polygons::new();
+        for geo_polygon in multi_polygon {
+            let mut polygon: crate::kernel_in::Polygon = vec![];
+            let (outer, holes) = geo_polygon.into_inner();
+            polygon.push(self.line_string_to_positions(outer));
+            for hole in holes {
+                polygon.push(self.line_string_to_positions(hole));
+            }
+            polygons.push(polygon);
+        }
+        polygons
+    }
+
+    fn to_geo_line_string(&self, polygon_index: usize, line_string_index: usize) -> LineString {
+        let mut coords = vec![];
+        for position in &self.polygons[polygon_index][line_string_index] {
+            coords.push(Coord {
+                x: position.east as f64,
+                y: position.north as f64,
+            });
+        }
+        LineString::new(coords)
+    }
+
+    fn to_geo_polygon(&self, polygon_index: usize) -> Polygon {
+        let mut interiors: Vec<LineString> = Vec::new();
+        let polygon = &self.polygons[polygon_index];
+        for (line_string_index, _positions) in polygon.iter().enumerate().skip(FIRST_HOLE_INDEX) {
+            interiors.push(self.to_geo_line_string(polygon_index, line_string_index));
+        }
+        Polygon::new(
+            self.to_geo_line_string(polygon_index, OUTER_POLYGON),
+            interiors,
+        )
+    }
+
+    fn to_geo_multi_polygon(&self) -> MultiPolygon {
+        let mut poligons = vec![];
+        for (i, _polygon) in self.polygons.iter().enumerate() {
+            poligons.push(self.to_geo_polygon(i));
+        }
+        MultiPolygon::new(poligons)
+    }
+
+    pub fn other_is_inside(&self, other: &Footprint) -> bool {
+        self.to_geo_polygon(FIRST_POLYGON)
+            .intersects(&other.to_geo_polygon(FIRST_POLYGON)) //  contains  intersects
+    }
+
     /**
      * Check if any point in a part is within this building's outline.
      * It only checknof points are inside, not if crossing events occur, or
@@ -298,27 +372,35 @@ impl Footprint {
      * @param {BuildingPart} part - the part to be tested
      * @returns {bool} is it?
      */
-    pub fn other_is_inside(&self, other: &Footprint) -> bool {
-        println!("tttother: {:?}", other.polygons);
-        println!("tttself: {:?}", self.polygons);
-        let outer = &other.polygons[FIRST_POLYGON][OUTER_POLYGON];
-        for (index, position) in outer.iter().enumerate() {
-            if index == 2 {
-                println!("....");
-            }
-            if !surrounds(&self.polygons[FIRST_POLYGON][OUTER_POLYGON], position) {
-                println!("ttt3 index: {index} p: {:?}", position);
+    pub fn _other_is_inside(&self, other: &Footprint) -> bool {
+        // println!("\ntttother:\n{:?}\n", other.polygons);
+        // println!("\ntttself:\n{:?}\n", self.polygons);
+        let other_outer = &other.polygons[FIRST_POLYGON][OUTER_POLYGON];
+        let self_outer = Vec::new();
+
+        for (index, position) in other_outer.iter().enumerate() {
+            //if index != 1 {
+            //    continue; // ttt
+            //}
+
+            println!("#### index: {index}");
+            if !surrounds(
+                // &self.polygons[FIRST_POLYGON][OUTER_POLYGON],
+                &self_outer,
+                position,
+            ) {
+                //println!("ttt3 index: {index} p: {:?}", position);
                 return false;
             }
         }
-        return true;
+        true
     }
 }
 
 /// Checks if a point is inside or on the border of a polygon.
 /// `shape`: list of polygon vertices (must be a closed polygon, first and last point don't need to be the same)
 /// `point`: the (x, y) point to check
-pub fn surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
+pub fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
     let mut count = 0;
     let n = positions.len();
 
@@ -358,6 +440,21 @@ pub fn surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
             let intercept = position.north - slope * position.east;
             let intersection = (point.north - intercept) / slope;
 
+            println!(
+                "slope: {slope} intercept: {intercept} intersection: {intersection} point.east: {:?}",
+                point.east
+            );
+            println!(
+                "max: {} {} min: {} {} next: {} this: {}",
+                intersection < f32::max(next_pos.east, position.east),
+                f32::max(next_pos.east, position.east),
+                intersection > f32::min(next_pos.east, position.east),
+                f32::min(next_pos.east, position.east),
+                next_pos.east,
+                position.east
+            );
+
+            // count how often the point is east of one of the lines
             if intersection > point.east
                 && intersection < f32::max(next_pos.east, position.east)
                 && intersection > f32::min(next_pos.east, position.east)
@@ -372,6 +469,36 @@ pub fn surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
     count % 2 == 1
 }
 
+// https://docs.rs/geo/latest/geo/
+// https://github.com/georust/geo/blob/38afc3ed21f2c3e0abeb2658947bceab48b65102/geo/src/algorithm/contains/point.rs#L23
+
+// Wikipedia: Diese Methode gibt true zurück, wenn der Punkt innerhalb des Polygons liegt, sonst false
+fn surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
+    let mut is_inside: bool = false;
+
+    for (i, _polygon) in polygon.iter().enumerate()
+    // Diese for-Schleife durchläuft alle Ecken des Polygons
+    //for (int i = 0; i < polygon.Length; i++)
+    {
+        let j = (i + 1) % polygon.len(); // Index der nächsten Ecke
+        //println!("i/j: {i}/{j}");
+        if polygon[i].north < point.north && polygon[j].north >= point.north
+            || polygon[j].north < point.north && polygon[i].north >= point.north
+        {
+            println!("partly {i}");
+            if (point.north - polygon[i].north) * (polygon[j].east - polygon[i].east)
+                < (point.east - polygon[i].east) * (polygon[j].north - polygon[i].north)
+            // Wenn der Strahl die Kante schneidet, Rückgabewert zwischen true und false wechseln
+            {
+                is_inside = !is_inside;
+                println!("is_inside: {is_inside}");
+            }
+        }
+    }
+    println!("!!! is_inside: {is_inside}");
+    is_inside
+}
+
 /// Checks if a point is inside a polygon using the ray casting algorithm.
 /// ChatGPT generated code - does not work
 ///
@@ -381,7 +508,7 @@ pub fn surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
 ///
 /// # Returns
 /// * `true` if the point is inside the polygon, `false` otherwise.
-fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
+fn _ai_surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
     let mut inside = false;
     let n = positions.len();
 
@@ -392,7 +519,7 @@ fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
     let mut j = n - 1;
     for i in 0..n {
         let pi = positions[i];
-        let pj = positions[j];
+        let pj = positions[j % n]; // there was no modulo, only positions[j]
 
         let intersect = ((pi.north > point.north) != (pj.north > point.north))
             && (point.east
