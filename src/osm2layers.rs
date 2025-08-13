@@ -361,9 +361,9 @@ impl Osm2Layer {
             }
             println!("building: {building_id} ...");
             let mut building = self.areas_map.remove(&building_id).unwrap();
-            let outer_area_size = building.footprint.get_area_size();
-
-            let outer_area = building.footprint.clone(); // clone only the outer!  ???
+            // Always test the inside by the full original footprint outer, not by already missing part areas
+            let mut outer_area = building.footprint.clone(); // clone only the outer!  ???
+            let outer_area_size = outer_area.get_area_size();
 
             // Subtract parts from building outer ways - code is slow? Todo!
             // is parts cloned or part_id???
@@ -388,6 +388,11 @@ impl Osm2Layer {
                     continue;
                 };
                 // merge the two fn ???
+                //if part_id == 664646816 {
+                //    println!("bp!!");
+                //} else {
+                //    continue;
+                //}
                 if !outer_area.other_is_inside(&part.footprint) {
                     println!("- part: {part_id}");
                     continue;
@@ -411,7 +416,8 @@ impl Osm2Layer {
             #[cfg(debug_assertions)]
             println!("building: {building_id} left: {percent_left}%");
 
-            if !building.footprint.polygons.is_empty() && percent_left >= 40 {
+            // ??? 40 40. 20 20.
+            if !building.footprint.polygons.is_empty() && percent_left >= 0 {
                 self.create_building_or_part(building_id, &mut building);
             }
         }

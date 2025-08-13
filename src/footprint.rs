@@ -3,12 +3,12 @@
 use std::ops::{Add, Sub};
 extern crate earcutr; // not supported vor WASM?
 
-use i_overlay::core::fill_rule::FillRule;
-use i_overlay::core::overlay_rule::OverlayRule;
-use i_overlay::float::single::SingleFloatOverlay;
+//use i_overlay::core::fill_rule::FillRule;
+//use i_overlay::core::overlay_rule::OverlayRule;
+//use i_overlay::float::single::SingleFloatOverlay;
 
-// primitives
-use geo::{Area, BooleanOps, Coord, Intersects, LineString, MultiPolygon, Polygon};
+// geo primitives
+use geo::{BooleanOps, Contains, Coord, LineString, MultiPolygon, Polygon};
 
 use crate::kernel_in::{
     BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, OUTER_POLYGON,
@@ -272,16 +272,14 @@ impl Footprint {
 
     // subttacting a hole of a polygon or a part inside a building
     pub fn subtract(&mut self, other: &Footprint) {
-        let hole_positions = &other.polygons;
-
         let this = self.to_geo_multi_polygon();
         let othr = other.to_geo_multi_polygon();
         let rema = this.difference(&othr);
-        let ta = this.signed_area();
-        let oa = othr.signed_area();
-        let ra = rema.signed_area();
-        println!("ta: {ta} oa: {oa} ra: {ra} 0: {:?}", ta - oa - ra);
-        let remaining = self.from_geo_c(rema);
+        //let ta = this.signed_area();
+        //let oa = othr.signed_area();
+        //let ra = rema.signed_area();
+        //println!("ta: {ta} oa: {oa} ra: {ra} 0: {:?}", ta - oa - ra);
+        let remaining = self.from_geo(rema);
 
         //let remaining =
         //    self.polygons
@@ -315,7 +313,7 @@ impl Footprint {
         positions
     }
 
-    fn from_geo_c(&mut self, multi_polygon: MultiPolygon) -> Polygons {
+    fn from_geo(&mut self, multi_polygon: MultiPolygon) -> Polygons {
         let mut polygons = Polygons::new();
         for geo_polygon in multi_polygon {
             let mut polygon: crate::kernel_in::Polygon = vec![];
@@ -361,8 +359,28 @@ impl Footprint {
     }
 
     pub fn other_is_inside(&self, other: &Footprint) -> bool {
-        self.to_geo_polygon(FIRST_POLYGON)
-            .intersects(&other.to_geo_polygon(FIRST_POLYGON)) //  contains  intersects
+        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
+        let other_line_string = other_polygon.exterior().clone();
+        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
+        let self_line_string = self_polygon.exterior().clone();
+        //println!("self: {:?}", self_polygon);
+        //println!("other: {:?}", other_line_string);
+        let x = self_polygon.contains(&other_polygon);
+        let y = self_line_string.contains(&other_polygon);
+        let z = self_line_string.contains(&other_line_string);
+        println!("contains: {x} {y} {z}",);
+        //for (i, point) in other_line_string.into_iter().enumerate() {
+        //    let x = self_polygon.contains(&point);
+        //    let y = self_polygon.contains(&point);
+        //    if !self_polygon.contains(&point) {
+        //        let x = self_polygon.contains(&point);
+        //        println!("{i} {x} point: {:?}", point);
+        //        return false;
+        //    }
+        //}
+        //// self.to_geo_polygon(FIRST_POLYGON).contains(&other.to_geo_polygon(FIRST_POLYGON)) //  contains  intersects
+        //true
+        x
     }
 
     /**
@@ -384,12 +402,12 @@ impl Footprint {
             //}
 
             println!("#### index: {index}");
-            if !surrounds(
+            if !_w_surrounds(
                 // &self.polygons[FIRST_POLYGON][OUTER_POLYGON],
                 &self_outer,
                 position,
             ) {
-                //println!("ttt3 index: {index} p: {:?}", position);
+                //println!("tt_3 index: {index} p: {:?}", position);
                 return false;
             }
         }
@@ -473,7 +491,7 @@ pub fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
 // https://github.com/georust/geo/blob/38afc3ed21f2c3e0abeb2658947bceab48b65102/geo/src/algorithm/contains/point.rs#L23
 
 // Wikipedia: Diese Methode gibt true zurück, wenn der Punkt innerhalb des Polygons liegt, sonst false
-fn surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
+fn _w_surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
     let mut is_inside: bool = false;
 
     for (i, _polygon) in polygon.iter().enumerate()

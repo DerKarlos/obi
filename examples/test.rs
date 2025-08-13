@@ -5,7 +5,9 @@
 //use i_float::float::compatible::FloatPointCompatible;
 
 // primitives
-use geo::{BoundingRect, Contains, Intersects, Point, Polygon, line_string, point, polygon};
+use geo::{
+    BoundingRect, Contains, Intersects, Point, Polygon, Within, line_string, point, polygon,
+};
 
 fn main() {
     let point1 = point![x:1.0, y:2.0];
@@ -15,25 +17,69 @@ fn main() {
 
     // An L shape
     let poly = polygon![
-        (x: 0.0, y: 0.0),   // 0
+                            //                          5   4
+                            //
+        (x: 0.0, y: 0.0),   // 0                        .   .
         (x: 4.0, y: 0.0),   // 1
-        (x: 4.0, y: 1.0),   // 2
+        (x: 4.0, y: 1.0),   // 2                        .   .
         (x: 1.0, y: 1.0),   // 3
-        (x: 1.0, y: 4.0),   // 4
+        (x: 1.0, y: 4.0),   // 4                        .  4  .  .  2
         (x: 0.0, y: 4.0),   // 5
-    //  (x: 0.0, y: 0.0),   // 6 = 0 is not needed
+    //  (x: 0.0, y: 0.0),   // 6 = 0 is not needed      0  .  .  .  1
     ];
 
-    assert_eq!(poly.contains(&Point::new(0.0, 0.0)), false);
-    assert_eq!(poly.intersects(&Point::new(0.0, 0.0)), true);
-    assert_eq!(poly.contains(&Point::new(0.0, 0.5)), false);
-    assert_eq!(poly.intersects(&Point::new(0.0, 0.5)), true);
+    {
+        // Points in linestring means ON the line but not inside => use as "0n the outer"
+        let ln_s = poly.exterior();
+        assert_eq!(ln_s.contains(&Point::new(0.0, 0.0)), true);
+        assert_eq!(ln_s.intersects(&Point::new(0.0, 0.0)), true);
+        assert_eq!(ln_s.contains(&Point::new(0.0, 0.5)), true);
+        assert_eq!(ln_s.intersects(&Point::new(0.0, 0.5)), true);
+        assert_eq!(ln_s.contains(&Point::new(0.5, 0.5)), false);
+        assert_eq!(ln_s.intersects(&Point::new(0.5, 0.5)), false);
+        assert_eq!(ln_s.contains(&Point::new(0.5, 0.00000000000000001)), false);
+        assert_eq!(ln_s.contains(&Point::new(0.5, -0.0000000000000001)), false);
+        assert_eq!(ln_s.contains(&Point::new(9.5, 9.5)), false);
+    }
 
-    assert_eq!(poly.intersects(&Point::new(0.5, 0.5)), true);
-    assert_eq!(poly.intersects(&Point::new(0.5, 0.0)), true);
-    assert_eq!(poly.intersects(&Point::new(0.5, 0.00000000000000001)), true);
-    assert_eq!(poly.intersects(&Point::new(0.5, -0.000000000000001)), false);
-    assert_eq!(poly.intersects(&Point::new(9.5, 9.5)), false);
+    {
+        // Points in poly means INSIDE the polygon => use as "inside the outer"
+        assert_eq!(poly.contains(&Point::new(0.0, 0.0)), false);
+        assert_eq!(poly.intersects(&Point::new(0.0, 0.0)), true);
+        assert_eq!(poly.contains(&Point::new(0.0, 0.5)), false);
+        assert_eq!(poly.intersects(&Point::new(0.0, 0.5)), true);
+
+        assert_eq!(poly.contains(&Point::new(0.5, 0.5)), true);
+        assert_eq!(poly.contains(&Point::new(0.5, 0.00000000000000001)), true);
+        assert_eq!(poly.contains(&Point::new(0.5, -0.000000000000001)), false);
+        assert_eq!(poly.contains(&Point::new(9.5, 9.5)), false);
+    }
+
+    {
+        // outside, one or two at the same point
+        let out = polygon![
+            (x: 0.0, y: 0.0),   // 0
+            (x: 4.0, y: 0.0),   // 1
+            (x: 0.0, y: -1.0),  // 2
+        ];
+
+        assert_eq!(poly.intersects(&out), true); // !!! a single identical point makes already a true
+        assert_eq!(poly.contains(&out), false);
+        assert_eq!(out.is_within(&poly), false);
+    }
+
+    // all points on the line or inside!
+    let ins = polygon![
+            (x: 0.0, y: 0.0),   // 0
+            (x: 4.0, y: 0.0),   // 1                        .  .  .  .  2
+            (x: 4.0, y: 1.0),   // 2
+    //      (x: 0.0, y: 0.5),   // 4 = 0 is not needed      0  .  .  .  1
+        ];
+
+    assert_eq!(poly.contains(&ins), true); // what?? On the line is also inside ???
+    assert_eq!(poly.intersects(&ins), true);
+    assert_eq!(poly.is_within(&ins), false);
+    assert_eq!(ins.is_within(&poly), true);
 
     // St.Pauls dome
     let dome = line_string![
@@ -72,7 +118,7 @@ fn main() {
         (x:-15.847481,y:6.6421084),
         (x:-15.947489,y:9.80240),
 
-        (x:-15.514121,y:12.540869), // = index 0
+      //  (x:-15.514121,y:12.540869), // = index 0
     ];
 
     // St.Pauls outer
@@ -327,23 +373,27 @@ fn main() {
         (x: -32.271015, y: -41.49551 ),
         (x: -28.270697, y: -41.848156 ),
 
-        (x: -28.304033, y: -42.30457 ), // = index 0
+      //  (x: -28.304033, y: -42.30457 ), // = index 0
     ];
 
     println!("dome brect: {:?}", dome.bounding_rect());
     println!("outer brect: {:?}", outer.bounding_rect());
 
-    // This is strange: Linestring does not work, but Polygon does
+    let point0 = Point::new(0.0, 0.0); // is on the line border!
 
-    //assert_eq!(dome.contains(&Point::new(0., 0.)), true);
-    //assert_eq!(outer.intersects(&Point::new(0., 0.)), true);
-    //assert_eq!(outer.intersects(&dome), true);
+    // the dome is not ON the LineString of course
+    assert_eq!(outer.intersects(&point0), false);
+    assert_eq!(outer.contains(&point0), false);
+    assert_eq!(outer.contains(&dome), false);
+    assert_eq!(outer.intersects(&dome), false);
 
-    let dome_polygon = &Polygon::new(dome, vec![]);
-    let outer_polygon = &Polygon::new(outer, vec![]);
+    // So let's try polygons
+    let dome_polygon = Polygon::new(dome, vec![]);
+    let outer_polygon = Polygon::new(outer, vec![]);
 
-    assert_eq!(dome_polygon.contains(&Point::new(0., 0.)), true);
-    assert_eq!(outer_polygon.intersects(&Point::new(0., 0.)), true);
-    let i = outer_polygon.intersects(dome_polygon);
-    assert_eq!(i, true);
+    assert_eq!(outer_polygon.intersects(&point0), true);
+    assert_eq!(outer_polygon.contains(&point0), true);
+
+    assert_eq!(outer_polygon.contains(&dome_polygon), true);
+    assert_eq!(outer_polygon.intersects(&dome_polygon), true);
 }
