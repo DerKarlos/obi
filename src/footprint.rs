@@ -8,7 +8,7 @@ extern crate earcutr; // not supported vor WASM?
 //use i_overlay::float::single::SingleFloatOverlay;
 
 // geo primitives
-use geo::{BooleanOps, Contains, Coord, LineString, MultiPolygon, Polygon};
+use geo::{BooleanOps, Contains, Coord, CoordsIter, LineString, MultiPolygon, Polygon};
 
 use crate::kernel_in::{
     BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, OUTER_POLYGON,
@@ -36,6 +36,7 @@ pub struct Footprint {
     pub longest_angle: f32,
     pub is_circular: bool,
     pub polygons: Polygons,
+    pub pol_init: Polygons,
 }
 
 impl Default for Footprint {
@@ -55,13 +56,16 @@ impl Footprint {
             longest_angle: 0.,
             is_circular: false,
             polygons: vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
-                                              //holes: Vec::new(),
+            pol_init: vec![vec![Vec::new()]],
         }
     }
 
     pub fn set(&mut self, other: &Footprint) {
         self.is_circular = other.is_circular;
         self.polygons = other.polygons.clone();
+        //for pos in &self.polygons[0][0] {
+        //    println!("(x: {},y: {}),", pos.east, pos.north);
+        //}
         self.bounding_box = other.bounding_box;
         self.center = other.center;
         self.longest_angle = other.longest_angle;
@@ -271,9 +275,9 @@ impl Footprint {
     }
 
     // subttacting a hole of a polygon or a part inside a building
-    pub fn subtract(&mut self, other: &Footprint) {
+    pub fn subtract(&mut self, other_a_hole: &Footprint) {
         let this = self.to_geo_multi_polygon();
-        let othr = other.to_geo_multi_polygon();
+        let othr = other_a_hole.to_geo_multi_polygon();
         let rema = this.difference(&othr);
         //let ta = this.signed_area();
         //let oa = othr.signed_area();
@@ -338,49 +342,67 @@ impl Footprint {
         LineString::new(coords)
     }
 
-    fn to_geo_polygon(&self, polygon_index: usize) -> Polygon {
+    // todo: that init is a hack!!!
+    fn to_geo_polygon(&self, polygon_index: usize, init: bool) -> Polygon {
         let mut interiors: Vec<LineString> = Vec::new();
-        let polygon = &self.polygons[polygon_index];
+        let mut polygon = &self.polygons[polygon_index];
+
+        if init {
+            if !self.pol_init[0][0].is_empty() {
+                polygon = &self.pol_init[polygon_index];
+                println!("pol_init");
+            }
+        }
+
         for (line_string_index, _positions) in polygon.iter().enumerate().skip(FIRST_HOLE_INDEX) {
             interiors.push(self.to_geo_line_string(polygon_index, line_string_index));
         }
-        Polygon::new(
-            self.to_geo_line_string(polygon_index, OUTER_POLYGON),
-            interiors,
-        )
+        println!("polygon[0][0] {:?}", polygon[FIRST_POLYGON][OUTER_POLYGON]);
+        let exteriors = self.to_geo_line_string(polygon_index, OUTER_POLYGON);
+        println!("exteriors {:?}", exteriors[0]);
+
+        Polygon::new(exteriors, interiors)
     }
 
     fn to_geo_multi_polygon(&self) -> MultiPolygon {
         let mut poligons = vec![];
         for (i, _polygon) in self.polygons.iter().enumerate() {
-            poligons.push(self.to_geo_polygon(i));
+            poligons.push(self.to_geo_polygon(i, false));
         }
         MultiPolygon::new(poligons)
     }
 
     pub fn other_is_inside(&self, other: &Footprint) -> bool {
-        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
-        let other_line_string = other_polygon.exterior().clone();
-        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
-        let self_line_string = self_polygon.exterior().clone();
+        let other_polygon = other.to_geo_polygon(FIRST_POLYGON, true);
+
+        // let other_line_string = other_polygon.exterior().clone();
+        // remove holes is the only help ???
+        // let other_polygon = Polygon::new(other_line_string, vec![]);
+        let self_polygon = self.to_geo_polygon(FIRST_POLYGON, false);
+        //let self_line_string = self_polygon.exterior().clone();
         //println!("self: {:?}", self_polygon);
         //println!("other: {:?}", other_line_string);
-        let x = self_polygon.contains(&other_polygon);
-        let y = self_line_string.contains(&other_polygon);
-        let z = self_line_string.contains(&other_line_string);
-        println!("contains: {x} {y} {z}",);
-        //for (i, point) in other_line_string.into_iter().enumerate() {
-        //    let x = self_polygon.contains(&point);
-        //    let y = self_polygon.contains(&point);
-        //    if !self_polygon.contains(&point) {
-        //        let x = self_polygon.contains(&point);
-        //        println!("{i} {x} point: {:?}", point);
-        //        return false;
-        //    }
-        //}
-        //// self.to_geo_polygon(FIRST_POLYGON).contains(&other.to_geo_polygon(FIRST_POLYGON)) //  contains  intersects
-        //true
-        x
+        //let x = self_polygon.contains(&other_polygon);
+        //let y = self_line_string.contains(&other_polygon);
+        //let z = self_line_string.contains(&other_line_string);
+        //println!("contains: {x} {y} {z}",);
+        //x
+
+        let (_out, _hol) = other_polygon.clone().into_inner();
+        let self_exterior = self_polygon.exterior();
+        let other_exterior = other_polygon.exterior();
+        for (index, coord) in other_exterior.coords_iter().enumerate() {
+            // MultiPoly with holes has more digits and so is not ON the line
+            let on_line = self_exterior.contains(&coord);
+            // for polygons, contains means NOT on the line
+            let contains = self_exterior.contains(&coord);
+            println!("{index} coord: {:?} {contains} {on_line}", coord);
+            if !(on_line || contains) {
+                return false;
+            };
+        }
+
+        true
     }
 
     /**
@@ -394,15 +416,15 @@ impl Footprint {
         // println!("\ntttother:\n{:?}\n", other.polygons);
         // println!("\ntttself:\n{:?}\n", self.polygons);
         let other_outer = &other.polygons[FIRST_POLYGON][OUTER_POLYGON];
-        let self_outer = Vec::new();
+        //println!("tttttt: {:?}", &self.polygons[FIRST_POLYGON]);
+        let self_outer = &self.polygons[FIRST_POLYGON][OUTER_POLYGON];
 
-        for (index, position) in other_outer.iter().enumerate() {
+        for (_index, position) in other_outer.iter().enumerate() {
             //if index != 1 {
             //    continue; // ttt
             //}
 
-            println!("#### index: {index}");
-            if !_w_surrounds(
+            if !_ai_surrounds(
                 // &self.polygons[FIRST_POLYGON][OUTER_POLYGON],
                 &self_outer,
                 position,
@@ -418,7 +440,7 @@ impl Footprint {
 /// Checks if a point is inside or on the border of a polygon.
 /// `shape`: list of polygon vertices (must be a closed polygon, first and last point don't need to be the same)
 /// `point`: the (x, y) point to check
-pub fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
+pub fn _baker_surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
     let mut count = 0;
     let n = positions.len();
 
@@ -491,7 +513,7 @@ pub fn _surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
 // https://github.com/georust/geo/blob/38afc3ed21f2c3e0abeb2658947bceab48b65102/geo/src/algorithm/contains/point.rs#L23
 
 // Wikipedia: Diese Methode gibt true zurück, wenn der Punkt innerhalb des Polygons liegt, sonst false
-fn _w_surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
+fn _wiki_surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
     let mut is_inside: bool = false;
 
     for (i, _polygon) in polygon.iter().enumerate()
@@ -534,22 +556,26 @@ fn _ai_surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
         return false; // Not a valid polygon
     }
 
-    let mut j = n - 1;
+    //let mut j = n - 1;
     for i in 0..n {
         let pi = positions[i];
-        let pj = positions[j % n]; // there was no modulo, only positions[j]
+        let pj = positions[(i + 1) % n]; // there was no modulo, only positions[j]
 
         let intersect = ((pi.north > point.north) != (pj.north > point.north))
             && (point.east
                 < (pj.east - pi.east) * (point.north - pi.north)
-                    / (pj.north - pi.north + f32::EPSILON)
+                    / (pj.north - pi.north + 0.001) // f32::EPSILON)
                     + pi.east);
 
         if intersect {
             inside = !inside;
         }
 
-        j = i;
+        //j = i;
+    }
+
+    if !inside {
+        println!("ai outside");
     }
 
     inside

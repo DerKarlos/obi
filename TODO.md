@@ -1,3 +1,6 @@
+* 367642719  teile fehlen
+* obi -- -w 367642719 -r 444   panicked at src/osm2layers.rs:385:58:
+
 Beitrag:
 bakerbox bads: 440257472 and 440257471
 Inside Hilton building 107643543

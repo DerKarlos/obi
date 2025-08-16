@@ -365,6 +365,10 @@ impl Osm2Layer {
             let mut outer_area = building.footprint.clone(); // clone only the outer!  ???
             let outer_area_size = outer_area.get_area_size();
 
+            //for pos in &outer_area.polygons[0][0] {
+            //    println!("(x: {},y: {}),", pos.east, pos.north);
+            //}
+
             // Subtract parts from building outer ways - code is slow? Todo!
             // is parts cloned or part_id???
             let mut part_index: i32 = -1;
@@ -372,11 +376,11 @@ impl Osm2Layer {
                 part_index += 1;
                 //ttt                println!("part: {part_id}");
 
-                //if part_id == 664613340 {
-                //    println!("tttpart");
-                //} else {
-                //    continue;
-                //}
+                // if part_id == 664613340 {
+                //     println!("tttpart: dome");
+                // } else {
+                //     continue;
+                // }
 
                 if part_id == 0 {
                     continue;
@@ -388,11 +392,11 @@ impl Osm2Layer {
                     continue;
                 };
                 // merge the two fn ???
-                //if part_id == 664646816 {
-                //    println!("bp!!");
-                //} else {
-                //    continue;
-                //}
+                if part_id == 664646816 {
+                    println!("part outer/relation !!");
+                } else {
+                    continue;
+                }
                 if !outer_area.other_is_inside(&part.footprint) {
                     println!("- part: {part_id}");
                     continue;
@@ -415,6 +419,9 @@ impl Osm2Layer {
 
             #[cfg(debug_assertions)]
             println!("building: {building_id} left: {percent_left}%");
+
+            //println!("\nouter_area: {:?}", outer_area.polygons);
+            //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
 
             // ??? 40 40. 20 20.
             if !building.footprint.polygons.is_empty() && percent_left >= 0 {
@@ -673,7 +680,7 @@ impl Osm2Layer {
             return;
         }
 
-        let mut footprint = Footprint::new();
+        let mut relation_footprint = Footprint::new();
 
         self.outer_state = OuterState::New;
 
@@ -685,31 +692,36 @@ impl Osm2Layer {
             }
 
             if member.role.as_str() == "outer" {
-                self.process_relation_outer(member.reference, &mut footprint, id);
+                self.process_relation_outer(member.reference, &mut relation_footprint, id);
             }
         }
+
+        relation_footprint.pol_init = relation_footprint.polygons.clone();
 
         for member in &members {
-            //println!("mem: {:?}", &member);
+            println!("mem: {:?}", &member);
             if member.role.as_str() == "inner" {
-                self.process_relation_inner(member.reference, &mut footprint, id);
+                self.process_relation_inner(member.reference, &mut relation_footprint, id);
+            }
+            if member.reference == 664669344 {
+                break; //ttt
             }
         }
 
-        if footprint.polygons.is_empty() {
+        if relation_footprint.polygons.is_empty() {
             println!("relation 1");
             return;
         }
 
         if self.outer_state == OuterState::Partly {
-            footprint.close();
+            relation_footprint.close();
         }
 
         // buildings_and_parts.push...
         // println!("tags: {:?}", tags.clone());
         let new_osm_area = OsmArea {
             _id: self.first_outer_id,
-            footprint,
+            footprint: relation_footprint,
             tags: Some(tags.clone()),
         };
 
