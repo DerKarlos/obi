@@ -30,6 +30,7 @@ pub use footprint::*;
 // Interfaces from the input modules to renderer
 mod kernel_in;
 pub use kernel_in::BoundingBox;
+pub use kernel_in::FGP;
 pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::GroundPosition;
 pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn

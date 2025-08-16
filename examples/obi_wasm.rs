@@ -166,8 +166,8 @@ fn on_load(
         let mut bounding_box = app_state
             .api
             .geo_bbox_of_way_vec(&asset.unwrap().bytes, app_state.way_id);
-        bounding_box.min_range(app_state.range);
-        app_state.range = bounding_box.max_radius() * osm_tb::LAT_FAKT as f32;
+        bounding_box.min_range(app_state.range as f64);
+        app_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT) as f32;
         control_value.distance = app_state.range * 1.0;
         control_value.use_first_mouse_key_for_orientation = true;
 

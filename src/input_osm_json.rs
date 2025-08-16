@@ -2,7 +2,7 @@ use bytes::*;
 use serde::Deserialize;
 
 use crate::kernel_in::{
-    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Members, OsmMap,
+    BoundingBox, BuildingsAndParts, FGP, GeographicCoordinates, GroundPosition, Members, OsmMap,
 };
 use crate::osm2layers::{Osm2Layer, tags_get_yes};
 
@@ -200,8 +200,8 @@ pub fn geo_bbox_of_way_json(json_way_data: JsonData, way_id: u64) -> BoundingBox
 
         if element.element_type == "node" {
             bounding_box.include(&GroundPosition {
-                north: element.lat.unwrap() as f32,
-                east: element.lon.unwrap() as f32,
+                north: element.lat.unwrap() as FGP,
+                east: element.lon.unwrap() as FGP,
             });
         }
     }

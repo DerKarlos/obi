@@ -9,16 +9,16 @@ use std::collections::HashMap;
 use crate::footprint::{Footprint, Orientation};
 use crate::kernel_in::Members;
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsAndParts, FIRST_POLYGON, GeographicCoordinates, GroundPosition,
+    BuildingOrPart, BuildingsAndParts, FGP, FIRST_POLYGON, GeographicCoordinates, GroundPosition,
     GroundPositions, OUTER_POLYGON, OsmMap, RenderColor, RoofShape,
 };
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.7, 0.7, 0.7, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
 pub static DEFAULT_ROOF_RED: RenderColor = [0.56, 0.0, 0.0, 1.0]; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
-pub static DEFAULT_WALL_HEIGHT: f32 = 6.0; // two floors with each 3 meters
-pub static DEFAULT_ROOF_HEIGHT: f32 = 2.0;
-pub static DEFAULT_MIN_HEIGHT: f32 = 2.0;
+pub static DEFAULT_WALL_HEIGHT: FGP = 6.0; // two floors with each 3 meters
+pub static DEFAULT_ROOF_HEIGHT: FGP = 2.0;
+pub static DEFAULT_MIN_HEIGHT: FGP = 2.0;
 pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 1.]; // Electric Blue
 
 #[derive(PartialEq)]
@@ -106,7 +106,7 @@ fn color_to_f32(r: u8, g: u8, b: u8) -> RenderColor {
     [r as f32 / 255., g as f32 / 255., b as f32 / 255., 1.]
 }
 
-fn parse_height(height_option: Option<&String>) -> f32 {
+fn parse_height(height_option: Option<&String>) -> FGP {
     if height_option.is_none() {
         return 0.;
     }
@@ -248,8 +248,8 @@ impl Osm2Layer {
     pub fn add_node(&mut self, id: u64, latitude: f64, longitude: f64, _tags: Option<OsmMap>) {
         let position = if self.gpu_ground_null_coordinates.latitude == 0.0 {
             GroundPosition {
-                north: latitude as f32,
-                east: longitude as f32,
+                north: latitude as FGP,
+                east: longitude as FGP,
             }
         } else {
             self.gpu_ground_null_coordinates

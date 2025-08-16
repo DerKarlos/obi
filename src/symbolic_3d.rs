@@ -1,6 +1,6 @@
 use crate::footprint::Footprint;
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsAndParts, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition,
+    BuildingOrPart, BuildingsAndParts, FGP, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition,
     GroundPositions, OUTER_POLYGON, RoofShape,
 };
 use crate::kernel_out::{
@@ -19,14 +19,14 @@ static O: usize = 0; // Just to silent lint, make some lines equal and to show, 
 
 // Local methodes of GroundPosition, only to be used in the renderer!
 impl GroundPosition {
-    pub fn to_gpu_position(self, height: f32) -> RenderPosition {
+    pub fn to_gpu_position(self, height: FGP) -> RenderPosition {
         // Minus north because +north is -z in the GPU space.
-        [self.east, height, -self.north]
+        [self.east as f32, height as f32, -self.north as f32]
     }
 }
 
 impl Footprint {
-    fn get_gpu_positions(&self, polygon_index: usize, height: f32) -> RenderPositions {
+    fn get_gpu_positions(&self, polygon_index: usize, height: FGP) -> RenderPositions {
         let mut roof_gpu_positions: RenderPositions = Vec::new();
         for position in &self.polygons[polygon_index][OUTER_POLYGON] {
             let this_gpu_position_up = position.to_gpu_position(height);
@@ -154,7 +154,7 @@ impl OsmMesh {
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
-    ) -> f32 {
+    ) -> FGP {
         //println!("ph: position: {:?}", position);
         //        let roof_slope = circle_limit(building_or_part.roof_angle + f32::to_radians(90.));
         let east = position
@@ -167,14 +167,14 @@ impl OsmMesh {
                 - building_or_part.bounding_box_rotated.south); // Höhen/Tiefe der Nodes/Ecken berechenen
 
         building_or_part.wall_height + building_or_part.roof_height
-            - f32::abs(east - building_or_part.bounding_box_rotated.south) * inclination
+            - FGP::abs(east - building_or_part.bounding_box_rotated.south) * inclination
     }
 
     fn calc_gabled_position_height(
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
-    ) -> f32 {
+    ) -> FGP {
         let east = position
             .sub(building_or_part.footprint.center)
             .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
@@ -185,14 +185,14 @@ impl OsmMesh {
             - building_or_part.bounding_box_rotated.south;
         let inclination = building_or_part.roof_height * 2. / width;
 
-        building_or_part.wall_height + building_or_part.roof_height - f32::abs(east) * inclination
+        building_or_part.wall_height + building_or_part.roof_height - FGP::abs(east) * inclination
     }
 
     fn calc_roof_position_height(
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
-    ) -> f32 {
+    ) -> FGP {
         match building_or_part.roof_shape {
             RoofShape::Skillion => self.calc_skillion_position_height(position, building_or_part),
             RoofShape::Gabled => self.calc_gabled_position_height(position, building_or_part),
@@ -201,7 +201,7 @@ impl OsmMesh {
         }
     }
 
-    fn push_flat(&mut self, footprint: &mut Footprint, height: f32, color: RenderColor) {
+    fn push_flat(&mut self, footprint: &mut Footprint, height: FGP, color: RenderColor) {
         for polygon_index in 0..footprint.polygons.len() {
             // if footprint.polygons[polygon_index].is_empty() {
             //     continue;
@@ -324,8 +324,8 @@ impl OsmMesh {
     fn push_phyramid(
         &mut self,
         footprint: &Footprint,
-        wall_height: f32,
-        roof_height: f32,
+        wall_height: FGP,
+        roof_height: FGP,
         color: RenderColor,
     ) {
         let ring_edges: Vec<ExtrudeRing> = vec![
@@ -346,8 +346,8 @@ impl OsmMesh {
     fn push_dome(
         &mut self,
         footprint: &Footprint,
-        wall_height: f32,
-        roof_height: f32,
+        wall_height: FGP,
+        roof_height: FGP,
         color: RenderColor,
     ) {
         let mut ring_edges: Vec<ExtrudeRing> = Vec::new();
@@ -355,8 +355,8 @@ impl OsmMesh {
         for step in 0..STEPS {
             let angle = f32::to_radians((step * STEPS) as f32);
             ring_edges.push(ExtrudeRing {
-                radius: angle.cos(),
-                height: angle.sin(),
+                radius: angle.cos() as FGP,
+                height: angle.sin() as FGP,
             });
             // println!("{step} a: {angle} {} {}", angle.cos(), angle.sin());
         }
@@ -369,22 +369,22 @@ impl OsmMesh {
         &mut self,
         ring: &ExtrudeRing,
         edge: &GroundPosition,
-        wall_height: f32,
-        roof_height: f32,
+        wall_height: FGP,
+        roof_height: FGP,
         pike: GroundPosition,
     ) -> RenderPosition {
         let gpu_x = (edge.east - pike.east) * ring.radius + pike.east;
         let gpu_z = (edge.north - pike.north) * ring.radius + pike.north;
         let gpu_y = wall_height + roof_height * ring.height;
-        [gpu_x, gpu_y, -gpu_z] // Why -z?  Should be in an extra fn!
+        [gpu_x as f32, gpu_y as f32, -gpu_z as f32] // Why -z?  Should be in an extra fn!
     }
 
     fn push_extrude(
         &mut self,
         footprint: &Footprint,
         silhouette: Silhouette,
-        wall_height: f32,
-        roof_height: f32,
+        wall_height: FGP,
+        roof_height: FGP,
         color: RenderColor,
     ) {
         let soft_edges = footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].len() > 8;
@@ -497,8 +497,8 @@ impl OsmMesh {
     fn push_onion(
         &mut self,
         footprint: &Footprint,
-        wall_height: f32,
-        roof_height: f32,
+        wall_height: FGP,
+        roof_height: FGP,
         color: RenderColor,
     ) {
         let ring_edges: Vec<ExtrudeRing> = vec![
@@ -559,7 +559,7 @@ impl OsmMesh {
     fn push_walls(
         &mut self,
         building_or_part: &mut BuildingOrPart,
-        min_height: f32,
+        min_height: FGP,
         color: RenderColor,
     ) {
         let footprint = &building_or_part.footprint.clone();
@@ -593,7 +593,7 @@ impl OsmMesh {
         building_or_part: &mut BuildingOrPart,
         hole: &GroundPositions,
         is_circular: bool,
-        min_height: f32,
+        min_height: FGP,
         color: RenderColor,
     ) {
         // todo: panicked at src/to_3d.rs:544:51:   https://www.openstreetmap.org/way/313425087
@@ -715,8 +715,8 @@ impl OsmMesh {
 
 #[derive(Clone, Debug)]
 struct ExtrudeRing {
-    radius: f32,
-    height: f32,
+    radius: FGP,
+    height: FGP,
 }
 
 #[derive(Clone, Debug)]

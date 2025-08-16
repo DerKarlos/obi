@@ -11,8 +11,8 @@ extern crate earcutr; // not supported vor WASM?
 use geo::{BooleanOps, Contains, Coord, CoordsIter, LineString, MultiPolygon, Polygon};
 
 use crate::kernel_in::{
-    BoundingBox, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions, OUTER_POLYGON,
-    Polygons,
+    BoundingBox, FGP, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions,
+    OUTER_POLYGON, Polygons,
 };
 
 static O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
@@ -30,9 +30,9 @@ pub enum Orientation {
 pub struct Footprint {
     rotated_positions: GroundPositions,
     pub bounding_box: BoundingBox,
-    pub shift: f32,
+    pub shift: FGP,
     pub center: GroundPosition,
-    longest_distance: f32,
+    longest_distance: FGP,
     pub longest_angle: f32,
     pub is_circular: bool,
     pub polygons: Polygons,
@@ -81,14 +81,14 @@ impl Footprint {
 
     pub fn close(&mut self) {
         // center
-        let count = self.polygons[FIRST_POLYGON][OUTER_POLYGON].len() as f32;
+        let count = self.polygons[FIRST_POLYGON][OUTER_POLYGON].len() as FGP;
         self.center.north /= count;
         self.center.east /= count;
 
         let positions = &mut self.polygons[FIRST_POLYGON][OUTER_POLYGON];
         let mut clockwise_sum = 0.;
-        let mut radius_max: f32 = 0.;
-        let mut radius_min: f32 = 1.0e9;
+        let mut radius_max: FGP = 0.;
+        let mut radius_min: FGP = 1.0e9;
         for (index, position) in positions.iter().enumerate() {
             let next = (index + 1) % positions.len();
             let next_position = positions[next];
@@ -141,7 +141,7 @@ impl Footprint {
     }
 
     // This is just an ugly hack! i_overlay should be able to solve this - todo
-    pub fn get_area_size(&mut self) -> f32 {
+    pub fn get_area_size(&mut self) -> FGP {
         let mut area_size = 0.0;
         let mut index = 0;
         while index < self.polygons.len() {
@@ -162,19 +162,19 @@ impl Footprint {
 
                 let a = n_0 - n_1;
                 let b = e_0 - e_1;
-                let distance_a = f32::sqrt(a * a + b * b);
+                let distance_a = FGP::sqrt(a * a + b * b);
                 let a = n_1 - n_2;
                 let b = e_1 - e_2;
-                let distance_b = f32::sqrt(a * a + b * b);
+                let distance_b = FGP::sqrt(a * a + b * b);
                 let a = n_2 - n_0;
                 let b = e_2 - e_0;
-                let distance_c = f32::sqrt(a * a + b * b);
+                let distance_c = FGP::sqrt(a * a + b * b);
 
                 let a = distance_a;
                 let b = distance_b;
                 let c = distance_c;
                 area_spliter_size += 0.25
-                    * f32::sqrt(f32::abs(
+                    * FGP::sqrt(FGP::abs(
                         (a + b + c) * (-a + b + c) * (a - b + c) * (a + b - c),
                     ));
                 // println!("    area: {area}");
@@ -191,10 +191,10 @@ impl Footprint {
         area_size
     }
 
-    pub fn get_triangulate_indices(&self, polygon_index: usize) -> (Vec<usize>, Vec<f32>) {
+    pub fn get_triangulate_indices(&self, polygon_index: usize) -> (Vec<usize>, Vec<FGP>) {
         //
 
-        let mut vertices = Vec::<f32>::new();
+        let mut vertices = Vec::<FGP>::new();
         let mut holes_starts = Vec::<usize>::new();
 
         for position in &self.polygons[polygon_index][OUTER_POLYGON] {
@@ -310,8 +310,8 @@ impl Footprint {
         let mut positions: Vec<GroundPosition> = Vec::new();
         for point in line_string {
             positions.push(GroundPosition {
-                north: point.y as f32,
-                east: point.x as f32,
+                north: point.y as FGP,
+                east: point.x as FGP,
             })
         }
         positions
@@ -486,21 +486,21 @@ pub fn _baker_surrounds(positions: &GroundPositions, point: &GroundPosition) -> 
             );
             println!(
                 "max: {} {} min: {} {} next: {} this: {}",
-                intersection < f32::max(next_pos.east, position.east),
-                f32::max(next_pos.east, position.east),
-                intersection > f32::min(next_pos.east, position.east),
-                f32::min(next_pos.east, position.east),
+                intersection < FGP::max(next_pos.east, position.east),
+                FGP::max(next_pos.east, position.east),
+                intersection > FGP::min(next_pos.east, position.east),
+                FGP::min(next_pos.east, position.east),
                 next_pos.east,
                 position.east
             );
 
             // count how often the point is east of one of the lines
             if intersection > point.east
-                && intersection < f32::max(next_pos.east, position.east)
-                && intersection > f32::min(next_pos.east, position.east)
+                && intersection < FGP::max(next_pos.east, position.east)
+                && intersection > FGP::min(next_pos.east, position.east)
             {
                 count += 1;
-            } else if (intersection - point.east).abs() < f32::EPSILON {
+            } else if (intersection - point.east).abs() < FGP::EPSILON {
                 return true; // Point lies exactly on the edge
             }
         }

@@ -63,7 +63,7 @@ fn setup(
         spawn_osm_mesh(mesh, &mut commands, &mut meshes, &mut materials);
     }
 
-    environment(commands, meshes, materials, starting_values.range);
+    environment(commands, meshes, materials, starting_values.range as f32);
 }
 
 #[derive(Component)]

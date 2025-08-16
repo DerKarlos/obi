@@ -65,8 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    bounding_box.min_range(args.range as f32);
-    let range = bounding_box.max_radius() * LAT_FAKT as f32;
+    bounding_box.min_range(args.range as FGP);
+    let range = (bounding_box.max_radius() * LAT_FAKT) as f32;
     #[cfg(debug_assertions)]
     println!("= {:?}", &bounding_box);
     println!("Loading data");
@@ -90,7 +90,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Rendering ...\n");
     let meshes = scan_elements_from_layer_to_mesh(buildings_and_parts);
     render_init(
-        meshes, range, true, /* use first mouse key for orientation */
+        meshes,
+        range as f32,
+        true, /* use first mouse key for orientation */
     );
 
     Ok(())
