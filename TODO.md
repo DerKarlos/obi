@@ -44,6 +44,7 @@ Next todo:
 
 
 More todo:
+* LEFT part: 320420934 is mostly outside the building (no relation) AND UNDERGROUND
 * 316556318: Dach-rel:4166727 geht one -r 1 nicht? The inverted Bakerboy-fn gives a node outside!
 * building:part=steps - https://www.openstreetmap.org/way/311294175#map=18/52.239348/21.046624
 * Solve this DOUBLE outer https://www.openstreetmap.org/relation/14548261#map=19/51.517498/-0.102085

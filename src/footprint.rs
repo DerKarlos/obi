@@ -8,7 +8,7 @@ extern crate earcutr; // not supported vor WASM?
 //use i_overlay::float::single::SingleFloatOverlay;
 
 // geo primitives
-use geo::{BooleanOps, Contains, Coord, CoordsIter, LineString, MultiPolygon, Polygon};
+use geo::{Area, BooleanOps, Contains, Coord, CoordsIter, LineString, MultiPolygon, Polygon};
 
 use crate::kernel_in::{
     BoundingBox, FGP, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions,
@@ -36,7 +36,7 @@ pub struct Footprint {
     pub longest_angle: f32,
     pub is_circular: bool,
     pub polygons: Polygons,
-    pub pol_init: Polygons,
+    //b pol_init: Polygons,
 }
 
 impl Default for Footprint {
@@ -56,7 +56,7 @@ impl Footprint {
             longest_angle: 0.,
             is_circular: false,
             polygons: vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
-            pol_init: vec![vec![Vec::new()]],
+                                              //l_init: vec![vec![Vec::new()]],
         }
     }
 
@@ -276,13 +276,18 @@ impl Footprint {
 
     // subttacting a hole of a polygon or a part inside a building
     pub fn subtract(&mut self, other_a_hole: &Footprint) {
-        let this = self.to_geo_multi_polygon();
+        let self_ = self.to_geo_multi_polygon();
+        //println!("### other_a_hole othr: {:?}", other_a_hole);
         let othr = other_a_hole.to_geo_multi_polygon();
-        let rema = this.difference(&othr);
-        //let ta = this.signed_area();
-        //let oa = othr.signed_area();
-        //let ra = rema.signed_area();
-        //println!("ta: {ta} oa: {oa} ra: {ra} 0: {:?}", ta - oa - ra);
+        //println!("### subtract othr: {:?}", othr);
+        let rema = self_.difference(&othr);
+        let sa = self_.signed_area();
+        let oa = othr.signed_area();
+        let ra = rema.signed_area();
+        let x0 = sa - oa - ra;
+        if x0 > 0.1 {
+            println!("ta: {sa} oa: {oa} ra: {ra} 0: {:?}", x0);
+        }
         let remaining = self.from_geo(rema);
 
         //let remaining =
@@ -343,23 +348,20 @@ impl Footprint {
     }
 
     // todo: that init is a hack!!!
-    fn to_geo_polygon(&self, polygon_index: usize, init: bool) -> Polygon {
+    fn to_geo_polygon(&self, polygon_index: usize) -> Polygon {
+        //println!("### self.pol* {:?}", &self.polygons);
         let mut interiors: Vec<LineString> = Vec::new();
-        let mut polygon = &self.polygons[polygon_index];
-
-        if init {
-            if !self.pol_init[0][0].is_empty() {
-                polygon = &self.pol_init[polygon_index];
-                println!("pol_init");
-            }
-        }
+        let polygon = &self.polygons[polygon_index];
 
         for (line_string_index, _positions) in polygon.iter().enumerate().skip(FIRST_HOLE_INDEX) {
             interiors.push(self.to_geo_line_string(polygon_index, line_string_index));
         }
-        println!("polygon[0][0] {:?}", polygon[FIRST_POLYGON][OUTER_POLYGON]);
+        //println!(
+        //    "### polygon {polygon_index} [OUTER_POLYGON] {:?}",
+        //    polygon[OUTER_POLYGON]
+        //);
         let exteriors = self.to_geo_line_string(polygon_index, OUTER_POLYGON);
-        println!("exteriors {:?}", exteriors[0]);
+        //println!("### exteriors {:?}", exteriors);
 
         Polygon::new(exteriors, interiors)
     }
@@ -367,18 +369,47 @@ impl Footprint {
     fn to_geo_multi_polygon(&self) -> MultiPolygon {
         let mut poligons = vec![];
         for (i, _polygon) in self.polygons.iter().enumerate() {
-            poligons.push(self.to_geo_polygon(i, false));
+            poligons.push(self.to_geo_polygon(i));
         }
         MultiPolygon::new(poligons)
     }
 
     pub fn other_is_inside(&self, other: &Footprint) -> bool {
-        let other_polygon = other.to_geo_polygon(FIRST_POLYGON, true);
+        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
+        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
 
-        // let other_line_string = other_polygon.exterior().clone();
+        //let remaining_other_polygon = self_polygon.difference(&other_polygon);
+        // The regions of `self` which are not in `other`.
+        let remaining_other_polygon = other_polygon.difference(&self_polygon);
+
+        //let self_exterior = self_polygon.exterior();
+        //let other_exterior = other_polygon.exterior();
+        //let remaining_other_polygon = other_exterior.difference(self_exterior);
+        let other_area = other_polygon.unsigned_area();
+        let remaining_other_area = remaining_other_polygon.unsigned_area();
+        let remaining = remaining_other_area / other_area;
+        if remaining > 0.01 && remaining < 0.999 {
+            println!("remaining: {remaining} {remaining_other_area}/{other_area}");
+        }
+        remaining < 0.01
+    }
+
+    pub fn _geo_other_is_inside(&self, other: &Footprint) -> bool {
+        //println!("Part other 0 0");
+        //for coord in &other.pol_init[0][0] {
+        //    println!("(x: {}, y: {}),", coord.east, coord.north);
+        //}
+
+        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
+        println!("to_geo_polygon");
+        let other_line_string = &other_polygon.exterior().clone();
+        for coord in other_line_string {
+            println!("(x: {}, y: {}),", coord.x, coord.y);
+        }
+
         // remove holes is the only help ???
         // let other_polygon = Polygon::new(other_line_string, vec![]);
-        let self_polygon = self.to_geo_polygon(FIRST_POLYGON, false);
+        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
         //let self_line_string = self_polygon.exterior().clone();
         //println!("self: {:?}", self_polygon);
         //println!("other: {:?}", other_line_string);
@@ -391,6 +422,15 @@ impl Footprint {
         let (_out, _hol) = other_polygon.clone().into_inner();
         let self_exterior = self_polygon.exterior();
         let other_exterior = other_polygon.exterior();
+
+        //for coord in self_exterior {
+        //    println!("(x: {}, y: {}),", coord.x, coord.y);
+        //}
+        println!("Part other_exterior");
+        for coord in other_exterior {
+            println!("(x: {}, y: {}),", coord.x, coord.y);
+        }
+
         for (index, coord) in other_exterior.coords_iter().enumerate() {
             // MultiPoly with holes has more digits and so is not ON the line
             let on_line = self_exterior.contains(&coord);

@@ -297,6 +297,12 @@ impl Osm2Layer {
         }
         footprint.close();
 
+        //println!("::::::: add_area of id {id})");
+        //let outer = &footprint.polygons[0][0];
+        //for coord in outer {
+        //    println!("(x: {}, y: {}),", coord.east, coord.north);
+        //}
+
         // When needs a buidling als to be a part? This example is just a building:
         // https://www.openstreetmap.org/edit#map=22/51.4995203/-0.1290937
         // So building else if solves it??? Overpass vor beeng both and check
@@ -338,103 +344,6 @@ impl Osm2Layer {
             members,
             tags: Some(tags),
         });
-    }
-
-    ///////////////////////
-
-    pub fn process_elements(&mut self) {
-        //
-        #[cfg(debug_assertions)]
-        println!("\n**** process: {:?} relations", self.relations.len());
-        while let Some(mut osm_relation) = self.relations.pop() {
-            self.process_relation(osm_relation.id, &mut osm_relation);
-        }
-
-        #[cfg(debug_assertions)]
-        println!("\n**** process {:?} ways", self.buildings.len());
-        while let Some(building_id) = self.buildings.pop() {
-            if self.show_only > 0 && self.show_only != building_id {
-                continue;
-            }
-            if self.way_only > 0 && self.way_only != building_id {
-                continue;
-            }
-            println!("building: {building_id} ...");
-            let mut building = self.areas_map.remove(&building_id).unwrap();
-            // Always test the inside by the full original footprint outer, not by already missing part areas
-            let mut outer_area = building.footprint.clone(); // clone only the outer!  ???
-            let outer_area_size = outer_area.get_area_size();
-
-            //for pos in &outer_area.polygons[0][0] {
-            //    println!("(x: {},y: {}),", pos.east, pos.north);
-            //}
-
-            // Subtract parts from building outer ways - code is slow? Todo!
-            // is parts cloned or part_id???
-            let mut part_index: i32 = -1;
-            for part_id in self.parts.clone() {
-                part_index += 1;
-                //ttt                println!("part: {part_id}");
-
-                // if part_id == 664613340 {
-                //     println!("tttpart: dome");
-                // } else {
-                //     continue;
-                // }
-
-                if part_id == 0 {
-                    continue;
-                }
-
-                let part = &self.areas_map.get(&part_id).unwrap();
-
-                if outer_area.bounding_box.outside(part.footprint.bounding_box) {
-                    continue;
-                };
-                // merge the two fn ???
-                if part_id == 664646816 {
-                    println!("part outer/relation !!");
-                } else {
-                    continue;
-                }
-                if !outer_area.other_is_inside(&part.footprint) {
-                    println!("- part: {part_id}");
-                    continue;
-                };
-                println!("+ part: {part_id}");
-
-                #[cfg(debug_assertions)]
-                //tttprintln!("part: {part_id}");
-                building.footprint.subtract(&part.footprint);
-                let mut part = self.areas_map.remove(&part_id).unwrap();
-                self.create_building_or_part(part_id, &mut part);
-
-                self.parts[part_index as usize] = 0;
-
-                // if outer empty: continue to render more parts
-            }
-
-            let remaining_area_size = building.footprint.get_area_size();
-            let percent_left = (remaining_area_size / outer_area_size * 100.) as i32;
-
-            #[cfg(debug_assertions)]
-            println!("building: {building_id} left: {percent_left}%");
-
-            //println!("\nouter_area: {:?}", outer_area.polygons);
-            //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
-
-            // ??? 40 40. 20 20.
-            if !building.footprint.polygons.is_empty() && percent_left >= 0 {
-                self.create_building_or_part(building_id, &mut building);
-            }
-        }
-
-        #[cfg(debug_assertions)]
-        for part_id in &self.parts {
-            if *part_id > 0 {
-                println!("LEFT part: {part_id}");
-            }
-        }
     }
 
     ///////////////////////
@@ -640,6 +549,99 @@ impl Osm2Layer {
 
     ///////////////////////
 
+    pub fn process_elements(&mut self) {
+        //
+        #[cfg(debug_assertions)]
+        println!("\n**** process: {:?} relations", self.relations.len());
+        while let Some(mut osm_relation) = self.relations.pop() {
+            self.process_relation(osm_relation.id, &mut osm_relation);
+        }
+
+        #[cfg(debug_assertions)]
+        println!("\n**** process {:?} ways", self.buildings.len());
+        while let Some(building_id) = self.buildings.pop() {
+            if self.show_only > 0 && self.show_only != building_id {
+                continue;
+            }
+            if self.way_only > 0 && self.way_only != building_id {
+                continue;
+            }
+            //#[cfg(debug_assertions)]
+            //println!("building: {building_id} ...");
+            let mut building = self.areas_map.remove(&building_id).unwrap();
+            // Always test the inside by the full original footprint outer, not by already missing part areas
+            let mut outer_area = building.footprint.clone(); // clone only the outer!  ???
+            let outer_area_size = outer_area.get_area_size();
+
+            //for pos in &outer_area.polygons[0][0] {
+            //    println!("(x: {},y: {}),", pos.east, pos.north);
+            //}
+
+            // Subtract parts from building outer ways - code is slow? Todo!
+            // is parts cloned or part_id???
+            let mut part_index: i32 = -1;
+            for part_id in self.parts.clone() {
+                part_index += 1;
+                //ttt                println!("part: {part_id}");
+
+                // if part_id == 664613340 {
+                //     println!("tttpart: dome");
+                // } else {
+                //     continue;
+                // }
+
+                if part_id == 0 {
+                    continue;
+                }
+
+                let part = &self.areas_map.get(&part_id).unwrap();
+
+                if outer_area.bounding_box.outside(part.footprint.bounding_box) {
+                    continue;
+                };
+
+                if !outer_area.other_is_inside(&part.footprint) {
+                    println!("- part: {part_id}");
+                    continue;
+                };
+                //println!("+ part: {part_id}");
+
+                //#[cfg(debug_assertions)]
+                //println!("part: {part_id}");
+                building.footprint.subtract(&part.footprint);
+                let mut part = self.areas_map.remove(&part_id).unwrap();
+                self.create_building_or_part(part_id, &mut part);
+
+                self.parts[part_index as usize] = 0;
+
+                // if outer empty: continue to render more parts
+            }
+
+            let remaining_area_size = building.footprint.get_area_size();
+            let percent_left = (remaining_area_size / outer_area_size * 100.) as i32;
+
+            #[cfg(debug_assertions)]
+            println!("building: {building_id} left: {percent_left}%");
+
+            //println!("\nouter_area: {:?}", outer_area.polygons);
+            //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
+
+            // ??? 40 40. 20 20.
+            if !building.footprint.polygons.is_empty() && percent_left >= 0 {
+                self.create_building_or_part(building_id, &mut building);
+            }
+        }
+
+        #[cfg(debug_assertions)]
+        for part_id in &self.parts {
+            if *part_id > 0 {
+                println!("LEFT part: {part_id}");
+            }
+        }
+    }
+
+    ///////////////////////
+
     fn process_relation(&mut self, id: u64, osm_relation: &mut OsmRelation) {
         if self.show_only > 0 && id != self.show_only {
             return;
@@ -696,16 +698,16 @@ impl Osm2Layer {
             }
         }
 
-        relation_footprint.pol_init = relation_footprint.polygons.clone();
+        //???relation_footprint.pol_init = relation_footprint.polygons.clone();
 
         for member in &members {
-            println!("mem: {:?}", &member);
+            //println!("mem: {:?}", &member);
             if member.role.as_str() == "inner" {
                 self.process_relation_inner(member.reference, &mut relation_footprint, id);
             }
-            if member.reference == 664669344 {
-                break; //ttt
-            }
+            //if member.reference == 664669344 {
+            //    break; //ttt
+            //}
         }
 
         if relation_footprint.polygons.is_empty() {
@@ -776,6 +778,7 @@ impl Osm2Layer {
         //println!("elements_ref: {:?}", &elements_ref);
         let option = self.areas_map.get(&elements_ref);
         if option.is_none() {
+            // May be outer is inside the load bbox, but inner not :-/
             println!("Relaton {id}: Inner way {} not loaded!", elements_ref);
             return;
         }
