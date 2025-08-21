@@ -16,7 +16,7 @@ pub struct UrlClArgs {
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,
-    #[arg(short, long, default_value = "444")]
+    #[arg(short, long, default_value = "0")]
     pub range: u32,
 }
 

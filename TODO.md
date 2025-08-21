@@ -1,20 +1,25 @@
-* 367642719  teile fehlen
-* obi -- -w 367642719 -r 444   panicked at src/osm2layers.rs:385:58:
-
-Beitrag:
-bakerbox bads: 440257472 and 440257471
-Inside Hilton building 107643543
-* Is much but not fully (65%) replaced by parts and has color. With 65% it sould be gone by the rool of Tornadic, but it is visible! And optically, not all parts (440123083,440123080,815659587) are subtracted!
-is a restaurante 440257457 ALSO as a building(!) with two parts 440123082,440123083 (for different colours only) By the way: light_brown is not a valid colour!
+To be discussed:
+* Hilton Building: 107643543  65% outer left and  F4 renders the remaining
+* Part 440123085 4 levels AND withRoof:levels=1!  The F4map roof is not exact the L shape (also building 440257472)
 
 Next todo:
+* wasm auch mit Meldungen wie Ist Part/Relation etc.
+* part 1144964446 gone by other ???
+* Select part for OSM ID page view
+* Missing a lot: way 228691410 ( Saint Basil's Cathedral Relation 3030568)
+* München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
+
 * errorBox/ui: für ipad
 * A paramter rel=9593239 sould help with the outer
+* Flickerings around St Pauls, and elsewere
+* Missing parts near 109862851 (other moskue)
+* An odd roof near 417245741
 * If one inspects an existing building, edited for the F4map renderer, it will look "wrong".
    (I need to analyse, how F4Map logic is here)
 * part 1373331436 not inside building 172649356 !?
 * crash: way 1149973649
 * Relation with > 1 outer and >1 for one inner: 8035487.    9346128=4outer
+* https://www.openstreetmap.org/way/229711939   odd roof: direction "E" add snapping
 * Contributing hat gute punkte und meine hilfsbedürfte dazu
 * And also crashes: 3376015
 * Accept relations (auto if nuber < 1000xxx?)

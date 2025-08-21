@@ -568,7 +568,12 @@ impl Osm2Layer {
             }
             //#[cfg(debug_assertions)]
             //println!("building: {building_id} ...");
-            let mut building = self.areas_map.remove(&building_id).unwrap();
+            let building_option = self.areas_map.remove(&building_id);
+            if building_option.is_none() {
+                println!("building {building_id} gone by other ???");
+                continue;
+            };
+            let mut building = building_option.unwrap();
             // Always test the inside by the full original footprint outer, not by already missing part areas
             let mut outer_area = building.footprint.clone(); // clone only the outer!  ???
             let outer_area_size = outer_area.get_area_size();
@@ -582,19 +587,16 @@ impl Osm2Layer {
             let mut part_index: i32 = -1;
             for part_id in self.parts.clone() {
                 part_index += 1;
-                //ttt                println!("part: {part_id}");
-
-                // if part_id == 664613340 {
-                //     println!("tttpart: dome");
-                // } else {
-                //     continue;
-                // }
-
                 if part_id == 0 {
                     continue;
                 }
 
-                let part = &self.areas_map.get(&part_id).unwrap();
+                let part_option = &self.areas_map.get(&part_id);
+                if part_option.is_none() {
+                    println!("part {part_id} gone by other ???");
+                    continue;
+                };
+                let part = part_option.unwrap();
 
                 if outer_area.bounding_box.outside(part.footprint.bounding_box) {
                     continue;
@@ -761,9 +763,8 @@ impl Osm2Layer {
             self.outer_state = OuterState::Partly;
             println!(
                 // todo: multi outer/inner
-                "outer line, id: {} nodes: {} taggs: {}",
+                "outer line, id: {} taggs: {}",
                 line.id,
-                line.positions.len(),
                 line.tags.is_some()
             );
             for position in &line.positions {

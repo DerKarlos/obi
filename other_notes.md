@@ -24,10 +24,10 @@ Most used tests
 
 More Examples
 * domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,
-* Saint Basil's Cathedral Relation 3030568
+* Saint Basil's Cathedral Relation 3030568 - many small outers!  228691410
 * Vatikan, Saint Peter's Basilica  244159210
-* Marienplatz 223907278
-* Cologne Cathedral: 1233649406, Krahnhaus:234160726
+* Marienplatz Rathaus: 23632633 part: 223907278
+* Cologne Cathedral: r 1233649406 o way 4532022, Krahnhaus:234160726
 * https://osmgo.org/bevy.html?way=398036478 one more Ernest Pohl Stadium  Polen
 
 Subtract tests
@@ -49,7 +49,7 @@ https://osmgo.org/bevy.html?way=8035487
 Moskau
 http://osmgo.org/bevy.html?way=228697049&range=100
 
-### Notes on WASM:
+### Notes on WASM:  run server localhost
 https://www.youtube.com/watch?v=VjXiREbPtJs % rustup update
 % rustup target add wasm32-unknown-unknown
 % cargo install -f wasm-bindgen-cli    !!! AT THE PROJECT DIR !!!
