@@ -27,31 +27,6 @@ impl GeographicCoordinates {
      * @return {[number, number]} x, y in meters
      */
 
-    // Version from bakerboy. The result doasn't look different. But may be it helps somewere
-    // could be for large distances on a sphere. Drop it ???
-    pub fn _bakerboy_coordinates_to_position(
-        &self,
-        latitude: f64,
-        longitude: f64,
-    ) -> GroundPosition {
-        const PI: f64 = std::f64::consts::PI;
-        const R: f64 = 6371. * 1000.; // Earth radius in m
-        //nst CIRC: f64 = 2. * PI * R; // Circumference
-        let phi: f64 = 90. - latitude; //lonLat[1];
-        let theta: f64 = longitude - self.longitude;
-        let theta_prime: f64 = self.latitude / 180. * PI;
-        let x: f64 = R * (theta / 180. * PI).sin() * (phi / 180. * PI).sin();
-        let y: f64 = R * (phi / 180. * PI).cos();
-        let z: f64 = R * (phi / 180. * PI).sin() * (theta / 180. * PI).cos();
-        let abs: f64 = (z * z + y * y).sqrt();
-        let arg: f64 = (y / z).atan() - theta_prime;
-
-        GroundPosition {
-            east: x,
-            north: ((arg).sin() * abs),
-        }
-    }
-
     pub fn coordinates_to_position(&self, latitude: f64, longitude: f64) -> GroundPosition {
         // If no GPU 0 position is set, return just the GPS position. Used to find the GPU 0 position
         if self.latitude == 0. {

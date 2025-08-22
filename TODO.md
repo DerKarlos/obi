@@ -1,13 +1,13 @@
 To be discussed:
 * Hilton Building: 107643543  65% outer left and  F4 renders the remaining
-* Part 440123085 4 levels AND withRoof:levels=1!  The F4map roof is not exact the L shape (also building 440257472)
+* Part 440123085 4 levels AND withRoof:levels=1!
+  The F4map roof is not exact the L shape (also building 440257472)
+* München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
 
 Next todo:
-* wasm auch mit Meldungen wie Ist Part/Relation etc.
-* part 1144964446 gone by other ???
 * Select part for OSM ID page view
 * Missing a lot: way 228691410 ( Saint Basil's Cathedral Relation 3030568)
-* München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
+* wasm auch mit Meldungen wie Ist Part/Relation etc.
 
 * errorBox/ui: für ipad
 * A paramter rel=9593239 sould help with the outer

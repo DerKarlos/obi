@@ -210,7 +210,7 @@ fn on_load(
         bounding_box.min_range(app_state.range as f64);
         app_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT) as f32;
         control_value.distance = app_state.range * 1.0;
-        control_value.use_first_mouse_key_for_orientation = true;
+        control_value.use_first_point_for_orientation = true;
 
         // load building
         app_state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
@@ -303,6 +303,7 @@ fn main() {
         .add_plugins(WebAssetPlugin::default()) // for http(s)
         .add_plugins(
             DefaultPlugins
+                // It seems like the macOS Safari does not run fullscreen with the old code in the old dir, but iPad doas! Hm?
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         fit_canvas_to_parent: true,

@@ -211,7 +211,7 @@ pub struct Osm2Layer {
     parts: Vec<u64>,
     relations: Vec<OsmRelation>,
     outer_state: OuterState,
-    first_outer_id: u64,
+    first_outer_id_: u64,
     buildings_or_parts: BuildingsAndParts,
     show_only: u64,
     way_only: u64,
@@ -231,7 +231,7 @@ impl Osm2Layer {
             buildings: Vec::new(),
             parts: Vec::new(),
             outer_state: OuterState::New,
-            first_outer_id: 0,
+            first_outer_id_: 0,
             relations: Vec::new(),
             buildings_or_parts: Vec::new(),
             show_only,
@@ -259,7 +259,6 @@ impl Osm2Layer {
     }
 
     pub fn add_way(&mut self, id: u64, mut nodes: Vec<u64>, tags: Option<OsmMap>) {
-        // Only closed ways (yet)
         if nodes.first().unwrap() == nodes.last().unwrap() {
             if nodes.len() < 3 {
                 println!("Closed way with < 3 corners! id: {}", id);
@@ -278,7 +277,7 @@ impl Osm2Layer {
             let position = self.nodes_map.get(&node_id).unwrap().position;
             positions.push(position);
         }
-        //??? line.close();
+
         self.lines_map.insert(
             id,
             OsmLine {
@@ -297,13 +296,7 @@ impl Osm2Layer {
         }
         footprint.close();
 
-        //println!("::::::: add_area of id {id})");
-        //let outer = &footprint.polygons[0][0];
-        //for coord in outer {
-        //    println!("(x: {}, y: {}),", coord.east, coord.north);
-        //}
-
-        // When needs a buidling als to be a part? This example is just a building:
+        // When needs a buidling also to be a part? This example is just a building:
         // https://www.openstreetmap.org/edit#map=22/51.4995203/-0.1290937
         // So building else if solves it??? Overpass vor beeng both and check
         if let Some(tags) = &tags {
@@ -603,7 +596,8 @@ impl Osm2Layer {
                 };
 
                 if !outer_area.other_is_inside(&part.footprint) {
-                    println!("- part: {part_id}");
+                    //#[cfg(debug_assertions)]
+                    //println!("- part: {part_id}");
                     continue;
                 };
                 //println!("+ part: {part_id}");
@@ -614,6 +608,9 @@ impl Osm2Layer {
                 let mut part = self.areas_map.remove(&part_id).unwrap();
                 self.create_building_or_part(part_id, &mut part);
 
+                // Part 1144964446 is inner of (5465171 AND 15475567) ???
+                // This would be nice to drop used parts and spare time.
+                // But seldomly, parts are used multible times.
                 self.parts[part_index as usize] = 0;
 
                 // if outer empty: continue to render more parts
@@ -629,7 +626,7 @@ impl Osm2Layer {
             //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
 
             // ??? 40 40. 20 20.
-            if !building.footprint.polygons.is_empty() && percent_left >= 0 {
+            if !building.footprint.polygons.is_empty() && percent_left >= 20 {
                 self.create_building_or_part(building_id, &mut building);
             }
         }
@@ -707,9 +704,6 @@ impl Osm2Layer {
             if member.role.as_str() == "inner" {
                 self.process_relation_inner(member.reference, &mut relation_footprint, id);
             }
-            //if member.reference == 664669344 {
-            //    break; //ttt
-            //}
         }
 
         if relation_footprint.polygons.is_empty() {
@@ -724,21 +718,25 @@ impl Osm2Layer {
         // buildings_and_parts.push...
         // println!("tags: {:?}", tags.clone());
         let new_osm_area = OsmArea {
-            _id: self.first_outer_id,
+            _id: id, // self.first_outer_id,
             footprint: relation_footprint,
             tags: Some(tags.clone()),
         };
 
-        self.areas_map.insert(self.first_outer_id, new_osm_area);
+        self.areas_map.insert(
+            // self.first_outer_id,
+            id,
+            new_osm_area,
+        );
         let is_part = tags_get_yes(osm_relation.tags.as_ref().unwrap(), "building:part").is_some();
 
         if is_part {
-            if self.first_outer_id == self.way_only {
+            if id == self.way_only {
                 println!("The Relation of the inspected Outer-Way is not a building but a part!");
             }
-            self.parts.push(self.first_outer_id); // To subtract it from a building, it must be a part
+            self.parts.push(id); // To subtract it from a building, it must be a part
         } else {
-            self.buildings.push(self.first_outer_id); // If IT is a building, it must be in the building list, to get parts substracted!
+            self.buildings.push(id); // If IT is a building, it must be in the building list, to get parts substracted!
         }
     }
 
@@ -755,7 +753,7 @@ impl Osm2Layer {
             }
             new_footprint.set(&area.footprint);
             self.outer_state = OuterState::Ready;
-            self.first_outer_id = outer_ref;
+            self.first_outer_id_ = outer_ref;
             return;
         }
 
@@ -777,6 +775,7 @@ impl Osm2Layer {
 
     fn process_relation_inner(&self, elements_ref: u64, new_footprint: &mut Footprint, id: u64) {
         //println!("elements_ref: {:?}", &elements_ref);
+        //
         let option = self.areas_map.get(&elements_ref);
         if option.is_none() {
             // May be outer is inside the load bbox, but inner not :-/
@@ -787,8 +786,7 @@ impl Osm2Layer {
         println!("inner: {}", elements_ref);
 
         // todo: what if the hole is has holes? What if the polygon is a multipolygon?
-        let footprint: &Footprint = &self.areas_map.get(&elements_ref).unwrap().footprint;
-        new_footprint.subtract(footprint);
+        new_footprint.subtract(&option.unwrap().footprint);
         //println!("inner way; {:?}", &elements_ref);
     }
 }

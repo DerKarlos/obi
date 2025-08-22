@@ -8,7 +8,7 @@ extern crate earcutr; // not supported vor WASM?
 //use i_overlay::float::single::SingleFloatOverlay;
 
 // geo primitives
-use geo::{Area, BooleanOps, Contains, Coord, CoordsIter, LineString, MultiPolygon, Polygon};
+use geo::{Area, BooleanOps, Coord, LineString, MultiPolygon, Polygon};
 
 use crate::kernel_in::{
     BoundingBox, FGP, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions,
@@ -198,7 +198,7 @@ impl Footprint {
         let mut holes_starts = Vec::<usize>::new();
 
         for position in &self.polygons[polygon_index][OUTER_POLYGON] {
-            // Hey earcut, why y before x ???
+            // Hey earcut, why y before x ?
             vertices.push(position.north);
             vertices.push(position.east);
         }
@@ -310,7 +310,6 @@ impl Footprint {
         }
     }
 
-    //ääää
     fn line_string_to_positions(&self, line_string: LineString) -> GroundPositions {
         let mut positions: Vec<GroundPosition> = Vec::new();
         for point in line_string {
@@ -371,6 +370,7 @@ impl Footprint {
         for (i, _polygon) in self.polygons.iter().enumerate() {
             poligons.push(self.to_geo_polygon(i));
         }
+
         MultiPolygon::new(poligons)
     }
 
@@ -388,235 +388,12 @@ impl Footprint {
         let other_area = other_polygon.unsigned_area();
         let remaining_other_area = remaining_other_polygon.unsigned_area();
         let remaining = remaining_other_area / other_area;
-        if remaining > 0.01 && remaining < 0.999 {
-            println!("remaining: {remaining} {remaining_other_area}/{other_area}");
+        #[cfg(debug_assertions)]
+        {
+            if remaining > 0.01 && remaining < 0.999 {
+                println!("remaining: {remaining} {remaining_other_area}/{other_area}");
+            }
         }
         remaining < 0.01
     }
-
-    pub fn _geo_other_is_inside(&self, other: &Footprint) -> bool {
-        //println!("Part other 0 0");
-        //for coord in &other.pol_init[0][0] {
-        //    println!("(x: {}, y: {}),", coord.east, coord.north);
-        //}
-
-        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
-        println!("to_geo_polygon");
-        let other_line_string = &other_polygon.exterior().clone();
-        for coord in other_line_string {
-            println!("(x: {}, y: {}),", coord.x, coord.y);
-        }
-
-        // remove holes is the only help ???
-        // let other_polygon = Polygon::new(other_line_string, vec![]);
-        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
-        //let self_line_string = self_polygon.exterior().clone();
-        //println!("self: {:?}", self_polygon);
-        //println!("other: {:?}", other_line_string);
-        //let x = self_polygon.contains(&other_polygon);
-        //let y = self_line_string.contains(&other_polygon);
-        //let z = self_line_string.contains(&other_line_string);
-        //println!("contains: {x} {y} {z}",);
-        //x
-
-        let (_out, _hol) = other_polygon.clone().into_inner();
-        let self_exterior = self_polygon.exterior();
-        let other_exterior = other_polygon.exterior();
-
-        //for coord in self_exterior {
-        //    println!("(x: {}, y: {}),", coord.x, coord.y);
-        //}
-        println!("Part other_exterior");
-        for coord in other_exterior {
-            println!("(x: {}, y: {}),", coord.x, coord.y);
-        }
-
-        for (index, coord) in other_exterior.coords_iter().enumerate() {
-            // MultiPoly with holes has more digits and so is not ON the line
-            let on_line = self_exterior.contains(&coord);
-            // for polygons, contains means NOT on the line
-            let contains = self_exterior.contains(&coord);
-            println!("{index} coord: {:?} {contains} {on_line}", coord);
-            if !(on_line || contains) {
-                return false;
-            };
-        }
-
-        true
-    }
-
-    /**
-     * Check if any point in a part is within this building's outline.
-     * It only checknof points are inside, not if crossing events occur, or
-     * if the part completly surrounds the building.
-     * @param {BuildingPart} part - the part to be tested
-     * @returns {bool} is it?
-     */
-    pub fn _other_is_inside(&self, other: &Footprint) -> bool {
-        // println!("\ntttother:\n{:?}\n", other.polygons);
-        // println!("\ntttself:\n{:?}\n", self.polygons);
-        let other_outer = &other.polygons[FIRST_POLYGON][OUTER_POLYGON];
-        //println!("tttttt: {:?}", &self.polygons[FIRST_POLYGON]);
-        let self_outer = &self.polygons[FIRST_POLYGON][OUTER_POLYGON];
-
-        for (_index, position) in other_outer.iter().enumerate() {
-            //if index != 1 {
-            //    continue; // ttt
-            //}
-
-            if !_ai_surrounds(
-                // &self.polygons[FIRST_POLYGON][OUTER_POLYGON],
-                &self_outer,
-                position,
-            ) {
-                //println!("tt_3 index: {index} p: {:?}", position);
-                return false;
-            }
-        }
-        true
-    }
-}
-
-/// Checks if a point is inside or on the border of a polygon.
-/// `shape`: list of polygon vertices (must be a closed polygon, first and last point don't need to be the same)
-/// `point`: the (x, y) point to check
-pub fn _baker_surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
-    let mut count = 0;
-    let n = positions.len();
-
-    for (i, position) in positions.iter().enumerate() {
-        //for i in 0..n {
-        //let vec = positions[i];
-        let next_pos = positions[(i + 1) % n];
-
-        if position.east == point.east && position.north == point.north {
-            return true; // Point is exactly on a vertex
-        }
-
-        if next_pos.east == position.east {
-            // Vertical line
-            if point.east == position.east {
-                return true; // Point is on a vertical line
-            }
-            if position.east > point.east
-                // West of vertical line and not abowe or below
-                && (position.north > point.north || next_pos.north > point.north)
-                && !(position.north > point.north && next_pos.north > point.north)
-            {
-                // went into or out of area
-                count += 1;
-            }
-        } else if next_pos.north == position.north {
-            // Horizontal line
-            if position.north == point.north
-                && (position.east > point.east || next_pos.east > point.east)
-                && !(position.east > point.east && next_pos.east > point.east)
-            {
-                return true; // Point is on a horizontal edge
-            }
-        } else {
-            // slopy line
-            let slope = (next_pos.north - position.north) / (next_pos.east - position.east);
-            let intercept = position.north - slope * position.east;
-            let intersection = (point.north - intercept) / slope;
-
-            println!(
-                "slope: {slope} intercept: {intercept} intersection: {intersection} point.east: {:?}",
-                point.east
-            );
-            println!(
-                "max: {} {} min: {} {} next: {} this: {}",
-                intersection < FGP::max(next_pos.east, position.east),
-                FGP::max(next_pos.east, position.east),
-                intersection > FGP::min(next_pos.east, position.east),
-                FGP::min(next_pos.east, position.east),
-                next_pos.east,
-                position.east
-            );
-
-            // count how often the point is east of one of the lines
-            if intersection > point.east
-                && intersection < FGP::max(next_pos.east, position.east)
-                && intersection > FGP::min(next_pos.east, position.east)
-            {
-                count += 1;
-            } else if (intersection - point.east).abs() < FGP::EPSILON {
-                return true; // Point lies exactly on the edge
-            }
-        }
-    }
-
-    count % 2 == 1
-}
-
-// https://docs.rs/geo/latest/geo/
-// https://github.com/georust/geo/blob/38afc3ed21f2c3e0abeb2658947bceab48b65102/geo/src/algorithm/contains/point.rs#L23
-
-// Wikipedia: Diese Methode gibt true zurück, wenn der Punkt innerhalb des Polygons liegt, sonst false
-fn _wiki_surrounds(polygon: &GroundPositions, point: &GroundPosition) -> bool {
-    let mut is_inside: bool = false;
-
-    for (i, _polygon) in polygon.iter().enumerate()
-    // Diese for-Schleife durchläuft alle Ecken des Polygons
-    //for (int i = 0; i < polygon.Length; i++)
-    {
-        let j = (i + 1) % polygon.len(); // Index der nächsten Ecke
-        //println!("i/j: {i}/{j}");
-        if polygon[i].north < point.north && polygon[j].north >= point.north
-            || polygon[j].north < point.north && polygon[i].north >= point.north
-        {
-            println!("partly {i}");
-            if (point.north - polygon[i].north) * (polygon[j].east - polygon[i].east)
-                < (point.east - polygon[i].east) * (polygon[j].north - polygon[i].north)
-            // Wenn der Strahl die Kante schneidet, Rückgabewert zwischen true und false wechseln
-            {
-                is_inside = !is_inside;
-                println!("is_inside: {is_inside}");
-            }
-        }
-    }
-    println!("!!! is_inside: {is_inside}");
-    is_inside
-}
-
-/// Checks if a point is inside a polygon using the ray casting algorithm.
-/// ChatGPT generated code - does not work
-///
-/// # Arguments
-/// * `point` - The point to test.
-/// * `polygon` - A slice of points representing the polygon vertices, ordered clockwise or counterclockwise.
-///
-/// # Returns
-/// * `true` if the point is inside the polygon, `false` otherwise.
-fn _ai_surrounds(positions: &GroundPositions, point: &GroundPosition) -> bool {
-    let mut inside = false;
-    let n = positions.len();
-
-    if n < 3 {
-        return false; // Not a valid polygon
-    }
-
-    //let mut j = n - 1;
-    for i in 0..n {
-        let pi = positions[i];
-        let pj = positions[(i + 1) % n]; // there was no modulo, only positions[j]
-
-        let intersect = ((pi.north > point.north) != (pj.north > point.north))
-            && (point.east
-                < (pj.east - pi.east) * (point.north - pi.north)
-                    / (pj.north - pi.north + 0.001) // f32::EPSILON)
-                    + pi.east);
-
-        if intersect {
-            inside = !inside;
-        }
-
-        //j = i;
-    }
-
-    if !inside {
-        println!("ai outside");
-    }
-
-    inside
 }

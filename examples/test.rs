@@ -85,7 +85,7 @@ fn main() {
     //      (x: 0.0, y: 0.5),   // 4 = 0 is not needed      0  .  .  .  1
         ];
 
-    assert_eq!(poly.contains(&ins), true); // what?? On the line is also inside ???
+    assert_eq!(poly.contains(&ins), true); // what?? On the line is also inside? Not for lineString, only polygons!
     assert_eq!(poly.intersects(&ins), true);
     assert_eq!(poly.is_within(&ins), false);
     assert_eq!(ins.is_within(&poly), true);

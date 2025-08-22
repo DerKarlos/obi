@@ -29,7 +29,8 @@ impl InputOsm {
     }
 
     pub fn way_url(&self, way_id: u64) -> String {
-        format!("{}way/{}/full.json", self.api_url, way_id)
+        let way_or_relation = if way_id > 19999999 { "way" } else { "relation" };
+        format!("{}{}/{}/full.json", self.api_url, way_or_relation, way_id)
     }
 
     pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
@@ -42,7 +43,7 @@ impl InputOsm {
         &self,
         way_id: u64,
     ) -> Result<BoundingBox, Box<dyn std::error::Error>> {
-        let mut url = format!("{}way/{}/full.json", self.api_url, way_id);
+        let mut url = self.way_url(way_id); // format!("{}way/{}/full.json", self.api_url, way_id);
         if LOCAL_TEST {
             url = "bbox.json".into();
         }
@@ -61,7 +62,7 @@ impl InputOsm {
         //println!("result1: {:?}", result);
 
         match result {
-            // this code is messy, sint it ???
+            // this code is messy, isnt it ??? replace by crate geo
             Ok(bytes) => {
                 let option = geo_bbox_of_way_bytes(&bytes, way_id);
                 if option.is_some() {

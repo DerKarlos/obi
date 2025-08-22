@@ -118,7 +118,7 @@ pub fn render_init(
     let starting_values = StartingValues { osm_meshes, range };
 
     let control_values = ControlValues {
-        use_first_mouse_key_for_orientation,
+        use_first_point_for_orientation: use_first_mouse_key_for_orientation,
         distance: range * 1.0,
         ..default()
     };

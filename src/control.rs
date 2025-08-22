@@ -17,7 +17,7 @@
     'KeyR', 'KeyF', // nick
     'KeyG', 'KeyT', // elevate
 
-    'KeyY', 'KeyH', // zoom (Y=Z at German keyboard) Mind the Compas! ???
+    'KeyY', 'KeyH', // zoom (Y=Z at German keyboard)
 
     'PageUp', 'PageDown',
     'Backslash', 'BracketRight', // Left of "Enter"; UK or US keyboard: ] and \ German keypbard: + and #
@@ -54,7 +54,7 @@ use bevy::window::PrimaryWindow;
 /// Mouse sensitivity and movement speed
 #[derive(Resource)]
 pub struct ControlValues {
-    pub use_first_mouse_key_for_orientation: bool,
+    pub use_first_point_for_orientation: bool,
     pub sensitivity: f32,
     pub speed: f32,
     pub target: Vec3,
@@ -69,7 +69,7 @@ impl Default for ControlValues {
     fn default() -> Self {
         Self {
             // default is like F4: first key for panning
-            use_first_mouse_key_for_orientation: false,
+            use_first_point_for_orientation: false,
             sensitivity: 0.0005,
             speed: 50.,
             target: Vec3::ZERO,
@@ -242,6 +242,17 @@ fn camera_touch(
     mut _touch_events: EventReader<TouchInput>,
 ) {
     if let Ok(window) = primary_window.single() {
+        let touch_count_rotate = if control_values.use_first_point_for_orientation {
+            1 // One touch
+        } else {
+            2 // Two touch
+        };
+        let touch_count_translate = if control_values.use_first_point_for_orientation {
+            2 // Two touch
+        } else {
+            1 // One touch
+        };
+
         let window_scale = window.height().min(window.width());
 
         let local_z = camera.local_z();
@@ -280,12 +291,12 @@ fn camera_touch(
         for finger in touches.iter() {
             let delta = finger.delta();
 
-            if control_values.touch_count == 1 {
+            if control_values.touch_count == touch_count_translate {
                 velocity += forward * delta.y * window_scale;
                 velocity -= right * delta.x * window_scale;
             }
 
-            if control_values.touch_count == 2 {
+            if control_values.touch_count == touch_count_rotate {
                 pitch_up -= (control_values.sensitivity * delta.y * window_scale).to_radians();
                 yaw_direction -= (control_values.sensitivity * delta.x * window_scale).to_radians();
 
@@ -331,11 +342,11 @@ fn camera_touch(
                 velocity -= right * delta.x * window_scale;
             }
         }
-        if control_values.touch_count == 1 || control_values.touch_count == 3 {
+        if control_values.touch_count == touch_count_translate || control_values.touch_count == 3 {
             velocity = velocity.normalize_or_zero();
             control_values.target += velocity * speed;
         }
-        if control_values.touch_count == 2 {
+        if control_values.touch_count == touch_count_rotate {
             pitch_up = pitch_up.clamp(-1.54, 1.54);
             // Order is important to prevent unintended roll
             camera.rotation = Quat::from_axis_angle(Vec3::Y, yaw_direction)
@@ -358,12 +369,12 @@ fn camera_mouse(
     time: Res<Time>,
 ) {
     if let Ok(window) = primary_window.single() {
-        let mouse_key_rotate = if control_values.use_first_mouse_key_for_orientation {
+        let mouse_key_rotate = if control_values.use_first_point_for_orientation {
             MouseButton::Left // First
         } else {
             MouseButton::Right // Second
         };
-        let mouse_key_translate = if control_values.use_first_mouse_key_for_orientation {
+        let mouse_key_translate = if control_values.use_first_point_for_orientation {
             MouseButton::Right // Second
         } else {
             MouseButton::Left // First
@@ -403,7 +414,7 @@ fn camera_mouse(
 
                 {
                     pitch_up -=
-                        (control_values.sensitivity * event.delta.y * window_scale).to_radians(); // tadiants ???
+                        (control_values.sensitivity * event.delta.y * window_scale).to_radians();
                     yaw_direction -=
                         (control_values.sensitivity * event.delta.x * window_scale).to_radians();
                 }
@@ -444,23 +455,4 @@ impl Plugin for ControlNoCamera {
             .add_systems(Update, camera_mouse)
             .add_systems(Update, camera_touch);
     }
-}
-
-// Gets not visible ??? ?? ?
-fn _instructions(mut commands: Commands) {
-    commands.spawn((
-        Name::new("Instructions"),
-        Text::new(
-            "Link? <a href=\"https://osmgo.org\">Ttest</a>\n\
-            Mouse up or down: pitch\n\
-            Mouse left or right: yaw\n\
-            Mouse buttons: roll",
-        ),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(92.),
-            left: Val::Px(92.),
-            ..default()
-        },
-    ));
 }

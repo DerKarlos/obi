@@ -11,12 +11,12 @@
 
 Most used tests
 * Reifenberg  121486088
-* Relation Bau 46: 45590896
+* Relation Bau 46: r 2819147 w 45590896
 * Passau Dom 24771505 gabled: 464090146 skilleon south: 136144290  north: 136144289
    todo: split https://www.openstreetmap.org/way/464090137 in gabled and phyramide
 * St Paul's Cathedral 369161987 center gabled: 664642004
    todo: spilt https://www.openstreetmap.org/way/664642004 in gabled and phyramide
-* Westminster  367642719 / Abbey 364313092
+* Westminster  r 1567699, w 367642719  w633493242+range1! / Abbey 364313092
 
 * gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
           angled: 45402141 is correkt but we expect and agle gabled, hm?
@@ -24,10 +24,10 @@ Most used tests
 
 More Examples
 * domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,
-* Saint Basil's Cathedral Relation 3030568 - many small outers!  228691410
+* Saint Basil's Cathedral Relation 3030568 - many small outers!  dont: w-228691410
 * Vatikan, Saint Peter's Basilica  244159210
-* Marienplatz Rathaus: 23632633 part: 223907278
-* Cologne Cathedral: r 1233649406 o way 4532022, Krahnhaus:234160726
+* Marienplatz Rathaus: p 147095 w-23632633 part: 223907278
+* Cologne Cathedral: r 2788226 w 1233649406 outer-way 4532022,     Krahnhaus: p 184729, w 234160726
 * https://osmgo.org/bevy.html?way=398036478 one more Ernest Pohl Stadium  Polen
 
 Subtract tests
