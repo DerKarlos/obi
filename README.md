@@ -20,11 +20,11 @@ Add the option area=<meter> to see all buildings around in that range. In this a
 
 Try it:
 [default: St.Pauls](http://www.OSMgo.org/obi),
-[Westminster](https://www.osmgo.org/obi?rel=1567699&area=140)
+[Westminster](https://www.osmgo.org/obi?relation=1567699&area=140)
 -[Aby](https://www.osmgo.org/obi?way=364313092),
-[London-City](https://osmgo.org/obi?rel=3850933&area=444),
+[London-City](https://osmgo.org/obi?relation=3850933&area=444),
 [Hagia Sophia](https://osmgo.org/obi?way=109862851),
-[Krahnhäuser](https://osmgo.org/obi?rel=184729&area=333)
+[Krahnhäuser](https://osmgo.org/obi?relation=184729&area=333)
 * BakerBoy's examples:
 [Ryugyong Hotel ](https://osmgo.org/obi?way=407995274),
 [The Bandstand](https://osmgo.org/obi?way=297997038)
