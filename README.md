@@ -19,17 +19,17 @@ The building must be given as a OSM way or relation ID:
 Add the option area=<meter> to see all buildings around in that range. In this area mode, the control swap roate and move controls to make it like F4Map. Default is the inspection mode with rotating by the first mousetouch.
 
 Try it:
-[default: St.Pauls](http://www.OSMgo.org/bevy.html),
-[Westminster](https://www.osmgo.org/bevy.html?rel=1567699&area=140)
--[Aby](https://www.osmgo.org/bevy.html?way=364313092),
-[London-City](https://osmgo.org/bevy.html?rel=3850933&area=444),
-[Hagia Sophia](https://osmgo.org/bevy.html?way=109862851),
-[Krahnhäuser](https://osmgo.org/bevy.html?rel=184729&area=333)
+[default: St.Pauls](http://www.OSMgo.org/obi),
+[Westminster](https://www.osmgo.org/obi?rel=1567699&area=140)
+-[Aby](https://www.osmgo.org/obi?way=364313092),
+[London-City](https://osmgo.org/obi?rel=3850933&area=444),
+[Hagia Sophia](https://osmgo.org/obi?way=109862851),
+[Krahnhäuser](https://osmgo.org/obi?rel=184729&area=333)
 * BakerBoy's examples:
-[Ryugyong Hotel ](https://osmgo.org/bevy.html?way=407995274),
-[The Bandstand](https://osmgo.org/bevy.html?way=297997038)
-[Nidaros Cathedral](https://osmgo.org/bevy.html?way=417245741)
-[Castle of the Holy Angel](https://osmgo.org/bevy.html?way=8035487), [](), [](), [](), [](), []()
+[Ryugyong Hotel ](https://osmgo.org/obi?way=407995274),
+[The Bandstand](https://osmgo.org/obi?way=297997038)
+[Nidaros Cathedral](https://osmgo.org/obi?way=417245741)
+[Castle of the Holy Angel](https://osmgo.org/obi?way=8035487), [](), [](), [](), [](), []()
 
 To get updates for this project, you may follow [this Fediverse account](https://en.osm.town/@rust_osm_tb)
 
