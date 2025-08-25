@@ -16,9 +16,11 @@ The building must be given as a OSM way or relation ID:
 * ```http://www.OSMgo.org/obi?way=24771505```
 * ```cargo run --example wasm -- --way 24771505```
 
+Add the option area=<meter> to see all buildings around in that range. In this area mode, the control swap roate and move controls to make it like F4Map. Default is the inspection mode with rotating by the first mousetouch.
+
 Try it:
 [default: St.Pauls](http://www.OSMgo.org/bevy.html),
-[Westminster](https://www.osmgo.org/bevy.html?rel=1567699&aray=140)
+[Westminster](https://www.osmgo.org/bevy.html?rel=1567699&area=140)
 -[Aby](https://www.osmgo.org/bevy.html?way=364313092),
 [London-City](https://osmgo.org/bevy.html?rel=3850933&area=444),
 [Hagia Sophia](https://osmgo.org/bevy.html?way=109862851),
@@ -85,6 +87,19 @@ Even Vector tiles may become an alternative, OSM or Overture, if they support bu
 * JosnData: Main struct of the OSM API return, with all Elements
 * JsonElement: May be a Node, Way or a Relation. May have a geo-position, may have tagging
 * JosnTags: TODO: should be a Map:  https://serde.rs/deserialize-map.html
+
+
+### Help wanted
+If you like to help this project, contact me
+in the [OSM forum (-karlos-)](https://community.openstreetmap.org/u/karlos/activity)
+or [my Fediverse account](https://en.osm.town/@rust_osm_tb).
+* This readme.md looks boring, improve it. And check my horrible Engish
+* Test the Web App or the binary App for errors or send me ideas and wishes
+* OBI is only an example vor the lib, but could have a better UI
+* Do you know Rust BEVY or WASM or HTML? Experts for my questions are welcome
+* Any idea how to render all this roof:shapes?
+* ...
+
 
 ### Trouble maker?
 * Never ending discussion about 100% part coverage: https://github.com/StrandedKitty/streets-gl/issues/3
