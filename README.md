@@ -13,7 +13,7 @@ The control supports keys, mouse and touch, like F4map but extendet:
 * Tribble Touch: move up/down and right/left
 
 The building must be given as a OSM way or relation ID:
-* ```http://www.OSMgo.org/bevy.html?way=24771505```
+* ```http://www.OSMgo.org/obi?way=24771505```
 * ```cargo run --example wasm -- --way 24771505```
 
 Try it:
