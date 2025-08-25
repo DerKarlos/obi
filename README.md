@@ -1,16 +1,33 @@
 # "OBI" or "OSM-BI" - OSM Building Inspector
 
-This tool displays a single OSM building rendered in 3D, to inspect whether the edited OSM tags show the expected view. It was inspired by [Beakerboy's OSMBuilding](https://github.com/Beakerboy/OSMBuilding) and uses some know-how of [www.OSMgo.org](https://www.osmgo.org). It may get editor features and more some day.
+This tool displays a single OSM building rendered in 3D, to inspect whether the edited OSM tags show the expected view. It was inspired by [Beakerboy's OSMBuilding](https://github.com/Beakerboy/OSMBuilding) and uses some know-how of [www.OSMgo.org](https://www.osmgo.org) and [www.OSM2World.org](https://www.OSM2World.org). It may get editor features and more some day.
 
-Actually it only renders building-parts and some of the roof:types. Newly also buildings with holes/polygons. But no subtraction of parts from the building footprint yet. It shows colors, but no material types.
+It renders buildings and its building-parts with some of the roof:types. It shows colours and colours of material types.
 
-The control cursor keys to rotate/zoom and R for reset, more will come.
+The control supports keys, mouse and touch, like F4map but extendet:
+* Arrow keys: rotate left/right and move forward/backward
+* ADSW: move TG up down , rotate: QE left/right, RF up/down Y=Z/H zoom
+* Number Key 0:  Reset the building position.
+* Mouse keys first/2nd: rotate (move in tile mode) Mouse wheel: zoom
+* Single/Double Touch: rotate (move in tile mode) pinch: zoom
+* Tribble Touch: move up/down and right/left
 
-The building must be given as a OSM way ID, either by URL or native:
-* http://www.OSMgo.org/bevy.html?way=24771505
-* cargo run --example wasm -- --way 139890029
-* Try it: [default: St.Pauls](http://www.OSMgo.org/bevy.html), [Westminster](https://www.osmgo.org/bevy.html?way=367642719&range=140)-[Aby](https://www.osmgo.org/bevy.html?way=364313092), [London-City](https://osmgo.org/bevy.html?way=166431070&range=444), [Hagia Sophia](https://osmgo.org/bevy.html?way=109862851), [Krahnhäuser](https://osmgo.org/bevy.html?way=233333793&range=333)
-* BakerBoy's examples: [Ryugyong Hotel ](https://osmgo.org/bevy.html?way=407995274), [The Bandstand](https://osmgo.org/bevy.html?way=297997038) [Nidaros Cathedral](https://osmgo.org/bevy.html?way=417245741) [Castle of the Holy Angel](https://osmgo.org/bevy.html?way=8035487), [](), [](), [](), [](), []()
+The building must be given as a OSM way or relation ID:
+* ```http://www.OSMgo.org/bevy.html?way=24771505```
+* ```cargo run --example wasm -- --way 24771505```
+
+Try it:
+[default: St.Pauls](http://www.OSMgo.org/bevy.html),
+[Westminster](https://www.osmgo.org/bevy.html?rel=1567699&aray=140)
+-[Aby](https://www.osmgo.org/bevy.html?way=364313092),
+[London-City](https://osmgo.org/bevy.html?rel=3850933&area=444),
+[Hagia Sophia](https://osmgo.org/bevy.html?way=109862851),
+[Krahnhäuser](https://osmgo.org/bevy.html?rel=184729&area=333)
+* BakerBoy's examples:
+[Ryugyong Hotel ](https://osmgo.org/bevy.html?way=407995274),
+[The Bandstand](https://osmgo.org/bevy.html?way=297997038)
+[Nidaros Cathedral](https://osmgo.org/bevy.html?way=417245741)
+[Castle of the Holy Angel](https://osmgo.org/bevy.html?way=8035487), [](), [](), [](), [](), []()
 
 To get updates for this project, you may follow [this Fediverse account](https://en.osm.town/@rust_osm_tb)
 

@@ -10,7 +10,7 @@ Cargo.lock
 **/*.rs.bk
 
 # WASM build
-/out
+/obi
 
 # Added by cargo
 **/target

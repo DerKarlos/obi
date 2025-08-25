@@ -12,12 +12,14 @@ pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
     // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726 | Relation Bau 46: 45590896
     // Default St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
-    #[arg(short, long, default_value = "369161987")] //
+    #[arg(short, long, default_value = "369161987")]
     pub way: u64,
+    #[arg(short, long, default_value = "0")]
+    pub relation: u64,
     #[arg(short, long, default_value = "0")]
     pub only: u64,
     #[arg(short, long, default_value = "0")]
-    pub range: u32,
+    pub area: u32,
 }
 
 // Implement web enabled parser for your struct
@@ -42,18 +44,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // use web enabled parse and it works on native or web.
     let args: UrlClArgs = UrlClArgs::we_parse(); // Type annotations needed
-    let way_only = if args.range > 0 { 0 } else { args.way };
-
-    let range_string = if args.range > 0 {
-        format!("(range {})", args.range)
+    println!("{:?} {}", args, args.relation > 0);
+    let (element_id, element_string, is_way) = if args.relation > 0 {
+        (args.relation, "relation", false)
     } else {
-        "".into()
+        (args.way, "way", true)
     };
-    println!("Inspecting way {} {range_string}", args.way); // Not Info! from Bevy because this sourc sould work without Bevy to. Like with rend3
+    let (element_only, range_string) = if args.area > 0 {
+        (0, format!("(range {})", args.area))
+    } else {
+        (element_id, "".into())
+    };
+
+    println!(
+        "Inspecting {} {} {range_string}",
+        element_string, element_id
+    ); // Not Info! from Bevy because this sourc sould work without Bevy to. Like with rend3
 
     let api = InputOsm::new();
 
-    let bounding_box = api.geo_bbox_of_way(args.way).await;
+    let bounding_box = api.geo_bbox_of_element(element_id, is_way).await;
     let mut bounding_box = match bounding_box {
         Ok(bounding_box) => bounding_box,
         Err(e) => {
@@ -65,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    bounding_box.min_range(args.range as FGP);
+    bounding_box.min_range(args.area as FGP);
     let range = (bounding_box.max_radius() * LAT_FAKT) as f32;
     #[cfg(debug_assertions)]
     println!("= {:?}", &bounding_box);
@@ -77,7 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &bounding_box,
             &gpu_ground_null_coordinates,
             args.only,
-            way_only,
+            element_only,
         )
         .await?;
     // println!("buildings_and_parts: {:?}", buildings_and_parts);
@@ -92,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     render_init(
         meshes,
         range as f32,
-        true, /* use first mouse key for orientation */
+        args.area == 0, /* area not used? use first mouse key for orientation */
     );
 
     Ok(())

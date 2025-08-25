@@ -299,8 +299,8 @@ impl Footprint {
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
 
         if remaining.is_empty() {
-            #[cfg(debug_assertions)]
-            println!("outer is gone");
+            //#[cfg(debug_assertions)]
+            //println!("outer is gone");
             self.polygons = remaining;
             return;
         }

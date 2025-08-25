@@ -27,7 +27,7 @@ More Examples
 * Saint Basil's Cathedral Relation 3030568 - many small outers!  dont: w-228691410
 * Vatikan, Saint Peter's Basilica  244159210
 * Marienplatz Rathaus: p 147095 w-23632633 part: 223907278
-* Cologne Cathedral: r 2788226 w 1233649406 outer-way 4532022,     Krahnhaus: p 184729, w 234160726
+* Cologne Cathedral: r 2788226 w 1233649406 outer-way 4532022,     Krahnhaus: r 184729, w 234160726
 * https://osmgo.org/bevy.html?way=398036478 one more Ernest Pohl Stadium  Polen
 
 Subtract tests

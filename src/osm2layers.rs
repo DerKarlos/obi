@@ -634,7 +634,7 @@ impl Osm2Layer {
         #[cfg(debug_assertions)]
         for part_id in &self.parts {
             if *part_id > 0 {
-                println!("LEFT part: {part_id}");
+                //println!("LEFT part: {part_id}");
             }
         }
     }

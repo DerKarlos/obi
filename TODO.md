@@ -5,7 +5,12 @@ To be discussed:
 * München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
 
 Next todo:
+* twist like f4 control (strange angles in log)
+* Only use geo, even as GroundPosition
 * Select part for OSM ID page view
+* get asset load errors through AssetServer::get_load_state(handle) which includes an error variant.
+  Set the error to custom by returning it from your asset loader load method?
+  Check the load state when recieving asset events?
 * Missing a lot: way 228691410 ( Saint Basil's Cathedral Relation 3030568)
 * wasm auch mit Meldungen wie Ist Part/Relation etc.
 

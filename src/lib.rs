@@ -53,11 +53,11 @@ pub use bevy_ui::*;
 
 // F4-like CONTROL
 #[cfg(feature = "bevy")]
-mod control;
+mod bevy_control;
 #[cfg(feature = "bevy")]
-pub use control::ControlValues;
+pub use bevy_control::ControlValues;
 #[cfg(feature = "bevy")]
-pub use control::ControlWithCamera;
+pub use bevy_control::ControlWithCamera;
 
 // REND3
 #[cfg(feature = "rend3")]

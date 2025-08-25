@@ -28,8 +28,8 @@ impl InputOsm {
         Self { api_url }
     }
 
-    pub fn way_url(&self, way_id: u64) -> String {
-        let way_or_relation = if way_id > 19999999 { "way" } else { "relation" };
+    pub fn element_url(&self, way_id: u64, is_way: bool) -> String {
+        let way_or_relation = if is_way { "way" } else { "relation" };
         format!("{}{}/{}/full.json", self.api_url, way_or_relation, way_id)
     }
 
@@ -39,11 +39,12 @@ impl InputOsm {
         format!("{}map.json?bbox={}", self.api_url, bounding_box)
     }
 
-    pub async fn geo_bbox_of_way(
+    pub async fn geo_bbox_of_element(
         &self,
         way_id: u64,
+        is_way: bool,
     ) -> Result<BoundingBox, Box<dyn std::error::Error>> {
-        let mut url = self.way_url(way_id); // format!("{}way/{}/full.json", self.api_url, way_id);
+        let mut url = self.element_url(way_id, is_way); // format!("{}way/{}/full.json", self.api_url, way_id);
         if LOCAL_TEST {
             url = "bbox.json".into();
         }
@@ -64,7 +65,7 @@ impl InputOsm {
         match result {
             // this code is messy, isnt it ??? replace by crate geo
             Ok(bytes) => {
-                let option = geo_bbox_of_way_bytes(&bytes, way_id);
+                let option = geo_bbox_of_way_bytes(&bytes, way_id, is_way);
                 if option.is_some() {
                     Ok(option.unwrap())
                 } else {
@@ -80,9 +81,9 @@ impl InputOsm {
         // Ok(geo_bbox_of_way_bytes(&bytes))
     }
 
-    pub fn geo_bbox_of_way_vec(&self, bytes: &[u8], id: u64) -> BoundingBox {
+    pub fn geo_bbox_of_element_vec(&self, bytes: &[u8], id: u64, is_way: bool) -> BoundingBox {
         let json_way_data: JsonData = serde_json::from_slice(bytes).unwrap();
-        geo_bbox_of_way_json(json_way_data, id)
+        geo_bbox_of_element_json(json_way_data, id, is_way)
     }
 
     pub async fn scan_osm(
@@ -168,21 +169,25 @@ pub struct JsonData {
     pub elements: Vec<JosnElement>,
 }
 
-pub fn geo_bbox_of_way_string(bytes: &&str, way_id: u64) -> BoundingBox {
+pub fn geo_bbox_of_way_string(bytes: &&str, way_id: u64, is_way: bool) -> BoundingBox {
     let json_way_data: JsonData = serde_json::from_str(bytes).unwrap();
-    geo_bbox_of_way_json(json_way_data, way_id)
+    geo_bbox_of_element_json(json_way_data, way_id, is_way)
 }
 
-pub fn geo_bbox_of_way_bytes(bytes: &Bytes, way_id: u64) -> Option<BoundingBox> {
+pub fn geo_bbox_of_way_bytes(bytes: &Bytes, way_id: u64, is_way: bool) -> Option<BoundingBox> {
     let result = serde_json::from_slice(bytes);
     match result {
-        Ok(json_way_data) => Some(geo_bbox_of_way_json(json_way_data, way_id)),
+        Ok(json_way_data) => Some(geo_bbox_of_element_json(json_way_data, way_id, is_way)),
         Err(_e) => None,
     }
 }
 
 // This is an extra fn to start the App. It should be possilbe to use one of the "normal" fu s?
-pub fn geo_bbox_of_way_json(json_way_data: JsonData, way_id: u64) -> BoundingBox {
+pub fn geo_bbox_of_element_json(
+    json_way_data: JsonData,
+    element_id: u64,
+    is_way: bool,
+) -> BoundingBox {
     //let json_way: JsonData = get_way_json(way_id).await;
     //let json_way = get_way_json(way_id).await.unwrap();
 
@@ -190,7 +195,9 @@ pub fn geo_bbox_of_way_json(json_way_data: JsonData, way_id: u64) -> BoundingBox
     let mut bounding_box = BoundingBox::new();
     // add the coordinates of all nodes
     for element in json_way_data.elements {
-        if element.element_type == "way" && element.id == way_id {
+        if (element.element_type == "way" && element.id == element_id && is_way)
+            || (element.element_type == "relation" && element.id == element_id && !is_way)
+        {
             if let Some(tags) = element.tags {
                 if tags_get_yes(&tags, "building:part").is_some() {
                     println!("Inspected Way is not a building but a part!");

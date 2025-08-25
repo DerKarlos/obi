@@ -47,13 +47,14 @@ impl rend3_framework::App for ObiExample {
 
     fn setup(&mut self, context: rend3_framework::SetupContext<'_>) {
         let api = InputOsm::new(); // InputJson or InputLib
-        let way_id = 369161987;
-        let url = api.way_url(way_id);
+        let element_id = 369161987;
+        let is_way = true;
+        let url = api.element_url(element_id, is_way);
         let mut res = reqwest::blocking::get(url).unwrap();
         let mut bytes: Vec<u8> = Vec::new();
         res.read_to_end(&mut bytes).unwrap();
         println!("body.len: {:?}", bytes.len());
-        let bounding_box = api.geo_bbox_of_way_vec(&bytes, way_id);
+        let bounding_box = api.geo_bbox_of_element_vec(&bytes, element_id, is_way);
         #[cfg(debug_assertions)]
         println!("bounding_box: {:?}", &bounding_box);
         let url = api.bbox_url(&bounding_box);
