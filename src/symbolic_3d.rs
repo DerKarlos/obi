@@ -373,9 +373,9 @@ impl OsmMesh {
         roof_height: FGP,
         pike: GroundPosition,
     ) -> RenderPosition {
-        let gpu_x = (edge.east - pike.east) * ring.radius + pike.east;
-        let gpu_z = (edge.north - pike.north) * ring.radius + pike.north;
-        let gpu_y = wall_height + roof_height * ring.height;
+        let gpu_x: FGP = (edge.east - pike.east) * ring.radius + pike.east;
+        let gpu_z: FGP = (edge.north - pike.north) * ring.radius + pike.north;
+        let gpu_y: FGP = wall_height + roof_height * ring.height;
         [gpu_x as f32, gpu_y as f32, -gpu_z as f32] // Why -z?  Should be in an extra fn!
     }
 

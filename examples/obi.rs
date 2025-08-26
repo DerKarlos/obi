@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     bounding_box.min_range(args.area as FGP);
-    let range = (bounding_box.max_radius() * LAT_FAKT) as f32;
+    let range = (bounding_box.max_radius() * LAT_FAKT as FGP) as f32;
     #[cfg(debug_assertions)]
     println!("= {:?}", &bounding_box);
     println!("Loading data");

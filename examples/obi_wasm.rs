@@ -7,6 +7,8 @@ const LOCAL_TEST: bool = false;
 // Test with native build and local files runs well. Not with web files. See C) below
 // Test with wasm build and local files runs well.
 
+use osm_tb::*;
+
 use bevy::{
     asset::{AssetLoader, AssetMetaCheck, LoadContext, io::Reader},
     prelude::{
@@ -226,8 +228,8 @@ fn on_load(
             app_state.element_id,
             app_state.is_way,
         );
-        bounding_box.min_range(app_state.range as f64);
-        app_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT) as f32;
+        bounding_box.min_range(app_state.range as FGP);
+        app_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT as FGP) as f32;
         control_value.distance = app_state.range * 1.0;
 
         // load building

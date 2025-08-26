@@ -3,10 +3,6 @@
 use std::ops::{Add, Sub};
 extern crate earcutr; // not supported vor WASM?
 
-//use i_overlay::core::fill_rule::FillRule;
-//use i_overlay::core::overlay_rule::OverlayRule;
-//use i_overlay::float::single::SingleFloatOverlay;
-
 // geo primitives
 use geo::{Area, BooleanOps, Coord, LineString, MultiPolygon, Polygon};
 
@@ -36,7 +32,6 @@ pub struct Footprint {
     pub longest_angle: f32,
     pub is_circular: bool,
     pub polygons: Polygons,
-    //b pol_init: Polygons,
 }
 
 impl Default for Footprint {
@@ -288,7 +283,7 @@ impl Footprint {
         if x0 > 0.1 {
             println!("ta: {sa} oa: {oa} ra: {ra} 0: {:?}", x0);
         }
-        let remaining = self.from_geo(rema);
+        let remaining = self.polygons_from_geo(rema);
 
         //let remaining =
         //    self.polygons
@@ -321,7 +316,7 @@ impl Footprint {
         positions
     }
 
-    fn from_geo(&mut self, multi_polygon: MultiPolygon) -> Polygons {
+    fn polygons_from_geo(&mut self, multi_polygon: MultiPolygon) -> Polygons {
         let mut polygons = Polygons::new();
         for geo_polygon in multi_polygon {
             let mut polygon: crate::kernel_in::Polygon = vec![];

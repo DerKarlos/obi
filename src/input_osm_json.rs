@@ -66,8 +66,8 @@ impl InputOsm {
             // this code is messy, isnt it ??? replace by crate geo
             Ok(bytes) => {
                 let option = geo_bbox_of_way_bytes(&bytes, way_id, is_way);
-                if option.is_some() {
-                    Ok(option.unwrap())
+                if let Some(bounding_box) = option {
+                    Ok(bounding_box)
                 } else {
                     Ok(BoundingBox::ZERO)
                 }
@@ -224,7 +224,7 @@ pub fn scan_json_bytes_to_osm(
 ) -> BuildingsAndParts {
     let result = serde_json::from_slice(&bytes);
     //println!("result: {:?}", result);
-    if !result.is_ok() {
+    if result.is_err() {
         return Vec::new();
     }
     let json_bbox_data: JsonData = result.unwrap();

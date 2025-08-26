@@ -31,8 +31,8 @@ impl GeographicCoordinates {
         // If no GPU 0 position is set, return just the GPS position. Used to find the GPU 0 position
         if self.latitude == 0. {
             return GroundPosition {
-                north: latitude,
-                east: longitude,
+                north: latitude as FGP,
+                east: longitude as FGP,
             };
         }
 
@@ -41,13 +41,13 @@ impl GeographicCoordinates {
         // Longitude(Längengrad) West/East factor
 
         GroundPosition {
-            north: ((latitude - self.latitude) * LAT_FAKT),
-            east: ((longitude - self.longitude) * lon_fakt),
+            north: ((latitude - self.latitude) * LAT_FAKT) as FGP,
+            east: ((longitude - self.longitude) * lon_fakt) as FGP,
         }
     }
 }
 
-pub type FGP = f64;
+pub type FGP = f32;
 
 // See for standard 2D features like Add: https://docs.rs/vector2/latest/vector2/struct.Vector2.html
 #[derive(Debug, Clone, Copy)]
