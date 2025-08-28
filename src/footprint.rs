@@ -1,10 +1,15 @@
 // outer SHAPE of the building/part
 
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 extern crate earcutr; // not supported vor WASM?
 
 // geo primitives
-use geo::{Area, BooleanOps, Coord, LineString, MultiPolygon, Polygon};
+use geo::{
+    Area, BooleanOps, BoundingRect, Coord, HasDimensions, Line, LineString, MultiPolygon, Point,
+    Polygon, Rect, Rotate, Translate, Triangle, TriangulateEarcut,
+};
+
+use geo::algorithm::unary_union;
 
 use crate::kernel_in::{
     BoundingBox, FGP, FIRST_HOLE_INDEX, FIRST_POLYGON, GroundPosition, GroundPositions,
@@ -24,14 +29,15 @@ pub enum Orientation {
 
 #[derive(Clone, Debug)]
 pub struct Footprint {
-    rotated_positions: GroundPositions,
+    rotated_positions: LineString,
     pub bounding_box: BoundingBox,
     pub shift: FGP,
     pub center: GroundPosition,
     longest_distance: FGP,
     pub longest_angle: f32,
     pub is_circular: bool,
-    pub polygons: Polygons,
+    pub outer_one: GroundPositions,
+    pub polygons: MultiPolygon,
 }
 
 impl Default for Footprint {
@@ -43,15 +49,18 @@ impl Default for Footprint {
 impl Footprint {
     pub fn new() -> Self {
         Self {
-            rotated_positions: Vec::new(),
+            rotated_positions: LineString::new(Vec::new()),
             bounding_box: BoundingBox::new(),
             shift: 0.0,
             center: GroundPosition::ZERO,
             longest_distance: 0.,
             longest_angle: 0.,
             is_circular: false,
-            polygons: vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
-                                              //l_init: vec![vec![Vec::new()]],
+            outer_one: Vec::new(),
+            polygons: MultiPolygon::new(vec![Polygon::new(
+                LineString::new(Vec::new()),
+                Vec::new(),
+            )]), // vec![vec![Vec::new()]], // first polygon still empty, for outer and some inner holes
         }
     }
 
@@ -68,7 +77,8 @@ impl Footprint {
     }
 
     pub fn push_position(&mut self, position: GroundPosition) {
-        self.polygons[FIRST_POLYGON][OUTER_POLYGON].push(position);
+        self.outer_one.push(position);
+        // self.polygons[FIRST_POLYGON][OUTER_POLYGON].push(position);
         self.bounding_box.include(&position);
         self.center.north += position.north;
         self.center.east += position.east;
@@ -76,15 +86,17 @@ impl Footprint {
 
     pub fn close(&mut self) {
         // center
-        let count = self.polygons[FIRST_POLYGON][OUTER_POLYGON].len() as FGP;
+        let count = self.outer_one.len() as FGP; // let count = self.polygons[FIRST_POLYGON][OUTER_POLYGON].len() as FGP;
         self.center.north /= count;
         self.center.east /= count;
 
-        let positions = &mut self.polygons[FIRST_POLYGON][OUTER_POLYGON];
+        let positions = &mut self.outer_one; // &mut self.polygons[FIRST_POLYGON][OUTER_POLYGON];
         let mut clockwise_sum = 0.;
         let mut radius_max: FGP = 0.;
         let mut radius_min: FGP = 1.0e9;
+        let mut coords: Vec<Coord> = Vec::new();
         for (index, position) in positions.iter().enumerate() {
+            coords.push(position.to_coord());
             let next = (index + 1) % positions.len();
             let next_position = positions[next];
 
@@ -110,32 +122,49 @@ impl Footprint {
         // radius iregularity is less but x% of the radius
         self.is_circular =
             (((radius_max - radius_min) / radius_max * 100.) as u32) < 10 && count >= 10.;
+
+        self.polygons = MultiPolygon::new(vec![Polygon::new(LineString::new(coords), Vec::new())]);
+        self.outer_one = Vec::new();
     }
 
-    pub fn rotate(&mut self, roof_angle: f32) -> BoundingBox {
+    pub fn rotate(&mut self, roof_angle: f32) -> Rect {
+        // BoundingBox {
+        let polygon = self.polygons.iter().next().unwrap();
+        let linestring = polygon.exterior();
+        self.rotated_positions =
+            linestring.rotate_around_point(roof_angle.to_degrees() as f64, self.center.to_point());
+
         //println!("{len} rotate: {:?}", &self.polygons[FIRST_POLYGON][POLYGON_OUTER]);
+        let bounding_box_rotated = self.rotated_positions.bounding_rect().unwrap(); // BoundingBox::new();
+
+        /*
         let mut bounding_box_rotated = BoundingBox::new();
         self.rotated_positions = Vec::new();
-        for position in &self.polygons[FIRST_POLYGON][OUTER_POLYGON] {
+        for position in &self.outer_one {
+            // polygons[FIRST_POLYGON][OUTER_POLYGON] {
             // Rotate against the actual angle to got 0 degrees
             let rotated_position = position.sub(self.center).rotate(-roof_angle);
             self.rotated_positions.push(rotated_position);
             bounding_box_rotated.include(&rotated_position);
         }
+        */
 
-        let new_rotated_center_north =
-            (bounding_box_rotated.north - bounding_box_rotated.south) / 2.0;
-        let corretion_shift = new_rotated_center_north - bounding_box_rotated.north;
-        bounding_box_rotated.shift(corretion_shift);
+        let new_rotated_center_y = bounding_box_rotated.height() / 2.;
+        // (bounding_box_rotated.north - bounding_box_rotated.south) / 2.0;
+        let corretion_shift = new_rotated_center_y - bounding_box_rotated.max().y; // .north;
+
+        bounding_box_rotated.translate(0., corretion_shift); // bounding_box_rotated.shift(corretion_shift);
+        self.rotated_positions.translate(0., corretion_shift);
         self.shift = corretion_shift;
-        for position in &mut self.rotated_positions {
-            position.north += corretion_shift; // used in split_at_y_zero
-        }
 
         bounding_box_rotated
     }
 
-    // This is just an ugly hack! i_overlay should be able to solve this - todo
+    pub fn get_area_size(&mut self) -> FGP {
+        self.polygons.signed_area()
+    }
+
+    /***** This is just an ugly hack! i_overlay should be able to solve this - todo
     pub fn get_area_size(&mut self) -> FGP {
         let mut area_size = 0.0;
         let mut index = 0;
@@ -185,10 +214,16 @@ impl Footprint {
 
         area_size
     }
-
-    pub fn get_triangulate_indices(&self, polygon_index: usize) -> (Vec<usize>, Vec<FGP>) {
+    ****/
+    pub fn get_triangulate_indices(&self, polygon_index: usize) -> Vec<Triangle> {
         //
+        for (index, polygon) in self.polygons.iter().enumerate() {
+            if index == polygon_index {
+                return polygon.earcut_triangles();
+            };
+        }
 
+        /****
         let mut vertices = Vec::<FGP>::new();
         let mut holes_starts = Vec::<usize>::new();
 
@@ -212,25 +247,51 @@ impl Footprint {
         let indices = earcutr::earcut(&vertices, &holes_starts, 2).unwrap();
 
         (indices, vertices)
+        **/
+
+        Vec::new()
     }
 
     /// Splits the shape at x=0, returning two new shapes:
     /// - The first shape contains all parts with x ≤ 0
     /// - The second shape contains all parts with x ≥ 0
     /// - The last shape contains all parts of the outer
-    pub fn split_at_y_zero(&mut self, angle: f32) -> (GroundPositions, GroundPositions) {
+    pub fn split_at_y_zero(&mut self, _angle: f32) -> (MultiPolygon, MultiPolygon) {
+        //
+        let rect_up = Rect::new(
+            Point::new(1e9, 1e9), // max x y
+            Point::new(-1e9, 0.), // min x y
+        )
+        .to_polygon();
+        let rect_low = Rect::new(
+            Point::new(1e9, 0.),    // max x y
+            Point::new(-1e9, -1e9), // min x y
+        )
+        .to_polygon();
+
+        // let polygon = self.polygons.iter().next().unwrap();
+
+        let up = self.polygons.difference(&rect_up);
+        let low = self.polygons.difference(&rect_low);
+
+        let polygons = vec![up.clone(), low.clone()];
+        let outer = unary_union(&polygons);
+
+        /*
         let mut low_vertices = Vec::new();
         let mut up_vertices = Vec::new();
         let mut outer_vertices = Vec::new();
 
-        let positions = &self.polygons[FIRST_POLYGON][OUTER_POLYGON];
-        let n = self.rotated_positions.len();
-        for (i, current) in self.rotated_positions.iter().enumerate().take(n) {
+        //let positions = &self.polygons[FIRST_POLYGON][OUTER_POLYGON];
+        let n = self.rotated_positions.points().len();
+        for (i, current) in self.rotated_positions.points().enumerate().take(n) {
             let next = self.rotated_positions[(i + 1) % n];
-            outer_vertices.push(positions[i]);
+            let points = positions.points();
+            let p = points. ();
+            outer_vertices.push(point);
 
             // If the current point is on the splitting line, add it to both shapes
-            if current.north == 0.0 {
+            if current.y() == 0.0 {
                 low_vertices.push(positions[i]);
                 up_vertices.push(positions[i]);
                 println!(
@@ -267,23 +328,24 @@ impl Footprint {
 
         self.polygons[FIRST_POLYGON][OUTER_POLYGON] = outer_vertices;
         (low_vertices, up_vertices)
+        */
+        self.polygons = outer;
+        (low, up)
     }
 
     // subttacting a hole of a polygon or a part inside a building
     pub fn subtract(&mut self, other_a_hole: &Footprint) {
-        let self_ = self.to_geo_multi_polygon();
         //println!("### other_a_hole othr: {:?}", other_a_hole);
-        let othr = other_a_hole.to_geo_multi_polygon();
         //println!("### subtract othr: {:?}", othr);
-        let rema = self_.difference(&othr);
-        let sa = self_.signed_area();
-        let oa = othr.signed_area();
+        let rema = self.polygons.difference(&other_a_hole.polygons);
+        let sa = self.polygons.signed_area();
+        let oa = other_a_hole.polygons.signed_area();
         let ra = rema.signed_area();
         let x0 = sa - oa - ra;
         if x0 > 0.1 {
             println!("ta: {sa} oa: {oa} ra: {ra} 0: {:?}", x0);
         }
-        let remaining = self.polygons_from_geo(rema);
+        let remaining = rema;
 
         //let remaining =
         //    self.polygons
@@ -293,18 +355,18 @@ impl Footprint {
         // simplify did not realy work, just cut it always away
         // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
 
-        if remaining.is_empty() {
-            //#[cfg(debug_assertions)]
-            //println!("outer is gone");
-            self.polygons = remaining;
-            return;
-        }
         self.polygons = remaining;
-        if self.polygons[FIRST_POLYGON].is_empty() {
-            println!("shape with no outer ...");
-        }
+        //#[cfg(debug_assertions)]
+        //println!("outer is gone");
+
+        //if self.polygons[FIRST_POLYGON].is_empty() {
+        //    println!("shape with no outer ...");
+        //}
+
+        return;
     }
 
+    /*******
     fn line_string_to_positions(&self, line_string: LineString) -> GroundPositions {
         let mut positions: Vec<GroundPosition> = Vec::new();
         for point in line_string {
@@ -369,18 +431,20 @@ impl Footprint {
         MultiPolygon::new(poligons)
     }
 
+    *******/
+
     pub fn other_is_inside(&self, other: &Footprint) -> bool {
-        let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
-        let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
+        //let other_polygon = other.to_geo_polygon(FIRST_POLYGON);
+        //let self_polygon = self.to_geo_polygon(FIRST_POLYGON);
 
         //let remaining_other_polygon = self_polygon.difference(&other_polygon);
         // The regions of `self` which are not in `other`.
-        let remaining_other_polygon = other_polygon.difference(&self_polygon);
+        let remaining_other_polygon = other.polygons.difference(&self.polygons);
 
         //let self_exterior = self_polygon.exterior();
         //let other_exterior = other_polygon.exterior();
         //let remaining_other_polygon = other_exterior.difference(self_exterior);
-        let other_area = other_polygon.unsigned_area();
+        let other_area = other.polygons.unsigned_area();
         let remaining_other_area = remaining_other_polygon.unsigned_area();
         let remaining = remaining_other_area / other_area;
         #[cfg(debug_assertions)]

@@ -47,7 +47,10 @@ impl GeographicCoordinates {
     }
 }
 
-pub type FGP = f32;
+/*************************************
+**************************************/
+
+pub type FGP = f64;
 
 // See for standard 2D features like Add: https://docs.rs/vector2/latest/vector2/struct.Vector2.html
 #[derive(Debug, Clone, Copy)]
@@ -105,6 +108,17 @@ impl GroundPosition {
         north: 0.0,
         east: 0.0,
     };
+
+    pub fn to_coord(&self) -> geo::Coord {
+        geo::Coord {
+            x: self.east,
+            y: self.north,
+        }
+    }
+
+    pub fn to_point(&self) -> geo::Point {
+        geo::Point::new(self.east, self.north)
+    }
 
     pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (FGP, f32) {
         let a = self.north - other.north;
