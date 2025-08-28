@@ -71,17 +71,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    if bounding_box.north == 0.0 {
+    if bounding_box.max().y == 0.0 {
         return Ok(());
     }
 
-    bounding_box.min_range(args.area as FGP);
-    let range = (bounding_box.max_radius() * LAT_FAKT as FGP) as f32;
+    max_range(&mut bounding_box, args.area as f64);
+    let range = bounding_box.width().max(bounding_box.height());
+    //t range = (bounding_box.max_radius() * LAT_FAKT) as f32;
     #[cfg(debug_assertions)]
     println!("= {:?}", &bounding_box);
     println!("Loading data");
 
-    let gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
+    let gpu_ground_null_coordinates = center_as_geographic_coordinates(&bounding_box);
     let buildings_and_parts = api
         .scan_osm(
             &bounding_box,

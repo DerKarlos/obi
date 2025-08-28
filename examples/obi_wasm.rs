@@ -164,7 +164,7 @@ fn read_and_use_args(
     state.element_id = element_id;
     state.is_way = is_way;
     state.show_only = args.only as u64;
-    state.range = args.area as f32;
+    state.range = args.area as f64;
     state.way_only = if args.area > 0 { 0 } else { element_id };
 
     control_value.use_first_point_for_rotation = args.area == 0;
@@ -180,7 +180,7 @@ struct AppState {
     is_way: bool,
     show_only: u64,
     way_only: u64,
-    range: f32,
+    range: f64,
     asset: Handle<OsmApiAsset>,
     step1: bool,
     step2: bool,
@@ -228,12 +228,13 @@ fn on_load(
             app_state.element_id,
             app_state.is_way,
         );
-        bounding_box.min_range(app_state.range as FGP);
-        app_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT as FGP) as f32;
-        control_value.distance = app_state.range * 1.0;
+        max_range(&mut bounding_box, app_state.range as f64);
+        app_state.range = bounding_box.width().max(bounding_box.height());
+        //p_state.range = (bounding_box.max_radius() * osm_tb::LAT_FAKT as FGP) as f32;
+        control_value.distance = app_state.range as f32; // * 1.0
 
         // load building
-        app_state.gpu_ground_null_coordinates = bounding_box.center_as_geographic_coordinates();
+        app_state.gpu_ground_null_coordinates = center_as_geographic_coordinates(&bounding_box);
         let mut url = app_state.api.bbox_url(&bounding_box);
         info!("**** bbox_url: {url}");
 
@@ -280,7 +281,13 @@ fn on_load(
             }
         } else {
             let osm_meshes = osm_tb::scan_elements_from_layer_to_mesh(buildings_and_parts);
-            osm_tb::bevy_osm_load(commands, meshes, materials, osm_meshes, app_state.range);
+            osm_tb::bevy_osm_load(
+                commands,
+                meshes,
+                materials,
+                osm_meshes,
+                app_state.range as f32,
+            );
             for mut text in text_query.iter_mut() {
                 text.0 = "".into();
             }

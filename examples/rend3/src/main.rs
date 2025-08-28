@@ -4,7 +4,7 @@ use rend3::types::glam::*;
 use reqwest;
 use std::io::Read;
 
-use osm_tb::{InputOsm, scan_elements_from_layer_to_mesh};
+use osm_tb::{InputOsm, center_as_geographic_coordinates, scan_elements_from_layer_to_mesh};
 
 const SAMPLE_COUNT: rend3::types::SampleCount = rend3::types::SampleCount::One;
 
@@ -68,7 +68,7 @@ impl rend3_framework::App for ObiExample {
         println!("json.len: {:?}", bytes.len());
         let buildings_and_parts = api.scan_json_to_osm_vec(
             &bytes,
-            &bounding_box.center_as_geographic_coordinates(),
+            &center_as_geographic_coordinates(&bounding_box),
             0,
             0,
         );

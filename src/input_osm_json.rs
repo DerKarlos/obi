@@ -1,8 +1,9 @@
 use bytes::*;
+use geo::{BoundingRect, LineString};
 use serde::Deserialize;
 
 use crate::kernel_in::{
-    BoundingBox, BuildingsAndParts, FGP, GeographicCoordinates, GroundPosition, Members, OsmMap,
+    BoundingBox, BuildingsAndParts, GeographicCoordinates, GroundPosition, Members, OsmMap,
 };
 use crate::osm2layers::{Osm2Layer, tags_get_yes};
 
@@ -36,7 +37,7 @@ impl InputOsm {
     pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
         // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
         // GET   /api/0.6/map?bbox=left,bottom,right,top
-        format!("{}map.json?bbox={}", self.api_url, bounding_box)
+        format!("{}map.json?bbox={:?}", self.api_url, bounding_box)
     }
 
     pub async fn geo_bbox_of_element(
@@ -69,12 +70,18 @@ impl InputOsm {
                 if let Some(bounding_box) = option {
                     Ok(bounding_box)
                 } else {
-                    Ok(BoundingBox::ZERO)
+                    Ok(geo::Rect::new(
+                        GroundPosition::zero(),
+                        GroundPosition::zero(),
+                    ))
                 }
             }
             Err(e) => {
                 println!("Way bytes Loading Error: {}", e);
-                Ok(BoundingBox::ZERO)
+                Ok(geo::Rect::new(
+                    GroundPosition::zero(),
+                    GroundPosition::zero(),
+                ))
             }
         }
 
@@ -93,7 +100,7 @@ impl InputOsm {
         show_only: u64,
         way_only: u64,
     ) -> Result<BuildingsAndParts, Box<dyn std::error::Error>> {
-        let mut url = format!("{}map.json?bbox={}", self.api_url, bounding_box);
+        let mut url = format!("{}map.json?bbox={:?}", self.api_url, bounding_box);
         if LOCAL_TEST {
             url = "way.json".into();
         }
@@ -148,7 +155,7 @@ static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 pub fn bbox_url(bounding_box: &BoundingBox) -> String {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     // GET   /api/0.6/map?bbox=left,bottom,right,top
-    format!("{}map.json?bbox={}", API_URL, bounding_box)
+    format!("{}map.json?bbox={:?}", API_URL, bounding_box)
 }
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10
@@ -192,7 +199,8 @@ pub fn geo_bbox_of_element_json(
     //let json_way = get_way_json(way_id).await.unwrap();
 
     // println!("Received JSON: {}", json_way),
-    let mut bounding_box = BoundingBox::new();
+    // let mut bounding_box = BoundingBox::new();
+    let mut positions = Vec::new();
     // add the coordinates of all nodes
     for element in json_way_data.elements {
         if (element.element_type == "way" && element.id == element_id && is_way)
@@ -201,19 +209,24 @@ pub fn geo_bbox_of_element_json(
             if let Some(tags) = element.tags {
                 if tags_get_yes(&tags, "building:part").is_some() {
                     println!("Inspected Way is not a building but a part!");
-                    return BoundingBox::ZERO;
+                    return geo::Rect::new(GroundPosition::zero(), GroundPosition::zero());
                 }
             }
         }
 
         if element.element_type == "node" {
-            bounding_box.include(&GroundPosition {
-                north: element.lat.unwrap() as FGP,
-                east: element.lon.unwrap() as FGP,
+            positions.push(geo::Coord {
+                x: element.lon.unwrap(),
+                y: element.lat.unwrap(),
             });
+
+            //bounding_box.include(&GroundPosition {
+            //    y: element.lat.unwrap() as FGP,
+            //    x: element.lon.unwrap() as FGP,
+            //});
         }
     }
-    bounding_box
+    LineString::new(positions).bounding_rect().unwrap()
 }
 
 pub fn scan_json_bytes_to_osm(

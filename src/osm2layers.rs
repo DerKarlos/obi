@@ -6,19 +6,26 @@
 use csscolorparser::parse;
 use std::collections::HashMap;
 
+// geo primitives
+use geo::{
+    Area, BooleanOps, BoundingRect, Contains, Coord, Distance, Euclidean, EuclideanDistance,
+    HasDimensions, HausdorffDistance, Line, LineString, MultiPolygon, Point, Polygon, Rect, Rotate,
+    Translate, Triangle, TriangulateEarcut,
+};
+
 use crate::footprint::{Footprint, Orientation};
 use crate::kernel_in::Members;
 use crate::kernel_in::{
-    BuildingOrPart, BuildingsAndParts, FGP, FIRST_POLYGON, GeographicCoordinates, GroundPosition,
-    GroundPositions, OUTER_POLYGON, OsmMap, RenderColor, RoofShape,
+    BuildingOrPart, BuildingsAndParts, GeographicCoordinates, GroundPosition, GroundPositions,
+    OsmMap, RenderColor, RoofShape,
 };
 
 // This constands may come from a (3D-)render shema
 pub static DEFAULT_WALL_COLOR: RenderColor = [0.7, 0.7, 0.7, 1.0]; // "grey" = RenderColor = [0.5, 0.5, 0.5, 1.0];
 pub static DEFAULT_ROOF_RED: RenderColor = [0.56, 0.0, 0.0, 1.0]; //  "red"  = RenderColor = [1.0, 0.0, 0.0, 1.0];
-pub static DEFAULT_WALL_HEIGHT: FGP = 6.0; // two floors with each 3 meters
-pub static DEFAULT_ROOF_HEIGHT: FGP = 2.0;
-pub static DEFAULT_MIN_HEIGHT: FGP = 2.0;
+pub static DEFAULT_WALL_HEIGHT: f64 = 6.0; // two floors with each 3 meters
+pub static DEFAULT_ROOF_HEIGHT: f64 = 2.0;
+pub static DEFAULT_MIN_HEIGHT: f64 = 2.0;
 pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 1.]; // Electric Blue
 
 #[derive(PartialEq)]
@@ -30,11 +37,11 @@ enum OuterState {
 
 // Helper functions for the osm to layer processing ///////////////////////////
 
-fn circle_limit(angle: f32) -> f32 {
-    if angle > f32::to_radians(180.) {
-        angle - f32::to_radians(360.)
-    } else if angle < f32::to_radians(180.) {
-        angle + f32::to_radians(360.)
+fn circle_limit(angle: f64) -> f64 {
+    if angle > f64::to_radians(180.) {
+        angle - f64::to_radians(360.)
+    } else if angle < f64::to_radians(180.) {
+        angle + f64::to_radians(360.)
     } else {
         angle
     }
@@ -106,7 +113,7 @@ fn color_to_f32(r: u8, g: u8, b: u8) -> RenderColor {
     [r as f32 / 255., g as f32 / 255., b as f32 / 255., 1.]
 }
 
-fn parse_height(height_option: Option<&String>) -> FGP {
+fn parse_height(height_option: Option<&String>) -> f64 {
     if height_option.is_none() {
         return 0.;
     }
@@ -248,8 +255,8 @@ impl Osm2Layer {
     pub fn add_node(&mut self, id: u64, latitude: f64, longitude: f64, _tags: Option<OsmMap>) {
         let position = if self.gpu_ground_null_coordinates.latitude == 0.0 {
             GroundPosition {
-                north: latitude as FGP,
-                east: longitude as FGP,
+                y: latitude,
+                x: longitude,
             }
         } else {
             self.gpu_ground_null_coordinates
@@ -351,7 +358,7 @@ impl Osm2Layer {
         // println!("tags_opiton: {:?}", osm_way.tags);
         let tags = osm_way.tags.as_ref().unwrap();
 
-        if osm_way.footprint.polygons.is_empty() {
+        if osm_way.footprint.multipolygon.is_empty() {
             println!("create_building_or_part: way is empty {:?}", id);
             return;
         }
@@ -359,8 +366,18 @@ impl Osm2Layer {
         // // // // // // // // //
 
         let part = tags.get("building:part").is_some();
-        let simple_footprint = osm_way.footprint.polygons.len() == 1
-            && osm_way.footprint.polygons[FIRST_POLYGON][OUTER_POLYGON].len() <= 6;
+        let simple_footprint = osm_way.footprint.multipolygon.iter().count() == 1
+            && osm_way
+                .footprint
+                .multipolygon
+                .iter()
+                .next()
+                .unwrap()
+                .exterior()
+                .coords()
+                .count()
+                <= 6;
+        //&& osm_way.footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON].len() <= 6;
 
         // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
         let roof_shape: RoofShape = match tags.get("roof:shape") {
@@ -439,7 +456,7 @@ impl Osm2Layer {
         // ** Roof direction and Orientation **
 
         // The longest angle sets the dirction of the ceiling. But the tagging value is along the slope!
-        let mut roof_angle = circle_limit(osm_way.footprint.longest_angle + f32::to_radians(90.0));
+        let mut roof_angle = circle_limit(osm_way.footprint.longest_angle + f64::to_radians(90.0));
         let roof_orientation = tags.get("roof:orientation");
         let mut orienaton_by: Orientation = Orientation::ByLongestSide;
         // https://wiki.openstreetmap.org/wiki/Key:roof:orientation
@@ -459,29 +476,29 @@ impl Osm2Layer {
             //println!("roof:direction {direction}");
             orienaton_by = Orientation::ByNauticDirction;
             match direction.as_str() {
-                "N" => roof_angle = f32::to_radians(0.),
-                "E" => roof_angle = f32::to_radians(90.),
-                "S" => roof_angle = f32::to_radians(180.),
-                "W" => roof_angle = f32::to_radians(270.),
+                "N" => roof_angle = f64::to_radians(0.),
+                "E" => roof_angle = f64::to_radians(90.),
+                "S" => roof_angle = f64::to_radians(180.),
+                "W" => roof_angle = f64::to_radians(270.),
 
-                "NE" => roof_angle = f32::to_radians(45.),
-                "SE" => roof_angle = f32::to_radians(135.),
-                "SW" => roof_angle = f32::to_radians(225.),
-                "NW" => roof_angle = f32::to_radians(315.),
+                "NE" => roof_angle = f64::to_radians(45.),
+                "SE" => roof_angle = f64::to_radians(135.),
+                "SW" => roof_angle = f64::to_radians(225.),
+                "NW" => roof_angle = f64::to_radians(315.),
 
-                "NNE" => roof_angle = f32::to_radians(22.),
-                "ENE" => roof_angle = f32::to_radians(67.),
-                "ESE" => roof_angle = f32::to_radians(112.),
-                "SSE" => roof_angle = f32::to_radians(157.),
+                "NNE" => roof_angle = f64::to_radians(22.),
+                "ENE" => roof_angle = f64::to_radians(67.),
+                "ESE" => roof_angle = f64::to_radians(112.),
+                "SSE" => roof_angle = f64::to_radians(157.),
 
-                "SSW" => roof_angle = f32::to_radians(202.),
-                "WSW" => roof_angle = f32::to_radians(247.),
-                "WNW" => roof_angle = f32::to_radians(292.),
-                "NNW" => roof_angle = f32::to_radians(337.),
+                "SSW" => roof_angle = f64::to_radians(202.),
+                "WSW" => roof_angle = f64::to_radians(247.),
+                "WNW" => roof_angle = f64::to_radians(292.),
+                "NNW" => roof_angle = f64::to_radians(337.),
                 _ => {
                     let value = direction.parse();
                     if let Ok(value) = value {
-                        roof_angle = circle_limit(f32::to_radians(value));
+                        roof_angle = circle_limit(f64::to_radians(value));
                         orienaton_by = Orientation::ByAngleValue;
                     } else {
                         println!("Uncoded roof direction value: {}", direction);
@@ -511,14 +528,13 @@ impl Osm2Layer {
             _ => (),
         };
 
-        let is_across = bounding_box_rotated.north - bounding_box_rotated.south
-            > bounding_box_rotated.east - bounding_box_rotated.west;
+        let is_across = bounding_box_rotated.height() > bounding_box_rotated.width();
 
         // In Bakerboys longestSideAngle is this across-correction too
         if check_across {
             //println!(    "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle} - bboxr: {:?}", bounding_box_rotated);
             if is_across != set_across {
-                roof_angle = circle_limit(roof_angle + f32::to_radians(90.));
+                roof_angle = circle_limit(roof_angle + f64::to_radians(90.));
                 bounding_box_rotated = osm_way.footprint.rotate(roof_angle);
             }
         }
@@ -591,7 +607,10 @@ impl Osm2Layer {
                 };
                 let part = part_option.unwrap();
 
-                if outer_area.bounding_box.outside(part.footprint.bounding_box) {
+                if !outer_area
+                    .bounding_box
+                    .contains(&part.footprint.bounding_box)
+                {
                     continue;
                 };
 
@@ -626,7 +645,7 @@ impl Osm2Layer {
             //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
 
             // ??? 40 40. 20 20.
-            if !building.footprint.polygons.is_empty() && percent_left >= 20 {
+            if !building.footprint.multipolygon.is_empty() && percent_left >= 20 {
                 self.create_building_or_part(building_id, &mut building);
             }
         }
@@ -706,7 +725,7 @@ impl Osm2Layer {
             }
         }
 
-        if relation_footprint.polygons.is_empty() {
+        if relation_footprint.multipolygon.is_empty() {
             println!("relation 1");
             return;
         }

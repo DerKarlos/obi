@@ -30,10 +30,11 @@ pub use footprint::*;
 // Interfaces from the input modules to renderer
 mod kernel_in;
 pub use kernel_in::BoundingBox;
-pub use kernel_in::FGP;
 pub use kernel_in::GeographicCoordinates;
 pub use kernel_in::GroundPosition;
-pub use kernel_in::LAT_FAKT; // todo: hide in lib by fn
+pub use kernel_in::LAT_FAKT;
+pub use kernel_in::center_as_geographic_coordinates;
+pub use kernel_in::max_range; // todo: hide in lib by fn
 
 // 3D and 2D rendere are possible
 mod symbolic_3d;

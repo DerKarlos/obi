@@ -2,7 +2,6 @@
 
 use std::collections::HashMap;
 
-use i_float::float::compatible::FloatPointCompatible;
 use serde::Deserialize;
 
 pub static PI: f32 = std::f32::consts::PI;
@@ -10,7 +9,6 @@ pub static LAT_FAKT: f64 = 111120.0; // 111100.0  111285; // exactly enough  111
 
 //use std::fmt::Display;
 use std::fmt;
-use std::ops::{Add, Sub};
 
 use crate::footprint::Footprint;
 
@@ -31,8 +29,8 @@ impl GeographicCoordinates {
         // If no GPU 0 position is set, return just the GPS position. Used to find the GPU 0 position
         if self.latitude == 0. {
             return GroundPosition {
-                north: latitude as FGP,
-                east: longitude as FGP,
+                x: longitude,
+                y: latitude,
             };
         }
 
@@ -41,8 +39,8 @@ impl GeographicCoordinates {
         // Longitude(Längengrad) West/East factor
 
         GroundPosition {
-            north: ((latitude - self.latitude) * LAT_FAKT) as FGP,
-            east: ((longitude - self.longitude) * lon_fakt) as FGP,
+            y: ((latitude - self.latitude) * LAT_FAKT),
+            x: ((longitude - self.longitude) * lon_fakt),
         }
     }
 }
@@ -50,99 +48,62 @@ impl GeographicCoordinates {
 /*************************************
 **************************************/
 
-pub type FGP = f64;
+pub type GroundPosition = geo::Coord;
+pub type GroundPositions = Vec<geo::Coord>;
+pub type OsmMap = HashMap<String, String>;
 
+/********* /
 // See for standard 2D features like Add: https://docs.rs/vector2/latest/vector2/struct.Vector2.html
 #[derive(Debug, Clone, Copy)]
-pub struct GroundPosition {
-    pub north: FGP,
-    pub east: FGP,
+pub struct _GroundPosition {
+    pub y: f64,
+    pub x: f64,
 }
 
-impl Default for GroundPosition {
+impl Default for _GroundPosition {
     fn default() -> Self {
         Self::ZERO
     }
 }
 
-impl Add for GroundPosition {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            north: self.north + other.north,
-            east: self.east + other.east,
-        }
-    }
-}
-
-impl Sub for GroundPosition {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Self {
-            north: self.north - other.north,
-            east: self.east - other.east,
-        }
-    }
-}
-
-// Implement the `FloatPointCompatible` trait for CustomPoint
-impl FloatPointCompatible<FGP> for GroundPosition {
-    fn from_xy(x: FGP, y: FGP) -> Self {
-        Self { east: x, north: y }
-    }
-
-    fn x(&self) -> FGP {
-        self.east
-    }
-
-    fn y(&self) -> FGP {
-        self.north
-    }
-}
-
-impl GroundPosition {
+impl _GroundPosition {
     /// Shorthand for writing `Vector2::new(0.0, 0.0)`.
-    pub const ZERO: Self = Self {
-        north: 0.0,
-        east: 0.0,
-    };
+    pub const ZERO: Self = Self { y: 0.0, x: 0.0 };
 
     pub fn to_coord(&self) -> geo::Coord {
         geo::Coord {
-            x: self.east,
-            y: self.north,
+            x: self.x,
+            y: self.y,
         }
     }
 
     pub fn to_point(&self) -> geo::Point {
-        geo::Point::new(self.east, self.north)
+        geo::Point::new(self.x, self.y)
     }
 
-    pub fn distance_angle_to_other(&self, other: &GroundPosition) -> (FGP, f32) {
-        let a = self.north - other.north;
-        let b = self.east - other.east;
-        let distance = FGP::sqrt(a * a + b * b);
+    pub fn distance_angle_to_other(&self, other: &_GroundPosition) -> (f64, f64) {
+        let a = self.y - other.y;
+        let b = self.x - other.x;
+        let distance = f64::sqrt(a * a + b * b);
 
         // Its atan2(y,x)   NOT:x,y!
         // East = (0,1) = 0    Nord(1,0) = 1.5(Pi/2)   West(0,-1) = 3,14(Pi)   South(-1,0) = -1.5(-Pi)
-        let angle: f32 = FGP::atan2(other.east - self.east, other.north - self.north) as f32;
+        let angle: f64 = f64::atan2(other.x - self.x, other.y - self.y);
         // why - negativ??? (see other lines)
         //let angle: f32 = f32::atan2(self.east - other.east, self.north - other.north);
 
         (distance, angle)
     }
 
-    pub fn rotate(self, angle: f32) -> GroundPosition {
+    pub fn rotate(self, angle: f32) -> _GroundPosition {
         let cos = FGP::cos(angle as FGP);
         let sin = FGP::sin(angle as FGP);
         // Don't change this lines! They are correct and tested. If something is odd, look on your code, calling rotate()
-        let north = -sin * self.east + cos * self.north;
-        let east = cos * self.east + sin * self.north;
+        let north = -sin * self.x + cos * self.y;
+        let east = cos * self.x + sin * self.y;
         //println!("angle: {angle} sin: {sin} cos: {cos} sn: {} se: {} n: {} e: {}",self.north, self.east, north, east);
 
-        GroundPosition { north, east }
+        _GroundPosition { y: north, x: east }
     }
 }
 
@@ -154,13 +115,12 @@ pub const FIRST_POLYGON: usize = 0;
 pub const OUTER_POLYGON: usize = 0;
 pub const FIRST_HOLE_INDEX: usize = 1;
 
-pub type OsmMap = HashMap<String, String>;
-
-impl std::fmt::Display for GroundPosition {
+impl std::fmt::Display for _GroundPosition {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({}, {})", self.east, self.north)
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
+/ *********/
 
 // todo?: move to (ALL?) input_osm_*
 
@@ -179,15 +139,45 @@ pub enum RoofShape {
     Onion,
 }
 
+/*
+ * Extend the area of the OSM object to the given range at last
+ * @param {f32} range in meters - the minimum range of the bounding box
+ */
+pub fn max_range(rect: &mut geo::Rect, range: f64) {
+    // range in meter to degres
+    let range = range / LAT_FAKT;
+    let center = rect.center();
+    //println!("{range} {center}");
+    rect.set_max(geo::Coord {
+        x: rect.max().x.max(center.x + range),
+        y: rect.max().y.max(center.y + range),
+    });
+    rect.set_min(geo::Coord {
+        x: rect.min().x.min(center.x + range),
+        y: rect.min().y.min(center.y + range),
+    });
+}
+
+pub fn center_as_geographic_coordinates(rect: &BoundingBox) -> GeographicCoordinates {
+    let center = rect.center();
+    GeographicCoordinates {
+        longitude: center.x,
+        latitude: center.y,
+    }
+}
+
+pub type BoundingBox = geo::Rect;
+
+/*************************** /
 #[derive(Debug, Clone, Copy)]
-pub struct BoundingBox {
+pub struct _BoundingBox {
     pub north: FGP,
     pub south: FGP,
     pub east: FGP,
     pub west: FGP,
 }
 
-impl fmt::Display for BoundingBox {
+impl fmt::Display for _BoundingBox {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -198,15 +188,15 @@ impl fmt::Display for BoundingBox {
     }
 }
 
-impl Default for BoundingBox {
+impl Default for _BoundingBox {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BoundingBox {
+impl _BoundingBox {
     pub fn new() -> Self {
-        BoundingBox {
+        _BoundingBox {
             north: FGP::MIN,
             south: FGP::MAX,
             east: FGP::MIN,
@@ -235,18 +225,18 @@ impl BoundingBox {
         }
     }
 
-    pub fn include(&mut self, position: &GroundPosition) {
-        self.north = self.north.max(position.north);
-        self.south = self.south.min(position.north);
-        self.east = self.east.max(position.east);
-        self.west = self.west.min(position.east);
+    pub fn include(&mut self, position: &_GroundPosition) {
+        self.north = self.north.max(position.y);
+        self.south = self.south.min(position.y);
+        self.east = self.east.max(position.x);
+        self.west = self.west.min(position.x);
     }
 
     /*
      * Extend the area of the OSM object to the given range at last
      * @param {f32} range in meters - the minimum range of the bounding box
      */
-    pub fn min_range(&mut self, range: FGP) {
+    pub fn max_range(&mut self, range: FGP) {
         //println!("{self}");
         // range in meter to degres
         let range = range as FGP / LAT_FAKT as FGP;
@@ -267,13 +257,14 @@ impl BoundingBox {
         self.west += shift;
     }
 
-    pub fn outside(&self, other: BoundingBox) -> bool {
+    pub fn outside(&self, other: _BoundingBox) -> bool {
         self.east < other.west
             || self.west > other.east
             || self.north < other.south
             || self.south > other.north
     }
 }
+/ ***************************/
 
 // A builiding without parts is its onw part or itselve is a part
 #[derive(Clone, Debug)]
@@ -283,12 +274,12 @@ pub struct BuildingOrPart {
     pub footprint: Footprint,
     pub bounding_box_rotated: BoundingBox,
     // upper height of the wall, independend of / including the min_height
-    pub wall_height: FGP,
-    pub min_height: FGP,
+    pub wall_height: f64,
+    pub min_height: f64,
     pub building_color: RenderColor,
     pub roof_shape: RoofShape,
-    pub roof_height: FGP,
-    pub roof_angle: f32,
+    pub roof_height: f64,
+    pub roof_angle: f64,
     pub roof_color: RenderColor,
 }
 
