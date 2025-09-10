@@ -71,10 +71,10 @@ bytes = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 csscolorparser = "0.6"
-earcutr = "0.4.3"
+# earcutr = "0.4.3"
 ## https://docs.rs/i_overlay/latest/i_overlay
-i_overlay = "^2.0.0"
-i_float = "^1.7.0"
+# i_overlay = "^2.0.0"
+# i_float = "^1.7.0"
 geo = "^0.30.0"
 
 # get args by clap and web ability for clap

@@ -7,9 +7,6 @@ use serde::Deserialize;
 pub static PI: f32 = std::f32::consts::PI;
 pub static LAT_FAKT: f64 = 111120.0; // 111100.0  111285; // exactly enough  111120 = 1.852 * 1000.0 * 60 - It is in the OSM wiki: 1′ = 1.852 km * 60s/min * 1000m/km = 111120m
 
-//use std::fmt::Display;
-use std::fmt;
-
 use crate::footprint::Footprint;
 
 #[derive(Default, Clone, Copy, Debug)]

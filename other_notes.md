@@ -19,7 +19,7 @@ Most used tests
 * Westminster  r 1567699, w 367642719  w633493242+range1! / Abbey 364313092
 
 * gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
-          angled: 45402141 is correkt but we expect and agle gabled, hm?
+          angled: 45402141 is correkt but we expect and angle gabled, hm?
           komplex: 37616289, 45697037 ok with "across-backup-code": 45402130  bad_bow:45696973 do parts!
 
 More Examples

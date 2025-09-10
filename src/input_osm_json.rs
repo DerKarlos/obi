@@ -36,8 +36,16 @@ impl InputOsm {
 
     pub fn bbox_url(&self, bounding_box: &BoundingBox) -> String {
         // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-        // GET   /api/0.6/map?bbox=left,bottom,right,top
-        format!("{}map.json?bbox={:?}", self.api_url, bounding_box)
+        // GET   /api/0.6/map.json?bbox=left,bottom,right,top
+        // .......api/0.6/map.json?bbox=11.0861309,49.7151912,11.0862858,49.7152795
+        format!(
+            "{}map.json?bbox={},{},{},{}",
+            self.api_url,
+            bounding_box.min().x,
+            bounding_box.min().y,
+            bounding_box.max().x,
+            bounding_box.max().y,
+        )
     }
 
     pub async fn geo_bbox_of_element(
@@ -54,6 +62,11 @@ impl InputOsm {
         println!("= Way_URL: {url}");
 
         let response = reqwest::get(url).await?;
+        println!(
+            "= status: {} as_u16 {}",
+            response.status(),
+            response.status().as_u16()
+        );
         match response.status().as_u16() {
             200 => (),
             404 => println!("Way {} does not exist (404)", way_id),
@@ -100,7 +113,8 @@ impl InputOsm {
         show_only: u64,
         way_only: u64,
     ) -> Result<BuildingsAndParts, Box<dyn std::error::Error>> {
-        let mut url = format!("{}map.json?bbox={:?}", self.api_url, bounding_box);
+        let mut url = self.bbox_url(bounding_box);
+        //let mut url = format!("{}map.json?bbox={:?}", self.api_url, bounding_box);
         if LOCAL_TEST {
             url = "way.json".into();
         }
@@ -152,10 +166,17 @@ impl InputOsm {
 
 static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
 
-pub fn bbox_url(bounding_box: &BoundingBox) -> String {
+pub fn _ttt_bbox_url(bounding_box: &BoundingBox) -> String {
     // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
     // GET   /api/0.6/map?bbox=left,bottom,right,top
-    format!("{}map.json?bbox={:?}", API_URL, bounding_box)
+    format!(
+        "{}map.json?bbox={},{},{},{}",
+        API_URL,
+        bounding_box.min().x,
+        bounding_box.min().y,
+        bounding_box.max().x,
+        bounding_box.max().y,
+    )
 }
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10

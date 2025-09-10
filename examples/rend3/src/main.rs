@@ -47,7 +47,7 @@ impl rend3_framework::App for ObiExample {
 
     fn setup(&mut self, context: rend3_framework::SetupContext<'_>) {
         let api = InputOsm::new(); // InputJson or InputLib
-        let element_id = 369161987;
+        let element_id = 47942625; // St Pauls: 369161987;
         let is_way = true;
         let url = api.element_url(element_id, is_way);
         let mut res = reqwest::blocking::get(url).unwrap();

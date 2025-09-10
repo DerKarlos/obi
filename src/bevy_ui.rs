@@ -29,9 +29,12 @@ fn spawn_osm_mesh(
     // println!("{:?}", osm_mesh.vertices_colors);
     // println!("p {:?} c {:?} i {:?}", osm_mesh.vertices_positions.len(), osm_mesh.vertices_colors.len(), osm_mesh.indices_to_vertices.len() );
 
-    let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
-    let uvs: Vec<[f32; 2]> = vec![[0.; 2]];
-    let uvs = uvs.repeat(count);
+    //let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
+    //let uvs: Vec<[f32; 2]> = vec![[0.; 2]];
+    //let uvs = uvs.repeat(count);
+
+    println!("=alle pos {:?}", osm_mesh.vertices_positions);
+    println!("=alle ind {:?}", osm_mesh.indices_to_vertices);
 
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
@@ -41,7 +44,7 @@ fn spawn_osm_mesh(
         Mesh::ATTRIBUTE_POSITION,
         osm_mesh.vertices_positions.clone(),
     )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+    //ith_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
     .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
     mesh.compute_normals();
@@ -79,6 +82,11 @@ fn environment(
     //let range = starting_values.range;
 
     // light
+    //
+    // Todo: You will want an AmbientLight which is relatively bright, to make shadows brighter.
+    // Then you'd want a DirectionalLight as your Sun, with an illuminance of 32000 or above, for direct sunlight.
+    // You'll likely want a soft_shadow_size: None to disable soft shadows.
+
     commands.spawn((
         DirectionalLight {
             illuminance: 2000., // * range,
@@ -124,13 +132,24 @@ pub fn render_init(
     };
 
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins)
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
-        .insert_resource(starting_values)
-        .add_systems(Startup, setup)
-        .insert_resource(control_values)
-        .add_plugins(ControlWithCamera)
-        .run();
+    app.add_plugins(
+        DefaultPlugins, //    .set(WindowPlugin {
+                        //    primary_window: Some(Window {
+                        //        mode: bevy::window::WindowMode::Fullscreen(
+                        //            MonitorSelection::Primary,
+                        //            VideoModeSelection::Current,
+                        //        ),
+                        //        ..default()
+                        //    }),
+                        //    ..default()
+                        //})
+    )
+    .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
+    .insert_resource(starting_values)
+    .add_systems(Startup, setup)
+    .insert_resource(control_values)
+    .add_plugins(ControlWithCamera)
+    .run();
 }
 
 // BEVY-OSM mesh load //////////

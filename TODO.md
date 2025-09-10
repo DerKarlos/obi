@@ -5,9 +5,11 @@ To be discussed:
 * München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
 
 Next todo:
+* https://github.com/DerKarlos/obi/issues/3 and 4
 * twist like f4 control (strange angles in log)
 * Only use geo, even as GroundPosition
 * Select part for OSM ID page view
+* Not good: https://osmgo.org/obi/?way=36053383
 * get asset load errors through AssetServer::get_load_state(handle) which includes an error variant.
   Set the error to custom by returning it from your asset loader load method?
   Check the load state when recieving asset events?

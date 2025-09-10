@@ -1,20 +1,16 @@
 // outer SHAPE of the building/part
 
-use std::ops::{Add, Mul, Sub};
-extern crate earcutr; // not supported vor WASM?
-
 // geo primitives
 use geo::{
-    Area, BooleanOps, BoundingRect, Coord, Distance, Euclidean, EuclideanDistance, HasDimensions,
-    HausdorffDistance, Line, LineString, MultiPolygon, Point, Polygon, Rect, Rotate, Translate,
-    Triangle, TriangulateEarcut,
+    Area, BooleanOps, BoundingRect, Distance, Euclidean, LineString, MultiPolygon, Point, Polygon,
+    Rect, Rotate, Translate, Triangle, TriangulateEarcut,
 };
 
 use geo::algorithm::unary_union;
 
-use crate::kernel_in::{BoundingBox, GroundPosition, GroundPositions};
+use crate::kernel_in::{GroundPosition, GroundPositions};
 
-static O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
+static _O: usize = 0; // Just to silent lint, make some lines equal and to show, the Offset may also be 0
 
 pub enum Orientation {
     None,

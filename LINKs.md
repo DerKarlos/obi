@@ -1,3 +1,5 @@
+
+
 * https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings
 
 * Find interesting buildings with Overpass: https://overpass-turbo.eu/?template=key-value&key=roof%3Ashape&value=round
@@ -43,6 +45,7 @@ Rust generates A-Frame: More: https://mary.codes/blog/programming/generating_a_v
 
 
 ### Projects may be interresting:
+* https://wheregroup.com/blog/details/integration-moderner-3d-technologien-in-web-karten-mit-mapcomponents/
 * https://github.com/Zkir/UrbanEye3D/issues/4#issuecomment-3160105970
 * maps.stadt-salzburg.at/3d/
 * Data-source and renderer?:

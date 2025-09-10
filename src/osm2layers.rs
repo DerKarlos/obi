@@ -7,11 +7,7 @@ use csscolorparser::parse;
 use std::collections::HashMap;
 
 // geo primitives
-use geo::{
-    Area, BooleanOps, BoundingRect, Contains, Coord, Distance, Euclidean, EuclideanDistance,
-    HasDimensions, HausdorffDistance, Line, LineString, MultiPolygon, Point, Polygon, Rect, Rotate,
-    Translate, Triangle, TriangulateEarcut,
-};
+use geo::{Contains, HasDimensions};
 
 use crate::footprint::{Footprint, Orientation};
 use crate::kernel_in::Members;
@@ -27,6 +23,7 @@ pub static DEFAULT_WALL_HEIGHT: f64 = 6.0; // two floors with each 3 meters
 pub static DEFAULT_ROOF_HEIGHT: f64 = 2.0;
 pub static DEFAULT_MIN_HEIGHT: f64 = 2.0;
 pub static DEFAULT_BAD_COLOR: [f32; 4] = [98. / 255., 203. / 255., 232. / 255., 1.]; // Electric Blue
+pub static COMPLEX_MIN_NODES: usize = 6 + 1; // +1 because first=last
 
 #[derive(PartialEq)]
 enum OuterState {
@@ -376,7 +373,7 @@ impl Osm2Layer {
                 .exterior()
                 .coords()
                 .count()
-                <= 6;
+                <= COMPLEX_MIN_NODES;
         //&& osm_way.footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON].len() <= 6;
 
         // ** Shape of the roof. All buildings have a roof, even if it is not tagged **
