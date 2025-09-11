@@ -62,11 +62,7 @@ impl InputOsm {
         println!("= Way_URL: {url}");
 
         let response = reqwest::get(url).await?;
-        println!(
-            "= status: {} as_u16 {}",
-            response.status(),
-            response.status().as_u16()
-        );
+        println!("= one element status: {}", response.status());
         match response.status().as_u16() {
             200 => (),
             404 => println!("Way {} does not exist (404)", way_id),
@@ -162,21 +158,6 @@ impl InputOsm {
             way_only,
         )
     }
-}
-
-static API_URL: &str = "https://api.openstreetmap.org/api/0.6/";
-
-pub fn _ttt_bbox_url(bounding_box: &BoundingBox) -> String {
-    // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-    // GET   /api/0.6/map?bbox=left,bottom,right,top
-    format!(
-        "{}map.json?bbox={},{},{},{}",
-        API_URL,
-        bounding_box.min().x,
-        bounding_box.min().y,
-        bounding_box.max().x,
-        bounding_box.max().y,
-    )
 }
 
 // todo: &str   https://users.rust-lang.org/t/requires-that-de-must-outlive-static-issue/91344/10

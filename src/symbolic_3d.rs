@@ -3,7 +3,7 @@ use geo::{Coord, LineString, TriangulateEarcut}; // Triangle
 //use VecDeque::pop_front;
 
 use crate::footprint::Footprint;
-use crate::kernel_in::{BuildingOrPart, BuildingsAndParts, GroundPosition};
+use crate::kernel_in::{BuildingOrPart, BuildingsAndParts, GroundPosition, RoofShape};
 use crate::kernel_out::{OsmMeshAttributes, RenderColor, RenderPosition, RenderPositions};
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,19 +89,13 @@ impl OsmMesh {
         let color = building_or_part.building_color;
         let roof_color = building_or_part.roof_color;
 
-        // push_building_or_part sould not get called in this case anyway!
-        //if building_or_part.footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON].is_empty() {
-        //    //println!("footprint.positions.is_empty: {}", building_or_part.id);
-        //    return; // after parts subtractions, nothing is left
-        //}
-
         match building_or_part.roof_shape {
             //
-            /**** /
             RoofShape::Skillion => {
                 self.push_skillion(building_or_part, roof_color);
             }
 
+            /**** /
             RoofShape::Gabled => {
                 self.push_gabled(building_or_part, roof_color);
             }
@@ -200,37 +194,38 @@ impl OsmMesh {
     // todo: use skilleon with height = constant
     fn push_flat(&mut self, footprint: &mut Footprint, height: f64, color: RenderColor) {
         for polygon in footprint.multipolygon.iter() {
-            //let mut _roof_gpu_positions = footprint.get_gpu_positions(height.abs());
-            println!("= polygon: {:?}", polygon);
             let roof_index_start = self.attributes.vertices_positions.len() as u32;
             let mut triangles = polygon.earcut_triangles_raw();
-            println!("= triangles: {:?}", triangles);
+            //println!("ttt {roof_index_start} triangles: {:?}", triangles);
 
-            // Ignore last (is equal to first)
-            while triangles.vertices.len() > 1 {
-                let y = triangles.vertices.pop().unwrap();
-                let x = triangles.vertices.pop().unwrap();
-                //self.push_vertice(vertice, height);
-                // self.push_coord(roof_index_offset, &triangle.0, height, color);
-                let gpu = [x as f32, height as f32, -y as f32]; // -y bedause: OSM +nord => GPU -Z
+            const VALUES_PER_COORDINATE: usize = 2;
+            const DROPP_LAST: usize = 1;
+            let max = triangles.vertices.len() / VALUES_PER_COORDINATE - DROPP_LAST;
+
+            for i in 0..max {
+                let x = triangles.vertices[i * VALUES_PER_COORDINATE + O];
+                let y = triangles.vertices[i * VALUES_PER_COORDINATE + 1];
+                let gpu = [x as f32, height.abs() as f32, -y as f32]; // -y bedause: OSM +nord => GPU -Z
                 self.attributes.vertices_positions.push(gpu);
                 self.attributes.vertices_colors.push(color);
             }
 
-            if height >= 0.0 {
+            if height < 0.0 {
                 triangles.triangle_indices.reverse();
             }
 
-            for index in triangles.triangle_indices {
-                self.attributes
-                    .indices_to_vertices
-                    .push(roof_index_start + index as u32);
+            for (i, index) in triangles.triangle_indices.iter().enumerate() {
+                if i < 44 * 3 {
+                    self.attributes
+                        .indices_to_vertices
+                        .push(roof_index_start + *index as u32);
+                }
             }
         }
     }
 
-    /** /
     fn push_skillion(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
+        /* * /
         for polygon_index in 0..building_or_part.footprint.multipolygon.len() {
             let footprint = &building_or_part.footprint;
             let mut roof_gpu_positions: RenderPositions = Vec::new();
@@ -261,8 +256,10 @@ impl OsmMesh {
                 .vertices_positions
                 .append(&mut roof_gpu_positions);
         }
+        / * */
     }
 
+    /** /
     fn push_gabled(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
         let (face1, face2) = building_or_part
             .footprint
@@ -555,7 +552,7 @@ impl OsmMesh {
     ) {
         let footprint = &building_or_part.footprint.clone();
         for polygon in &footprint.multipolygon {
-            println!("=wall polygon: {:?}", polygon);
+            // println!("=wall polygon: {:?}", polygon);
             let outer = polygon.exterior();
             self.push_wall_shape(
                 building_or_part,

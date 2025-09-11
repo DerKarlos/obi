@@ -29,13 +29,6 @@ fn spawn_osm_mesh(
     // println!("{:?}", osm_mesh.vertices_colors);
     // println!("p {:?} c {:?} i {:?}", osm_mesh.vertices_positions.len(), osm_mesh.vertices_colors.len(), osm_mesh.indices_to_vertices.len() );
 
-    //let count = osm_mesh.vertices_positions.len(); // mesh.count_vertices();
-    //let uvs: Vec<[f32; 2]> = vec![[0.; 2]];
-    //let uvs = uvs.repeat(count);
-
-    println!("=alle pos {:?}", osm_mesh.vertices_positions);
-    println!("=alle ind {:?}", osm_mesh.indices_to_vertices);
-
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
@@ -44,7 +37,6 @@ fn spawn_osm_mesh(
         Mesh::ATTRIBUTE_POSITION,
         osm_mesh.vertices_positions.clone(),
     )
-    //ith_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
     .with_inserted_attribute(Mesh::ATTRIBUTE_COLOR, osm_mesh.vertices_colors.clone())
     .with_inserted_indices(Indices::U32(osm_mesh.indices_to_vertices.clone()));
     mesh.compute_normals();

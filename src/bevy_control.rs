@@ -348,7 +348,7 @@ fn camera_touch(
                     }
                     let pinch = control_values.last_position_distance - positon_distance;
 
-                    // Only in "F4 mode" ttt test off
+                    // Only in "F4 mode"  todo
                     if touch_count_rotate == -2 {
                         let twist = control_values.last_angle - angle;
                         info!(

@@ -767,7 +767,8 @@ impl Osm2Layer {
                 println!("Relation {id}: Odd outer way: {}", outer_ref);
                 return;
             }
-            new_footprint.set(&area.footprint);
+            //println!("ttt outer: {:?}", area);
+            new_footprint.set_from_other(&area.footprint);
             self.outer_state = OuterState::Ready;
             self.first_outer_id_ = outer_ref;
             return;

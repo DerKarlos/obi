@@ -58,7 +58,7 @@ impl Footprint {
         }
     }
 
-    pub fn set(&mut self, other: &Footprint) {
+    pub fn set_from_other(&mut self, other: &Footprint) {
         self.is_circular = other.is_circular;
         self.multipolygon = other.multipolygon.clone();
         //for pos in &self.polygons[0][0] {

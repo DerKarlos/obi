@@ -37,19 +37,6 @@ impl InputOsm {
         format!("{}way/{}/full.json", self.api_url, way_id)
     }
 
-    pub fn _ttt_bbox_url(&self, bounding_box: &BoundingBox) -> String {
-        // https://wiki.openstreetmap.org/wiki/API_v0.6#Retrieving_map_data_by_bounding_box:_GET_/api/0.6/map
-        // GET   /api/0.6/map?bbox=left,bottom,right,top
-        format!(
-            "{}map.json?bbox={},{},{},{}",
-            self.api_url,
-            bounding_box.min().x,
-            bounding_box.min().y,
-            bounding_box.max().x,
-            bounding_box.max().y,
-        )
-    }
-
     pub async fn geo_bbox_of_way(&self, way_id: u64) -> Result<BoundingBox, OpenstreetmapError> {
         let way = self.client.ways().full(way_id).await?;
 

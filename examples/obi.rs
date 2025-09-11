@@ -10,9 +10,9 @@ use osm_tb::*;
 #[command(about = "OBI args: way or relation, area, only(show_me)", version, long_about = None)]
 pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
-    // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726 | Relation Bau 46: 45590896
+    // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726 | Relation Bau 46: 2819147 (45590896,210046607)
     // Default St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
-    #[arg(short, long, default_value = "121486088")]  // ttt 47942625 47942624 45697305 45402141
+    #[arg(short, long, default_value = "24771505")]  // ttt 47942625 47942624 45697305 45402141
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub relation: u64,
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // use web enabled parse and it works on native or web.
     let args: UrlClArgs = UrlClArgs::we_parse(); // Type annotations needed
     //#[cfg(debug_assertions)]
-    println!("{:?} {}", args, args.relation > 0);
+    println!("= {:?}", args);
     let (element_id, element_string, is_way) = if args.relation > 0 {
         (args.relation, "relation", false)
     } else {
@@ -65,7 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api = InputOsm::new();
 
     let bounding_box = api.geo_bbox_of_element(element_id, is_way).await;
-    println!("=bounding_box: {:?}",bounding_box);
+    //#[cfg(debug_assertions)]
+    //println!("= bounding_box: {:?}",bounding_box);
     let mut bounding_box = match bounding_box {
         Ok(bounding_box) => bounding_box,
         Err(e) => {
@@ -80,8 +81,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     max_range(&mut bounding_box, args.area as f64);
     let range = bounding_box.width().max(bounding_box.height()) * LAT_FAKT;
     //t range = (bounding_box.max_radius() * LAT_FAKT) as f32;
-    #[cfg(debug_assertions)]
-    println!("= {:?}", &bounding_box);
     println!("Loading data");
 
     let gpu_ground_null_coordinates = center_as_geographic_coordinates(&bounding_box);
