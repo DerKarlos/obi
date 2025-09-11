@@ -21,6 +21,7 @@ Most used tests
 * gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
           angled: 45402141 is correkt but we expect and angle gabled, hm?
           komplex: 37616289, 45697037 ok with "across-backup-code": 45402130  bad_bow:45696973 do parts!
+* skillion: 45697643, 37616290, coomplex: 28687785
 
 More Examples
 * domes.. round_dome:437150850, outer:159243621=building:437150850+square_dome:159243622,

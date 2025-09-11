@@ -12,7 +12,7 @@ pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
     // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726 | Relation Bau 46: 2819147 (45590896,210046607)
     // Default St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
-    #[arg(short, long, default_value = "24771505")]  // ttt 47942625 47942624 45697305 45402141
+    #[arg(short, long, default_value = "369161987")]  // 28687785 37616290 45697643 ttt 47942625 47942624 45697305 45402141
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub relation: u64,

@@ -3,7 +3,7 @@
 // geo primitives
 use geo::{
     Area, BooleanOps, BoundingRect, Distance, Euclidean, LineString, MultiPolygon, Point, Polygon,
-    Rect, Rotate, Translate, Triangle, TriangulateEarcut,
+    Rect, Rotate, Translate, TriangulateEarcut,
 };
 
 use geo::algorithm::unary_union;
@@ -26,7 +26,7 @@ pub struct Footprint {
     rotated_positions: LineString,
     pub bounding_box: Rect,
     pub shift: f64,
-    pub center: GroundPosition,
+    pub center: GroundPosition, // only use bb.center ???
     longest_distance: f64,
     pub longest_angle: f64,
     pub is_circular: bool,
@@ -136,21 +136,8 @@ impl Footprint {
         self.rotated_positions =
             linestring.rotate_around_point(roof_angle.to_degrees(), self.center.into());
 
-        //println!("{len} rotate: {:?}", &self.polygons[FIRST_POLYGON][POLYGON_OUTER]);
+        // println!(            "{:?} rotated_positions: {:?}",            self.outer_one.len(),            self.rotated_positions        );
         let mut bounding_box_rotated = self.rotated_positions.bounding_rect().unwrap(); // BoundingBox::new();
-
-        /*
-        let mut bounding_box_rotated = BoundingBox::new();
-        self.rotated_positions = Vec::new();
-        for position in &self.outer_one {
-            // polygons[FIRST_POLYGON][OUTER_POLYGON] {
-            // Rotate against the actual angle to got 0 degrees
-            let rotated_position = position.sub(self.center).rotate(-roof_angle);
-            self.rotated_positions.push(rotated_position);
-            bounding_box_rotated.include(&rotated_position);
-        }
-        */
-
         let new_rotated_center_y = bounding_box_rotated.height() / 2.;
         // (bounding_box_rotated.north - bounding_box_rotated.south) / 2.0;
         let corretion_shift = new_rotated_center_y - bounding_box_rotated.max().y; // .north;
@@ -217,40 +204,13 @@ impl Footprint {
         area_size
     }
     ****/
-    pub fn get_triangulates(&self, polygon_index: usize) -> Vec<Triangle> {
+    pub fn get_triangulates(&self, polygon_index: usize) -> Vec<usize> {
         //
         for (index, polygon) in self.multipolygon.iter().enumerate() {
             if index == polygon_index {
-                return polygon.earcut_triangles();
+                return polygon.earcut_triangles_raw().triangle_indices;
             };
         }
-
-        /****
-        let mut vertices = Vec::<FGP>::new();
-        let mut holes_starts = Vec::<usize>::new();
-
-        for position in &self.polygons[polygon_index][OUTER_POLYGON] {
-            // Hey earcut, why y before x ?
-            vertices.push(position.north);
-            vertices.push(position.east);
-        }
-        //println!("roof_po: {:?}", &vertices);
-
-        for hole_index in FIRST_HOLE_INDEX..self.polygons[polygon_index].len() {
-            let hole: &GroundPositions = &self.polygons[polygon_index][hole_index];
-            holes_starts.push(vertices.len() / 2);
-            // println!("holes_starts: {:?}", &holes_starts);
-            for position in hole {
-                vertices.push(position.north);
-                vertices.push(position.east);
-            }
-        }
-
-        let indices = earcutr::earcut(&vertices, &holes_starts, 2).unwrap();
-
-        (indices, vertices)
-        **/
-
         Vec::new()
     }
 
@@ -335,35 +295,20 @@ impl Footprint {
         (low, up)
     }
 
-    // subttacting a hole of a polygon or a part inside a building
+    // subttacting a hole of a polygon or a part inside a building - todo use the one line "inline"
     pub fn subtract(&mut self, other_a_hole: &Footprint) {
-        //println!("### other_a_hole othr: {:?}", other_a_hole);
-        //println!("### subtract othr: {:?}", othr);
-        let rema = self.multipolygon.difference(&other_a_hole.multipolygon);
-        let sa = self.multipolygon.signed_area();
-        let oa = other_a_hole.multipolygon.signed_area();
-        let ra = rema.signed_area();
-        let x0 = sa - oa - ra;
-        if x0 > 0.1 {
-            println!("ta: {sa} oa: {oa} ra: {ra} 0: {:?}", x0);
-        }
-        let remaining = rema;
+        // println!("### other_a_hole othr: {:?}", other_a_hole);
+        // println!("### subtract othr: {:?}", othr);
+        // let remaining = self.multipolygon.difference(&other_a_hole.multipolygon);
+        self.multipolygon = self.multipolygon.difference(&other_a_hole.multipolygon);
 
-        //let remaining =
-        //    self.polygons
-        //        .overlay(hole_positions, OverlayRule::Difference, FillRule::Positive);
-        ////  .                                                  not working::Negative
-
-        // simplify did not realy work, just cut it always away
-        // simplify_shape_custom ??? https://docs.rs/i_overlay/latest/i_overlay/all.html   4.0.2
-
-        self.multipolygon = remaining;
-        //#[cfg(debug_assertions)]
-        //println!("outer is gone");
-
-        //if self.polygons[FIRST_POLYGON].is_empty() {
-        //    println!("shape with no outer ...");
-        //}
+        // let sa = self.multipolygon.signed_area();
+        // let oa = other_a_hole.multipolygon.signed_area();
+        // let ra = remaining.signed_area();
+        // let x0 = sa - oa - ra;
+        // if x0 > 0.1 {
+        //     println!("ta: {sa} oa: {oa} ra: {ra} 0: {:?}", x0);
+        // }
     }
 
     /*******

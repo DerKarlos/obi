@@ -1,5 +1,5 @@
 // geo primitives
-use geo::{Coord, LineString, TriangulateEarcut}; // Triangle
+use geo::{Coord, LineString, Point, Rotate, TriangulateEarcut}; // Triangle
 //use VecDeque::pop_front;
 
 use crate::footprint::Footprint;
@@ -139,26 +139,25 @@ impl OsmMesh {
         // prepare height calculation
     }
 
-    /** /
+    /**/
     fn calc_skillion_position_height(
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
-    ) -> FGP {
-        //println!("ph: position: {:?}", position);
-        //        let roof_slope = circle_limit(building_or_part.roof_angle + f32::to_radians(90.));
-        let east = position
-            .sub(building_or_part.footprint.center)
-            .rotate(-building_or_part.roof_angle) // skillion
-            .y;
-        // println!("roof_angle: {}", building_or_part.roof_angle.to_degrees());
-        let inclination = building_or_part.roof_height
-            / (building_or_part.bounding_box_rotated.north
-                - building_or_part.bounding_box_rotated.south); // Höhen/Tiefe der Nodes/Ecken berechenen
-
+    ) -> f64 {
+        // println!("ph: position: {:?}", position);
+        let dist_to_center: Point = (*position - building_or_part.footprint.center).into();
+        let position_rotated = dist_to_center.rotate_around_point(
+            building_or_part.roof_angle.to_degrees(),
+            building_or_part.footprint.center.into(),
+        );
+        let inclination =
+            building_or_part.roof_height / building_or_part.bounding_box_rotated.height();
+        let rotated_footprint_south = building_or_part.bounding_box_rotated.min().y;
         building_or_part.wall_height + building_or_part.roof_height
-            - FGP::abs(east - building_or_part.bounding_box_rotated.south) * inclination
+            - f64::abs(position_rotated.y() - rotated_footprint_south) * inclination
     }
+    /** /
 
     fn calc_gabled_position_height(
         &mut self,
@@ -181,11 +180,11 @@ impl OsmMesh {
 
     fn calc_roof_position_height(
         &mut self,
-        _position: &GroundPosition,
+        position: &GroundPosition,
         building_or_part: &BuildingOrPart,
     ) -> f64 {
         match building_or_part.roof_shape {
-            // RoofShape::Skillion => self.calc_skillion_position_height(position, building_or_part),
+            RoofShape::Skillion => self.calc_skillion_position_height(position, building_or_part),
             // RoofShape::Gabled => self.calc_gabled_position_height(position, building_or_part),
             _ => building_or_part.wall_height,
         }
@@ -193,18 +192,23 @@ impl OsmMesh {
 
     // todo: use skilleon with height = constant
     fn push_flat(&mut self, footprint: &mut Footprint, height: f64, color: RenderColor) {
+        // Why not do it with multipolygon:
+        // A) the redundant, way ends get unused pushed indices
+        // B) there is no earcut_triangles_raw for multipolygon
         for polygon in footprint.multipolygon.iter() {
             let roof_index_start = self.attributes.vertices_positions.len() as u32;
+            // todo?: use get_triangulates?
             let mut triangles = polygon.earcut_triangles_raw();
+            let vertices = triangles.vertices;
             //println!("ttt {roof_index_start} triangles: {:?}", triangles);
 
             const VALUES_PER_COORDINATE: usize = 2;
             const DROPP_LAST: usize = 1;
-            let max = triangles.vertices.len() / VALUES_PER_COORDINATE - DROPP_LAST;
+            let max = vertices.len() / VALUES_PER_COORDINATE - DROPP_LAST;
 
             for i in 0..max {
-                let x = triangles.vertices[i * VALUES_PER_COORDINATE + O];
-                let y = triangles.vertices[i * VALUES_PER_COORDINATE + 1];
+                let x = vertices[i * VALUES_PER_COORDINATE + O];
+                let y = vertices[i * VALUES_PER_COORDINATE + 1];
                 let gpu = [x as f32, height.abs() as f32, -y as f32]; // -y bedause: OSM +nord => GPU -Z
                 self.attributes.vertices_positions.push(gpu);
                 self.attributes.vertices_colors.push(color);
@@ -214,49 +218,38 @@ impl OsmMesh {
                 triangles.triangle_indices.reverse();
             }
 
-            for (i, index) in triangles.triangle_indices.iter().enumerate() {
-                if i < 44 * 3 {
-                    self.attributes
-                        .indices_to_vertices
-                        .push(roof_index_start + *index as u32);
-                }
+            for index in triangles.triangle_indices {
+                self.attributes
+                    .indices_to_vertices
+                    .push(roof_index_start + index as u32);
             }
         }
     }
 
     fn push_skillion(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
-        /* * /
-        for polygon_index in 0..building_or_part.footprint.multipolygon.len() {
-            let footprint = &building_or_part.footprint;
-            let mut roof_gpu_positions: RenderPositions = Vec::new();
-            for position in footprint.multipolygon[polygon_index][OUTER_POLYGON].iter() {
-                let height = self.calc_roof_position_height(position, building_or_part);
-                roof_gpu_positions.push(position.to_gpu_position(height))
-            }
-
-            let roof_index_offset = self.attributes.vertices_positions.len();
-            let indices = footprint.get_triangulate_indices(polygon_index);
-            // println!("triangles: {:?}", &indices);
-            if indices.is_empty() {
-                building_or_part.footprint.multipolygon[polygon_index] = Vec::new();
-                continue;
-            }
-
-            for index in indices.iter().rev() {
+        /* */
+        let footprint = &building_or_part.footprint;
+        for (polygon_index, polygon) in footprint.multipolygon.iter().enumerate() {
+            let roof_index_start = self.attributes.vertices_positions.len();
+            // todo: first=last unused pushed: See push_flat?
+            for coord in polygon.exterior() {
+                let height = self.calc_roof_position_height(coord, building_or_part);
                 self.attributes
-                    .indices_to_vertices
-                    .push((roof_index_offset + index) as u32);
-            }
-
-            for _p in &roof_gpu_positions {
+                    .vertices_positions
+                    .push(to_gpu_position(coord, height));
                 self.attributes.vertices_colors.push(color);
             }
 
-            self.attributes
-                .vertices_positions
-                .append(&mut roof_gpu_positions);
+            let indices = footprint.get_triangulates(polygon_index);
+            // println!("triangles: {:?}", &indices);
+
+            for index in indices {
+                self.attributes
+                    .indices_to_vertices
+                    .push((roof_index_start + index) as u32);
+            }
         }
-        / * */
+        /* */
     }
 
     /** /
