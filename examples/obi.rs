@@ -12,11 +12,16 @@ pub struct UrlClArgs {
     // Westminster 367642719, Abbey: 364313092
     // Passau Dom: 24771505 = Outer | Reifenberg: 121486088 | Krahnhaus:234160726 | Relation Bau 46: 2819147 (45590896,210046607)
     // Default St Paul's Cathedral: way 369161987 with Relation: 9235'275 with Outer: 664646816  Dome: 664613340
-    #[arg(short, long, default_value = "369161987")]  // 28687785 37616290 45697643 ttt 47942625 47942624 45697305 45402141
+
+    // gabled: rectangle/square: 47942624 rotated: 45697283 door: 47942638 corneered: 45697162
+    //         angled: 45402141 is correkt but we expect and angle gabled, hm?
+    //         komplex: 37616289, 45697037 ok with "across-backup-code": 45402130  bad_bow:45696973 do parts!
+
+    #[arg(short, long, default_value = "45697283")]
     pub way: u64,
     #[arg(short, long, default_value = "0")]
     pub relation: u64,
-    #[arg(short, long, default_value = "0")]
+    #[arg(short, long, default_value = "0")] // 1174306434
     pub only: u64,
     #[arg(short, long, default_value = "0")]
     pub area: u32,

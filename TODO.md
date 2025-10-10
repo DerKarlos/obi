@@ -5,6 +5,8 @@ To be discussed:
 * München Rathaus Erker-parts outside building. https://www.openstreetmap.org/way/224253365
 
 Next todo:
+* @dngrs@chaos.social hmm! async reqwest should "just work" under wasm, see
+    https://github.com/seanmonstar/reqwest/tree/
 * if id of relation 404 try way, get rel and use it
 * https://github.com/DerKarlos/obi/issues/3 and 4
 * twist like f4 control (strange angles in log)

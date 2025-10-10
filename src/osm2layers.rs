@@ -528,13 +528,13 @@ impl Osm2Layer {
         let is_across = bounding_box_rotated.height() > bounding_box_rotated.width();
 
         // In Bakerboys longestSideAngle is this across-correction too
-        if check_across {
-            //println!(    "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle} - bboxr: {:?}", bounding_box_rotated);
-            if is_across != set_across {
-                roof_angle = circle_limit(roof_angle + f64::to_radians(90.));
-                bounding_box_rotated = osm_way.footprint.rotate(roof_angle);
-            }
-        }
+        //ttt if check_across {
+        //    //println!(    "is_across: {is_across} set: {set_across} check: {check_across} roof_angle: {roof_angle} - bboxr: {:?}", bounding_box_rotated);
+        //    if is_across != set_across {
+        //        roof_angle = circle_limit(roof_angle + f64::to_radians(90.));
+        //        bounding_box_rotated = osm_way.footprint.rotate(roof_angle);
+        //    }
+        //}
 
         let building_or_part = BuildingOrPart {
             id,
@@ -566,9 +566,6 @@ impl Osm2Layer {
         #[cfg(debug_assertions)]
         println!("\n**** process {:?} ways", self.buildings.len());
         while let Some(building_id) = self.buildings.pop() {
-            if self.show_only > 0 && self.show_only != building_id {
-                continue;
-            }
             if self.way_only > 0 && self.way_only != building_id {
                 continue;
             }
@@ -594,6 +591,10 @@ impl Osm2Layer {
             for part_id in self.parts.clone() {
                 part_index += 1;
                 if part_id == 0 {
+                    continue;
+                }
+
+                if self.show_only > 0 && self.show_only != part_id {
                     continue;
                 }
 
@@ -632,6 +633,10 @@ impl Osm2Layer {
                 // if outer empty: continue to render more parts
             }
 
+            if self.show_only > 0 && self.show_only != building_id {
+                continue;
+            }
+
             let remaining_area_size = building.footprint.get_area_size();
             let percent_left = (remaining_area_size / outer_area_size * 100.) as i32;
 
@@ -639,7 +644,7 @@ impl Osm2Layer {
             println!("building: {building_id} left: {percent_left}%");
 
             //println!("\nouter_area: {:?}", outer_area.polygons);
-            //println!("\n\nbuilding.footprint: {:?}", building.footprint.polygons);
+            //println!(                "\n\nbuilding.footprint: {:?}",                building.footprint.multipolygon,            );
 
             // ??? 40 40. 20 20.
             if !building.footprint.multipolygon.is_empty() && percent_left >= 20 {

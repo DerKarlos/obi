@@ -1,5 +1,7 @@
+use std::ops::Sub;
+
 // geo primitives
-use geo::{Coord, LineString, Point, Rotate, TriangulateEarcut}; // Triangle
+use geo::{Coord, LineString, MultiPolygon, Point, Rotate, Translate, TriangulateEarcut};
 //use VecDeque::pop_front;
 
 use crate::footprint::Footprint;
@@ -95,11 +97,11 @@ impl OsmMesh {
                 self.push_skillion(building_or_part, roof_color);
             }
 
-            /**** /
             RoofShape::Gabled => {
                 self.push_gabled(building_or_part, roof_color);
             }
 
+            /**** /
             RoofShape::Phyramidal => self.push_phyramid(
                 &building_or_part.footprint,
                 wall_height,
@@ -124,6 +126,10 @@ impl OsmMesh {
             _ => self.push_flat(&mut building_or_part.footprint, wall_height, roof_color),
         }
 
+        println!(
+            "vor push_walls: {:?}",
+            building_or_part.footprint.multipolygon
+        );
         self.push_walls(building_or_part, min_height, color);
 
         if min_height > 0.0 {
@@ -146,8 +152,8 @@ impl OsmMesh {
         building_or_part: &BuildingOrPart,
     ) -> f64 {
         // println!("ph: position: {:?}", position);
-        let dist_to_center: Point = (*position - building_or_part.footprint.center).into();
-        let position_rotated = dist_to_center.rotate_around_point(
+        let relative_to_center: Point = (*position - building_or_part.footprint.center).into();
+        let position_rotated = relative_to_center.rotate_around_point(
             building_or_part.roof_angle.to_degrees(),
             building_or_part.footprint.center.into(),
         );
@@ -157,26 +163,44 @@ impl OsmMesh {
         building_or_part.wall_height + building_or_part.roof_height
             - f64::abs(position_rotated.y() - rotated_footprint_south) * inclination
     }
-    /** /
 
     fn calc_gabled_position_height(
         &mut self,
         position: &GroundPosition,
         building_or_part: &BuildingOrPart,
-    ) -> FGP {
-        let east = position
-            .sub(building_or_part.footprint.center)
-            .rotate(-building_or_part.roof_angle) // Rotate against the actual angle to got 0 degrees
-            .y
-            + building_or_part.footprint.shift;
+    ) -> f64 {
+        //ttt
+        let east = position.sub(building_or_part.footprint.center);
+        let east = Point::new(east.x, east.y);
+        let east = east.rotate_around_center(-building_or_part.roof_angle.to_degrees()); // Rotate against the actual angle to got 0 degrees
+        let east = east.0.y; // .north
+        let east = east + building_or_part.footprint.shift;
 
-        let width = building_or_part.bounding_box_rotated.north
-            - building_or_part.bounding_box_rotated.south;
+        let width = building_or_part.bounding_box_rotated.max().y //north
+            - building_or_part.bounding_box_rotated.min().y; //south;
         let inclination = building_or_part.roof_height * 2. / width;
 
-        building_or_part.wall_height + building_or_part.roof_height - FGP::abs(east) * inclination
+        building_or_part.wall_height + building_or_part.roof_height - f64::abs(east) * inclination
+
+        /********************
+        let point = Point::new(position.x, position.y);
+        println!("point: {:?}", point);
+        println!("center: {:?}", building_or_part.footprint.center);
+        let rotated = point.rotate_around_point(
+            building_or_part.roof_angle.to_degrees(),
+            building_or_part.footprint.center.into(),
+        );
+        println!("rotated: {:?}", rotated);
+        let rotated_translated = rotated.translate(0., -building_or_part.footprint.shift);
+        println!("translated: {:?}", rotated_translated);
+
+        let inclination =
+            building_or_part.roof_height / building_or_part.bounding_box_rotated.height();
+
+        building_or_part.wall_height + building_or_part.roof_height
+            - f64::abs(rotated_translated.y()) * inclination
+        ********************/
     }
-    / **/
 
     fn calc_roof_position_height(
         &mut self,
@@ -185,7 +209,7 @@ impl OsmMesh {
     ) -> f64 {
         match building_or_part.roof_shape {
             RoofShape::Skillion => self.calc_skillion_position_height(position, building_or_part),
-            // RoofShape::Gabled => self.calc_gabled_position_height(position, building_or_part),
+            RoofShape::Gabled => self.calc_gabled_position_height(position, building_or_part),
             _ => building_or_part.wall_height,
         }
     }
@@ -231,7 +255,8 @@ impl OsmMesh {
         let footprint = &building_or_part.footprint;
         for (polygon_index, polygon) in footprint.multipolygon.iter().enumerate() {
             let roof_index_start = self.attributes.vertices_positions.len();
-            // todo: first=last unused pushed: See push_flat?
+            // todo: first=last unused pushed: See push_flat???
+            // What about interior ???
             for coord in polygon.exterior() {
                 let height = self.calc_roof_position_height(coord, building_or_part);
                 self.attributes
@@ -252,11 +277,19 @@ impl OsmMesh {
         /* */
     }
 
-    /** /
     fn push_gabled(&mut self, building_or_part: &mut BuildingOrPart, color: RenderColor) {
+        println!(
+            "push_gabled 1: {:?}",
+            building_or_part.footprint.multipolygon
+        );
         let (face1, face2) = building_or_part
             .footprint
             .split_at_y_zero(building_or_part.roof_angle);
+
+        println!(
+            "push_gabled 2: {:?}",
+            building_or_part.footprint.multipolygon
+        );
 
         self.push_roof_shape(face1, color, building_or_part);
         self.push_roof_shape(face2, color, building_or_part);
@@ -264,18 +297,41 @@ impl OsmMesh {
 
     fn push_roof_shape(
         &mut self,
-        side: GroundPositions,
+        side: MultiPolygon,
         color: RenderColor,
         building_or_part: &BuildingOrPart,
     ) {
-        for _polygon_index in 0..building_or_part.footprint.multipolygon.len() {
-            // todo: gabled for cutted buildings
+        //for (polygon_index, polygon) in building_or_part.footprint.multipolygon.iter().enumerate() {
+        for (polygon_index, polygon) in side.iter().enumerate() {
+            let mut footprint = Footprint::new();
+            footprint.multipolygon = side.clone();
+            let roof_index_start = self.attributes.vertices_positions.len();
+
+            // copy from abowe! make a fn ???
+            // what about inner ???
+            for coord in polygon.exterior() {
+                let height = self.calc_roof_position_height(coord, building_or_part);
+                self.attributes
+                    .vertices_positions
+                    .push(to_gpu_position(coord, height));
+                self.attributes.vertices_colors.push(color);
+            }
+
+            let indices = footprint.get_triangulates(polygon_index);
+            // println!("triangles: {:?}", &indices);
+
+            for index in indices {
+                self.attributes
+                    .indices_to_vertices
+                    .push((roof_index_start + index) as u32);
+            }
         }
 
+        /* * /
         let mut footprint = Footprint::new(); // &building_or_part.footprint;
         footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON] = side;
 
-        let roof_index_offset = self.attributes.vertices_positions.len();
+        let roof_index_start = self.attributes.vertices_positions.len();
         let indices = footprint.get_triangulate_indices(0);
         //println!("offset: {roof_index_offset}  indices: {:?}", &indices);
         if indices.is_empty() {
@@ -286,7 +342,7 @@ impl OsmMesh {
         for index in indices.iter().rev() {
             self.attributes
                 .indices_to_vertices
-                .push((roof_index_offset + index) as u32);
+                .push((roof_index_start + index) as u32);
         }
 
         for position in footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON].iter() {
@@ -299,7 +355,10 @@ impl OsmMesh {
         for _position in &footprint.multipolygon[FIRST_POLYGON][OUTER_POLYGON] {
             self.attributes.vertices_colors.push(color);
         }
-    }
+        / * */
+    } // push_roof_shape
+
+    /** /
 
     fn push_phyramid(
         &mut self,
@@ -575,6 +634,7 @@ impl OsmMesh {
         min_height: f64,
         color: RenderColor,
     ) {
+        println!("push_wall_shape: {:?}", wall);
         // First vertex index of the comming walls
         let mut to_last_index = (wall.coords().count() * 2 - 2) as isize;
         let mut last_gpu_position_down: [f32; 3] = [0.; 3];

@@ -3,10 +3,41 @@ use bevy::{
     render::{mesh::Indices, render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
 };
 
+use geo::{BooleanOps, Coord, LineString, Point, Polygon, Rect};
+
 #[derive(Component)]
 struct CustomUV;
 
 fn main() {
+    let exterior = LineString::new(vec![
+        Coord { x: 1., y: 1. },
+        Coord { x: 1., y: -1. },
+        Coord { x: -1., y: -1. },
+        Coord { x: -1., y: 1. },
+    ]);
+
+    let polygon = Polygon::new(exterior, Vec::new());
+
+    let lim = 1e8;
+    let rect_up = Rect::new(
+        Point::new(lim, lim),  // max x y
+        Point::new(-lim, 0.0), // min x y
+    )
+    .to_polygon();
+    let rect_low = Rect::new(
+        Point::new(lim, 0.0),   // max x y
+        Point::new(-lim, -lim), // min x y
+    )
+    .to_polygon();
+
+    let up = polygon.intersection(&rect_up);
+    let low = polygon.intersection(&rect_low);
+    println!("=rup: {:?}", rect_up);
+    println!("=rlo: {:?}", rect_low);
+    println!("=pol: {:?}", polygon);
+    println!("= up: {:?}", up);
+    println!("=low: {:?}", low);
+
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
